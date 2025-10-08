@@ -24,6 +24,10 @@ export class Fan extends Agent {
         this.hunger = config.HUNGER_MIN_INITIAL + 
             Math.random() * (config.HUNGER_MAX_INITIAL - config.HUNGER_MIN_INITIAL);
         
+        // Randomized hunger threshold (±10% variance)
+        this.hungerThreshold = config.HUNGER_THRESHOLD_BASE + 
+            (Math.random() - 0.5) * 2 * config.HUNGER_THRESHOLD_VARIANCE;
+        
         // Food queue-related properties
         this.inQueue = false;
         this.queuedAt = null;

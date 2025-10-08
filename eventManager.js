@@ -68,8 +68,8 @@ export class EventManager {
     handleHungryFans(agents) {
         agents.forEach(agent => {
             if (agent.type === 'fan' && !agent.inQueue && agent.state !== 'leaving') {
-                // If fan is very hungry, send them to food
-                if (agent.hunger > 0.7) {
+                // If fan is very hungry (using their individual threshold), send them to food
+                if (agent.hunger > agent.hungerThreshold) {
                     const stall = this.getShortestQueue();
                     stall.addToQueue(agent);
                 }

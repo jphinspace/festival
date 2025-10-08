@@ -69,7 +69,9 @@ class FestivalApp {
         this.elements.speedSlider.addEventListener('input', (e) => {
             const speed = parseFloat(e.target.value);
             this.simulation.setSimulationSpeed(speed);
-            this.elements.speedValue.textContent = speed.toFixed(1) + 'x';
+            // Display rescaled speed (divide by 20 to show perceived speed)
+            const displaySpeed = (speed / 20.0).toFixed(1);
+            this.elements.speedValue.textContent = displaySpeed + 'x';
         });
     }
 

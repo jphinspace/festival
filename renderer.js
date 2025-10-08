@@ -39,23 +39,23 @@ export class Renderer {
     }
 
     drawStages(leftActive, rightActive) {
-        // Left stage
+        // Left stage - rotated 90 degrees, now vertical with front facing right (towards center)
         this.drawStage(
             this.width * 0.05,
-            this.height * 0.2,
-            this.width * 0.2,
-            this.height * 0.1,
-            'LEFT STAGE',
+            this.height * 0.15,
+            this.width * 0.1,  // Narrower width (was height)
+            this.height * 0.3,  // Taller height (was width)
+            'LEFT',
             leftActive
         );
         
-        // Right stage
+        // Right stage - rotated 90 degrees, now vertical with front facing left (towards center)
         this.drawStage(
-            this.width * 0.75,
-            this.height * 0.2,
-            this.width * 0.2,
-            this.height * 0.1,
-            'RIGHT STAGE',
+            this.width * 0.85,
+            this.height * 0.15,
+            this.width * 0.1,  // Narrower width (was height)
+            this.height * 0.3,  // Taller height (was width)
+            'RIGHT',
             rightActive
         );
     }
