@@ -5,7 +5,8 @@ Agent based modeling example
 An HTML5 simulation game featuring agent-based modeling of attendees at a music festival. The simulation runs in real-time with the ability to pause, adjust speed, and includes four interactive controls to simulate different festival events.
 
 ## Features
-- **Modular Architecture**: Separated concerns (Agent, Renderer, Simulation, EventManager, Config)
+- **Modular Architecture**: Separated concerns with base Agent class and Fan subclass for extensibility
+- **Collision Detection**: Agents maintain personal space and do not overlap
 - **Lightweight**: Optimized for minimal RAM usage and fast loading
 - **Real-time simulation**: Runs at capped 60 FPS with pause/resume capability  
 - **Variable Speed**: Adjustable simulation speed from 0.1x to 5.0x
@@ -21,7 +22,8 @@ festival/
 ├── index.html           # Main HTML file
 ├── styles.css           # Separated CSS for caching
 ├── config.js            # Configuration constants
-├── agent.js             # Agent class
+├── agent.js             # Base Agent class with collision detection
+├── fan.js               # Fan subclass extending Agent
 ├── renderer.js          # Rendering logic
 ├── simulation.js        # Simulation engine
 ├── eventManager.js      # Event handling
@@ -79,13 +81,37 @@ python3 test_selenium.py http://localhost:8000
 ```
 
 ### Adding New Agent Types
-The modular architecture makes it easy to extend:
+The modular architecture makes it easy to extend with inheritance:
 
-1. Create a new agent class extending or similar to `Agent`
-2. Add configuration in `config.js`
-3. Update `EventManager` to handle new events
-4. Add UI controls in `index.html`
+1. Create a new agent class extending `Agent` (like `Fan` extends `Agent`)
+2. Add configuration in `config.js` for the new agent type
+3. Update `EventManager` to instantiate and handle new agent types
+4. Add UI controls in `index.html` if needed
 5. Wire up event handlers in `app.js`
+
+Example:
+```javascript
+// vendor.js
+import { Agent } from './agent.js';
+
+export class Vendor extends Agent {
+    constructor(x, y, config) {
+        super(x, y, config);
+        this.type = 'vendor';
+        this.color = config.COLORS.VENDOR; // Add to config
+    }
+    
+    // Vendors stay in one place
+    update(deltaTime, simulationSpeed, otherAgents = []) {
+        // Only handle collisions, no movement
+        for (const other of otherAgents) {
+            if (other !== this && this.overlapsWith(other)) {
+                this.resolveOverlap(other);
+            }
+        }
+    }
+}
+```
 
 ## Technical Details
 - **Pure HTML5, CSS3, and vanilla JavaScript** (ES6 modules)

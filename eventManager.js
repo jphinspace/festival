@@ -1,5 +1,5 @@
 // EventManager class for handling festival events
-import { Agent } from './agent.js';
+import { Fan } from './fan.js';
 
 export class EventManager {
     constructor(config, width, height) {
@@ -57,14 +57,14 @@ export class EventManager {
         for (let i = 0; i < this.config.BUS_ATTENDEE_COUNT; i++) {
             const offsetX = (Math.random() - 0.5) * 50;
             const offsetY = (Math.random() - 0.5) * 30;
-            const agent = new Agent(busX + offsetX, busY + offsetY, this.config);
+            const fan = new Fan(busX + offsetX, busY + offsetY, this.config);
             
             // Move to random position in festival
             const targetX = Math.random() * this.width;
             const targetY = Math.random() * this.height * 0.7;
-            agent.setTarget(targetX, targetY);
+            fan.setTarget(targetX, targetY);
             
-            newAgents.push(agent);
+            newAgents.push(fan);
         }
         
         return newAgents;

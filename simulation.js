@@ -1,5 +1,5 @@
 // Simulation class managing the entire simulation state and loop
-import { Agent } from './agent.js';
+import { Fan } from './fan.js';
 import { Renderer } from './renderer.js';
 import { EventManager } from './eventManager.js';
 
@@ -31,11 +31,11 @@ export class Simulation {
         this.resize();
         this.eventManager = new EventManager(this.config, this.renderer.width, this.renderer.height);
         
-        // Create initial agents
+        // Create initial fans
         for (let i = 0; i < this.config.INITIAL_ATTENDEE_COUNT; i++) {
             const x = Math.random() * this.renderer.width;
             const y = Math.random() * this.renderer.height;
-            this.agents.push(new Agent(x, y, this.config));
+            this.agents.push(new Fan(x, y, this.config));
         }
     }
 
@@ -82,7 +82,8 @@ export class Simulation {
     // Update simulation state
     update(deltaTime) {
         if (!this.paused) {
-            this.agents.forEach(agent => agent.update(deltaTime, this.simulationSpeed));
+            // Pass all agents to each agent's update for collision detection
+            this.agents.forEach(agent => agent.update(deltaTime, this.simulationSpeed, this.agents));
         }
     }
 

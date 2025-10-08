@@ -1,4 +1,9 @@
-// Configuration file for Festival Agent Simulation
+/**
+ * Configuration file for Festival Agent Simulation
+ * 
+ * This file contains all constants used throughout the application.
+ * Modify these values to adjust simulation behavior without touching code.
+ */
 export const CONFIG = {
     // Agent settings
     AGENT_RADIUS: 3,

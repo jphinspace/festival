@@ -1,6 +1,6 @@
 // Unit tests for EventManager class
 import { EventManager } from '../eventManager.js';
-import { Agent } from '../agent.js';
+import { Fan } from '../fan.js';
 
 const mockConfig = {
     BUS_ATTENDEE_COUNT: 50,
@@ -25,7 +25,7 @@ describe('EventManager', () => {
         eventManager = new EventManager(mockConfig, 800, 600);
         agents = [];
         for (let i = 0; i < 10; i++) {
-            agents.push(new Agent(Math.random() * 800, Math.random() * 600, mockConfig));
+            agents.push(new Fan(Math.random() * 800, Math.random() * 600, mockConfig));
         }
     });
 
@@ -52,16 +52,16 @@ describe('EventManager', () => {
         expect(eventManager.rightConcertActive).toBe(true);
     });
 
-    test('should create new agents on bus arrival', () => {
+    test('should create new fans on bus arrival', () => {
         const newAgents = eventManager.handleBusArrival(agents);
         expect(newAgents).toHaveLength(mockConfig.BUS_ATTENDEE_COUNT);
-        expect(newAgents[0]).toBeInstanceOf(Agent);
+        expect(newAgents[0]).toBeInstanceOf(Fan);
     });
 
     test('should mark agents as leaving on bus departure', () => {
         // Create more agents to ensure at least some will leave
         for (let i = 0; i < 40; i++) {
-            agents.push(new Agent(Math.random() * 800, Math.random() * 600, mockConfig));
+            agents.push(new Fan(Math.random() * 800, Math.random() * 600, mockConfig));
         }
         eventManager.handleBusDeparture(agents);
         const leavingAgents = agents.filter(a => a.state === 'leaving');
@@ -69,12 +69,12 @@ describe('EventManager', () => {
         expect(leavingAgents.length).toBeGreaterThanOrEqual(0);
     });
 
-    test('new agents from bus should have targets set', () => {
+    test('new fans from bus should have targets set', () => {
         const newAgents = eventManager.handleBusArrival(agents);
-        newAgents.forEach(agent => {
-            expect(agent.state).toBe('moving');
-            expect(agent.targetX).not.toBeNull();
-            expect(agent.targetY).not.toBeNull();
+        newAgents.forEach(fan => {
+            expect(fan.state).toBe('moving');
+            expect(fan.targetX).not.toBeNull();
+            expect(fan.targetY).not.toBeNull();
         });
     });
 });
