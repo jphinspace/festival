@@ -1,0 +1,152 @@
+/**
+ * SecurityQueue class for managing fans entering the festival through security
+ * Maintains two queues with processing logic for regular and enhanced security
+ */
+export class SecurityQueue {
+    /**
+     * Create a new security queue
+     * @param {Object} config - Configuration object
+     * @param {number} width - Canvas width
+     * @param {number} height - Canvas height
+     */
+    constructor(config, width, height) {
+        this.config = config;
+        this.width = width;
+        this.height = height;
+        
+        // Two queues for the two lines
+        this.queues = [[], []];
+        
+        // Track which fans are currently being processed at the front
+        this.processing = [null, null];
+        
+        // Track when processing started for each queue
+        this.processingStartTime = [null, null];
+    }
+
+    /**
+     * Update dimensions when canvas resizes
+     * @param {number} width - New canvas width
+     * @param {number} height - New canvas height
+     */
+    updateDimensions(width, height) {
+        this.width = width;
+        this.height = height;
+    }
+
+    /**
+     * Add a fan to one of the queues (choose shorter queue)
+     * @param {Fan} fan - Fan to add to queue
+     */
+    addToQueue(fan) {
+        // Choose the shorter queue
+        const queueIndex = this.queues[0].length <= this.queues[1].length ? 0 : 1;
+        
+        // Mark fan as in queue and determine if enhanced security
+        fan.queueIndex = queueIndex;
+        fan.enhancedSecurity = Math.random() < this.config.ENHANCED_SECURITY_PERCENTAGE;
+        
+        // Add to queue
+        this.queues[queueIndex].push(fan);
+        
+        // Set position in queue (this sets state to 'moving' internally)
+        this.updateQueuePositions(queueIndex);
+        
+        // Override state to 'in_queue' after setting target
+        fan.state = 'in_queue';
+    }
+
+    /**
+     * Update positions for all fans in a specific queue
+     * @param {number} queueIndex - Index of the queue to update (0 or 1)
+     */
+    updateQueuePositions(queueIndex) {
+        const queue = this.queues[queueIndex];
+        const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X);
+        const startY = this.height * this.config.QUEUE_START_Y;
+        const spacing = this.config.QUEUE_SPACING;
+        
+        queue.forEach((fan, index) => {
+            const targetY = startY - (index * spacing);
+            fan.setTarget(queueX, targetY);
+            fan.queuePosition = index;
+            // All fans in queue should have in_queue state (unless being checked)
+            if (fan.state !== 'being_checked') {
+                fan.state = 'in_queue';
+            }
+        });
+    }
+
+    /**
+     * Process queues - handle fans at the front
+     * @param {number} currentTime - Current timestamp in milliseconds
+     */
+    update(currentTime) {
+        for (let queueIndex = 0; queueIndex < 2; queueIndex++) {
+            const queue = this.queues[queueIndex];
+            
+            // If no one is being processed and queue has people, start processing
+            if (this.processing[queueIndex] === null && queue.length > 0) {
+                const fan = queue[0];
+                
+                // Check if fan has reached the front of the queue
+                if (fan.isNearTarget(5)) {
+                    this.processing[queueIndex] = fan;
+                    this.processingStartTime[queueIndex] = currentTime;
+                    fan.state = 'being_checked';
+                }
+            }
+            
+            // If someone is being processed, check if their time is up
+            if (this.processing[queueIndex] !== null) {
+                const fan = this.processing[queueIndex];
+                const elapsedTime = currentTime - this.processingStartTime[queueIndex];
+                const requiredTime = fan.enhancedSecurity ? 
+                    this.config.ENHANCED_SECURITY_TIME : 
+                    this.config.REGULAR_SECURITY_TIME;
+                
+                if (elapsedTime >= requiredTime) {
+                    // Remove from front of queue
+                    queue.shift();
+                    
+                    if (fan.enhancedSecurity) {
+                        // Send to back of the line
+                        fan.enhancedSecurity = false; // Only enhanced once
+                        queue.push(fan);
+                        this.updateQueuePositions(queueIndex);
+                        fan.state = 'in_queue'; // Set state after updateQueuePositions
+                    } else {
+                        // Allow into festival
+                        const targetX = Math.random() * this.width;
+                        const targetY = Math.random() * this.height * 0.7;
+                        fan.setTarget(targetX, targetY);
+                        fan.state = 'passed_security'; // Set state after setTarget
+                    }
+                    
+                    // Clear processing
+                    this.processing[queueIndex] = null;
+                    this.processingStartTime[queueIndex] = null;
+                    
+                    // Update positions for remaining fans
+                    this.updateQueuePositions(queueIndex);
+                }
+            }
+        }
+    }
+
+    /**
+     * Get total count of fans in both queues
+     * @returns {number} Total number of fans in queues
+     */
+    getTotalCount() {
+        return this.queues[0].length + this.queues[1].length;
+    }
+
+    /**
+     * Get all fans currently in queues
+     * @returns {Fan[]} Array of all fans in queues
+     */
+    getAllFans() {
+        return [...this.queues[0], ...this.queues[1]];
+    }
+}

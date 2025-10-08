@@ -74,6 +74,35 @@ export class Renderer {
         this.ctx.fillText('BUS', this.width * 0.48, this.height * 0.91);
     }
 
+    drawSecurityQueues() {
+        // Draw security queue areas (two lines)
+        const queueWidth = this.width * 0.04;
+        const queueHeight = this.height * 0.15;
+        const queueY = this.height * 0.7;
+        
+        // Left queue
+        this.ctx.fillStyle = this.config.COLORS.SECURITY_QUEUE;
+        this.ctx.fillRect(
+            this.width * this.config.QUEUE_LEFT_X - queueWidth / 2,
+            queueY,
+            queueWidth,
+            queueHeight
+        );
+        
+        // Right queue
+        this.ctx.fillRect(
+            this.width * this.config.QUEUE_RIGHT_X - queueWidth / 2,
+            queueY,
+            queueWidth,
+            queueHeight
+        );
+        
+        // Label
+        this.ctx.fillStyle = this.config.COLORS.TEXT;
+        this.ctx.font = '10px Arial';
+        this.ctx.fillText('SECURITY', this.width * 0.47, this.height * 0.68);
+    }
+
     drawAgents(agents) {
         agents.forEach(agent => agent.draw(this.ctx));
     }
@@ -81,6 +110,7 @@ export class Renderer {
     render(agents, leftConcertActive, rightConcertActive) {
         this.drawBackground();
         this.drawStages(leftConcertActive, rightConcertActive);
+        this.drawSecurityQueues();
         this.drawBusArea();
         this.drawAgents(agents);
     }
