@@ -92,11 +92,16 @@ export class Simulation {
 
     // Render the current state
     render() {
+        const leftProgress = this.eventManager.getLeftShowProgress();
+        const rightProgress = this.eventManager.getRightShowProgress();
+        
         this.renderer.render(
             this.agents,
             this.eventManager.leftConcertActive,
             this.eventManager.rightConcertActive,
-            this.eventManager.foodStalls
+            this.eventManager.foodStalls,
+            leftProgress,
+            rightProgress
         );
     }
 

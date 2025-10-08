@@ -37,6 +37,34 @@ export class Renderer {
         this.ctx.font = '12px Arial';
         this.ctx.fillText(label, x + width * 0.15, y + height * 0.5);
     }
+    
+    drawShowTimer(x, y, progress) {
+        // Draw a circular progress indicator
+        const centerX = x;
+        const centerY = y;
+        const radius = 15;
+        
+        // Background circle
+        this.ctx.strokeStyle = '#333';
+        this.ctx.lineWidth = 3;
+        this.ctx.beginPath();
+        this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        this.ctx.stroke();
+        
+        // Progress arc
+        this.ctx.strokeStyle = '#ff6b6b';
+        this.ctx.lineWidth = 3;
+        this.ctx.beginPath();
+        this.ctx.arc(centerX, centerY, radius, -Math.PI / 2, -Math.PI / 2 + (progress * Math.PI * 2));
+        this.ctx.stroke();
+        
+        // Progress text
+        this.ctx.fillStyle = this.config.COLORS.TEXT;
+        this.ctx.font = '8px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(Math.floor(progress * 100) + '%', centerX, centerY + 3);
+        this.ctx.textAlign = 'left'; // Reset
+    }
 
     drawStages(leftActive, rightActive) {
         // Left stage - rotated 90 degrees, now vertical with front facing right (towards center)
@@ -131,9 +159,18 @@ export class Renderer {
         foodStalls.forEach(stall => stall.draw(this.ctx));
     }
 
-    render(agents, leftConcertActive, rightConcertActive, foodStalls = []) {
+    render(agents, leftConcertActive, rightConcertActive, foodStalls = [], leftShowProgress = 0, rightShowProgress = 0) {
         this.drawBackground();
         this.drawStages(leftConcertActive, rightConcertActive);
+        
+        // Draw show timers if concerts are active
+        if (leftConcertActive && leftShowProgress > 0) {
+            this.drawShowTimer(this.width * 0.10, this.height * 0.12, leftShowProgress);
+        }
+        if (rightConcertActive && rightShowProgress > 0) {
+            this.drawShowTimer(this.width * 0.90, this.height * 0.12, rightShowProgress);
+        }
+        
         this.drawSecurityQueues();
         this.drawFoodStalls(foodStalls);
         this.drawBusArea();

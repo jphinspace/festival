@@ -34,6 +34,26 @@ export class Fan extends Agent {
         this.waitStartTime = null;
         this.targetFoodStall = null;
         this.queueSide = null; // 'left' or 'right' for food stalls
+        
+        // Stage preference: 'left', 'right', or 'none'
+        const rand = Math.random();
+        if (rand < 0.4) {
+            this.stagePreference = 'left';
+        } else if (rand < 0.8) {
+            this.stagePreference = 'right';
+        } else {
+            this.stagePreference = 'none'; // No preference, watches both
+        }
+        
+        // Show tracking
+        this.currentShow = null; // Which stage they're watching
+        this.hasSeenPreferredShow = false; // Whether they've seen a full show at their preferred stage
+        this.isVIP = false; // Whether in VIP seating
+        this.vipSeat = null; // VIP seat coordinates
+        this.isUpFront = false; // Whether they're in the front cluster at a show
+        
+        // Spread out behavior
+        this.wanderTargetUpdateTime = 0; // Last time wander target was updated
     }
     
     /**
@@ -51,6 +71,19 @@ export class Fan extends Agent {
         if (!this.waitStartTime) {
             this.hunger = Math.min(1.0, this.hunger + 
                 this.config.HUNGER_INCREASE_RATE * deltaTime * simulationSpeed);
+        }
+        
+        // Spread-out behavior: wander if idle and not watching a show
+        if (this.state === 'idle' && !this.currentShow && !this.inQueue && this.state !== 'leaving') {
+            const now = Date.now();
+            // Update wander target every 5-10 seconds
+            if (now - this.wanderTargetUpdateTime > 5000 + Math.random() * 5000) {
+                this.wanderTargetUpdateTime = now;
+                // Pick a random position to wander to (spread out)
+                const targetX = Math.random() * (obstacles ? obstacles.width : 800);
+                const targetY = Math.random() * (obstacles ? obstacles.height * 0.7 : 400);
+                this.setTarget(targetX, targetY);
+            }
         }
     }
 

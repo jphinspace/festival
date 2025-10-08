@@ -11,6 +11,9 @@ export class EventManager {
         this.height = height;
         this.leftConcertActive = false;
         this.rightConcertActive = false;
+        this.leftConcertStartTime = null;
+        this.rightConcertStartTime = null;
+        this.showDuration = 1200000; // 1200 seconds at 20x speed = 60 seconds perceived (1 simulated hour)
         this.securityQueue = new SecurityQueue(config, width, height);
         this.obstacles = new Obstacles(config, width, height);
         this.foodStalls = [];
@@ -72,12 +75,42 @@ export class EventManager {
      * @param {Agent[]} agents - All agents in simulation
      */
     handleHungryFans(agents) {
+        const currentTime = Date.now();
+        
         agents.forEach(agent => {
             if (agent.type === 'fan' && !agent.inQueue && agent.state !== 'leaving') {
-                // If fan is very hungry (using their individual threshold), send them to food
+                // Check if fan is hungry enough
                 if (agent.hunger > agent.hungerThreshold) {
-                    const stall = this.getShortestQueue();
-                    stall.addToQueue(agent);
+                    // Check if fan can leave for food based on show rules
+                    let canLeaveForFood = true;
+                    
+                    // Fans with no preference won't get food until all shows end
+                    if (agent.stagePreference === 'none' && (this.leftConcertActive || this.rightConcertActive)) {
+                        canLeaveForFood = false;
+                    }
+                    
+                    // Fans at their preferred show
+                    if (agent.currentShow === agent.stagePreference) {
+                        // VIP and up-front fans won't leave until show is 90% over
+                        if (agent.isVIP || agent.isUpFront) {
+                            const showStartTime = agent.currentShow === 'left' ? this.leftConcertStartTime : this.rightConcertStartTime;
+                            if (showStartTime) {
+                                const elapsed = currentTime - showStartTime;
+                                const progress = elapsed / this.showDuration;
+                                if (progress < 0.9) {
+                                    canLeaveForFood = false;
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (canLeaveForFood) {
+                        const stall = this.getShortestQueue();
+                        stall.addToQueue(agent);
+                        // Clear show status when leaving for food
+                        agent.currentShow = null;
+                        agent.isUpFront = false;
+                    }
                 }
             }
         });
@@ -86,14 +119,61 @@ export class EventManager {
     handleLeftConcert(agents) {
         this.leftConcertActive = true;
         
-        // Schedule agent movement after CONCERT_PREP_TIME
+        // Schedule show start after CONCERT_PREP_TIME
         setTimeout(() => {
             if (this.leftConcertActive) {
+                this.leftConcertStartTime = Date.now();
+                
+                // Schedule show end
+                setTimeout(() => {
+                    this.leftConcertActive = false;
+                    this.leftConcertStartTime = null;
+                    // Fans disperse after show
+                    agents.forEach(agent => {
+                        if (agent.type === 'fan' && agent.currentShow === 'left' && !agent.isVIP) {
+                            // Mark as having seen preferred show if applicable
+                            if (agent.stagePreference === 'left') {
+                                agent.hasSeenPreferredShow = true;
+                            }
+                            agent.currentShow = null;
+                            agent.isUpFront = false;
+                            // Wander to random position
+                            const targetX = Math.random() * this.width;
+                            const targetY = Math.random() * this.height * 0.7;
+                            agent.setTarget(targetX, targetY);
+                        }
+                    });
+                }, this.showDuration);
+                
+                // Move fans to left stage based on preferences
                 const targetX = this.width * this.config.STAGE_LEFT_X;
                 agents.forEach(agent => {
-                    if (agent.state !== 'leaving') {
-                        const targetY = this.height * 0.3 + Math.random() * this.height * 0.4;
-                        agent.setTarget(targetX + (Math.random() - 0.5) * 100, targetY);
+                    if (agent.type !== 'fan' || agent.state === 'leaving' || agent.isVIP) return;
+                    
+                    const shouldAttend = 
+                        agent.stagePreference === 'left' || // Preferred stage
+                        (agent.stagePreference === 'none' && !agent.inQueue) || // No preference and not in queue
+                        (agent.currentShow === 'right' && agent.stagePreference === 'left'); // Leave non-preferred for preferred
+                    
+                    if (shouldAttend) {
+                        // Leave food queue if going to preferred stage
+                        if (agent.stagePreference === 'left' && agent.inQueue && agent.targetFoodStall) {
+                            agent.targetFoodStall.removeFromQueue(agent);
+                        }
+                        
+                        agent.currentShow = 'left';
+                        
+                        // Small percentage go up front (cluster tightly)
+                        if (Math.random() < 0.2) {
+                            agent.isUpFront = true;
+                            const targetY = this.height * 0.20 + Math.random() * this.height * 0.15;
+                            agent.setTarget(targetX + (Math.random() - 0.5) * 40, targetY);
+                        } else {
+                            // Others watch from farther away, more spaced
+                            agent.isUpFront = false;
+                            const targetY = this.height * 0.25 + Math.random() * this.height * 0.3;
+                            agent.setTarget(targetX + (Math.random() - 0.5) * 150, targetY);
+                        }
                     }
                 });
             }
@@ -103,14 +183,61 @@ export class EventManager {
     handleRightConcert(agents) {
         this.rightConcertActive = true;
         
-        // Schedule agent movement after CONCERT_PREP_TIME
+        // Schedule show start after CONCERT_PREP_TIME
         setTimeout(() => {
             if (this.rightConcertActive) {
+                this.rightConcertStartTime = Date.now();
+                
+                // Schedule show end
+                setTimeout(() => {
+                    this.rightConcertActive = false;
+                    this.rightConcertStartTime = null;
+                    // Fans disperse after show
+                    agents.forEach(agent => {
+                        if (agent.type === 'fan' && agent.currentShow === 'right' && !agent.isVIP) {
+                            // Mark as having seen preferred show if applicable
+                            if (agent.stagePreference === 'right') {
+                                agent.hasSeenPreferredShow = true;
+                            }
+                            agent.currentShow = null;
+                            agent.isUpFront = false;
+                            // Wander to random position
+                            const targetX = Math.random() * this.width;
+                            const targetY = Math.random() * this.height * 0.7;
+                            agent.setTarget(targetX, targetY);
+                        }
+                    });
+                }, this.showDuration);
+                
+                // Move fans to right stage based on preferences
                 const targetX = this.width * this.config.STAGE_RIGHT_X;
                 agents.forEach(agent => {
-                    if (agent.state !== 'leaving') {
-                        const targetY = this.height * 0.3 + Math.random() * this.height * 0.4;
-                        agent.setTarget(targetX + (Math.random() - 0.5) * 100, targetY);
+                    if (agent.type !== 'fan' || agent.state === 'leaving' || agent.isVIP) return;
+                    
+                    const shouldAttend = 
+                        agent.stagePreference === 'right' || // Preferred stage
+                        (agent.stagePreference === 'none' && !agent.inQueue) || // No preference and not in queue
+                        (agent.currentShow === 'left' && agent.stagePreference === 'right'); // Leave non-preferred for preferred
+                    
+                    if (shouldAttend) {
+                        // Leave food queue if going to preferred stage
+                        if (agent.stagePreference === 'right' && agent.inQueue && agent.targetFoodStall) {
+                            agent.targetFoodStall.removeFromQueue(agent);
+                        }
+                        
+                        agent.currentShow = 'right';
+                        
+                        // Small percentage go up front (cluster tightly)
+                        if (Math.random() < 0.2) {
+                            agent.isUpFront = true;
+                            const targetY = this.height * 0.20 + Math.random() * this.height * 0.15;
+                            agent.setTarget(targetX + (Math.random() - 0.5) * 40, targetY);
+                        } else {
+                            // Others watch from farther away, more spaced
+                            agent.isUpFront = false;
+                            const targetY = this.height * 0.25 + Math.random() * this.height * 0.3;
+                            agent.setTarget(targetX + (Math.random() - 0.5) * 150, targetY);
+                        }
                     }
                 });
             }
@@ -137,19 +264,36 @@ export class EventManager {
     }
 
     handleBusDeparture(agents) {
-        const leavingCount = Math.floor(Math.random() * 30) + 20;
-        let count = 0;
+        // Select fans who have seen their preferred show and are not in food queue
         const leavingAgents = [];
         
-        for (let i = 0; i < agents.length && count < leavingCount; i++) {
-            if (Math.random() > 0.5) {
-                const agent = agents[i];
+        for (const agent of agents) {
+            if (agent.type === 'fan' && 
+                agent.hasSeenPreferredShow && 
+                !agent.inQueue &&
+                agent.state !== 'leaving') {
                 agent.markAsLeaving();
                 const busX = this.width * this.config.BUS_X;
                 const busY = this.height * this.config.BUS_Y;
                 agent.setTarget(busX + (Math.random() - 0.5) * 40, busY);
                 leavingAgents.push(agent);
-                count++;
+            }
+        }
+        
+        // If no one qualifies, select some random fans
+        if (leavingAgents.length === 0) {
+            const leavingCount = Math.floor(Math.random() * 30) + 20;
+            let count = 0;
+            for (let i = 0; i < agents.length && count < leavingCount; i++) {
+                if (Math.random() > 0.5 && agents[i].type === 'fan') {
+                    const agent = agents[i];
+                    agent.markAsLeaving();
+                    const busX = this.width * this.config.BUS_X;
+                    const busY = this.height * this.config.BUS_Y;
+                    agent.setTarget(busX + (Math.random() - 0.5) * 40, busY);
+                    leavingAgents.push(agent);
+                    count++;
+                }
             }
         }
         
@@ -174,5 +318,25 @@ export class EventManager {
         this.securityQueue.update(currentTime);
         this.updateFoodStalls();
         this.handleHungryFans(agents);
+    }
+
+    /**
+     * Get show progress for left stage
+     * @returns {number} Progress from 0 to 1
+     */
+    getLeftShowProgress() {
+        if (!this.leftConcertActive || !this.leftConcertStartTime) return 0;
+        const elapsed = Date.now() - this.leftConcertStartTime;
+        return Math.min(1.0, elapsed / this.showDuration);
+    }
+    
+    /**
+     * Get show progress for right stage
+     * @returns {number} Progress from 0 to 1
+     */
+    getRightShowProgress() {
+        if (!this.rightConcertActive || !this.rightConcertStartTime) return 0;
+        const elapsed = Date.now() - this.rightConcertStartTime;
+        return Math.min(1.0, elapsed / this.showDuration);
     }
 }
