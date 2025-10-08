@@ -21,7 +21,7 @@ export const CONFIG = {
     QUEUE_LEFT_X: 0.45, // X position of left queue
     QUEUE_RIGHT_X: 0.55, // X position of right queue
     QUEUE_START_Y: 0.85, // Y position where queue starts (front of line)
-    QUEUE_SPACING: 8 // Spacing between people in queue
+    QUEUE_SPACING: 8, // Spacing between people in queue
     
     // Performance settings
     MAX_FPS: 60,
