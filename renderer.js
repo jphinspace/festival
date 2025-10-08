@@ -97,6 +97,26 @@ export class Renderer {
             queueHeight
         );
         
+        // Draw borders around security queues
+        this.ctx.strokeStyle = this.config.COLORS.SECURITY_BORDER;
+        this.ctx.lineWidth = 2;
+        
+        // Left queue border
+        this.ctx.strokeRect(
+            this.width * this.config.QUEUE_LEFT_X - queueWidth / 2,
+            queueY,
+            queueWidth,
+            queueHeight
+        );
+        
+        // Right queue border
+        this.ctx.strokeRect(
+            this.width * this.config.QUEUE_RIGHT_X - queueWidth / 2,
+            queueY,
+            queueWidth,
+            queueHeight
+        );
+        
         // Label
         this.ctx.fillStyle = this.config.COLORS.TEXT;
         this.ctx.font = '10px Arial';

@@ -41,10 +41,11 @@ export class Fan extends Agent {
      * @param {number} deltaTime - Time since last frame in seconds
      * @param {number} simulationSpeed - Speed multiplier for simulation
      * @param {Agent[]} otherAgents - Array of other agents for collision detection
+     * @param {Obstacles} obstacles - Obstacles manager for static object collision
      */
-    update(deltaTime, simulationSpeed, otherAgents = []) {
+    update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null) {
         // Update base agent behavior
-        super.update(deltaTime, simulationSpeed, otherAgents);
+        super.update(deltaTime, simulationSpeed, otherAgents, obstacles);
         
         // Increase hunger over time (unless waiting at food stall)
         if (!this.waitStartTime) {

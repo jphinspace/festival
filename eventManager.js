@@ -2,6 +2,7 @@
 import { Fan } from './fan.js';
 import { SecurityQueue } from './securityQueue.js';
 import { FoodStall } from './foodStall.js';
+import { Obstacles } from './obstacles.js';
 
 export class EventManager {
     constructor(config, width, height) {
@@ -11,6 +12,7 @@ export class EventManager {
         this.leftConcertActive = false;
         this.rightConcertActive = false;
         this.securityQueue = new SecurityQueue(config, width, height);
+        this.obstacles = new Obstacles(config, width, height);
         this.foodStalls = [];
         this.createFoodStalls();
     }
@@ -30,12 +32,16 @@ export class EventManager {
             const stallY = startY + spacing * (i + 1);
             this.foodStalls.push(new FoodStall(stallX, stallY, this.config));
         }
+        
+        // Update obstacles with food stalls
+        this.obstacles.setFoodStalls(this.foodStalls);
     }
 
     updateDimensions(width, height) {
         this.width = width;
         this.height = height;
         this.securityQueue.updateDimensions(width, height);
+        this.obstacles.updateDimensions(width, height);
         this.createFoodStalls(); // Recreate stalls with new dimensions
     }
     

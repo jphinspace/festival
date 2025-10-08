@@ -54,6 +54,7 @@ export const CONFIG = {
         STAGE_ACTIVE: '#ff6b6b',
         BUS_AREA: '#6b6bff',
         SECURITY_QUEUE: '#9b6bff',
+        SECURITY_BORDER: '#ff00ff',
         FOOD_STALL: '#8b4513',
         TEXT: '#fff'
     },
@@ -66,6 +67,8 @@ export const CONFIG = {
     STAGE_HEIGHT: 0.3,   // Stage height (after rotation)
     BUS_X: 0.5,
     BUS_Y: 0.9,
+    BUS_WIDTH: 0.2,
+    BUS_HEIGHT: 0.05,
     GROUND_HEIGHT: 0.7,
     ROAD_START: 0.85
 };
