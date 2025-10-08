@@ -69,12 +69,13 @@ describe('EventManager', () => {
         expect(leavingAgents.length).toBeGreaterThanOrEqual(0);
     });
 
-    test('new fans from bus should have targets set', () => {
+    test('new fans from bus should be added to security queue', () => {
         const newAgents = eventManager.handleBusArrival(agents);
         newAgents.forEach(fan => {
-            expect(fan.state).toBe('moving');
+            expect(fan.state).toBe('in_queue');
             expect(fan.targetX).not.toBeNull();
             expect(fan.targetY).not.toBeNull();
+            expect(fan.queueIndex).toBeDefined();
         });
     });
 });

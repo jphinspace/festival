@@ -1,5 +1,6 @@
 // EventManager class for handling festival events
 import { Fan } from './fan.js';
+import { SecurityQueue } from './securityQueue.js';
 import { FoodStall } from './foodStall.js';
 
 export class EventManager {
@@ -9,6 +10,7 @@ export class EventManager {
         this.height = height;
         this.leftConcertActive = false;
         this.rightConcertActive = false;
+        this.securityQueue = new SecurityQueue(config, width, height);
         this.foodStalls = [];
         this.createFoodStalls();
     }
@@ -33,6 +35,7 @@ export class EventManager {
     updateDimensions(width, height) {
         this.width = width;
         this.height = height;
+        this.securityQueue.updateDimensions(width, height);
         this.createFoodStalls(); // Recreate stalls with new dimensions
     }
     
@@ -118,10 +121,8 @@ export class EventManager {
             const offsetY = (Math.random() - 0.5) * 30;
             const fan = new Fan(busX + offsetX, busY + offsetY, this.config);
             
-            // Move to random position in festival
-            const targetX = Math.random() * this.width;
-            const targetY = Math.random() * this.height * 0.7;
-            fan.setTarget(targetX, targetY);
+            // Add fan to security queue instead of directly to festival
+            this.securityQueue.addToQueue(fan);
             
             newAgents.push(fan);
         }
@@ -156,5 +157,16 @@ export class EventManager {
                 }
             }
         }, 3000);
+    }
+
+    /**
+     * Update event manager state (processes security queue and food stalls)
+     * @param {number} currentTime - Current timestamp in milliseconds
+     * @param {Agent[]} agents - All agents in simulation
+     */
+    update(currentTime, agents) {
+        this.securityQueue.update(currentTime);
+        this.updateFoodStalls();
+        this.handleHungryFans(agents);
     }
 }
