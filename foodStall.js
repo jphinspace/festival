@@ -14,22 +14,31 @@ export class FoodStall {
         this.config = config;
         this.width = 20;  // Narrower for vertical orientation
         this.height = 30; // Taller for vertical orientation
-        this.queue = []; // Array of fans in queue
+        this.leftQueue = [];  // Queue on left side
+        this.rightQueue = []; // Queue on right side
     }
 
     /**
-     * Add a fan to the queue
+     * Add a fan to the queue (left or right side, whichever is shorter)
      * @param {Fan} fan - Fan to add to queue
      */
     addToQueue(fan) {
-        if (!this.queue.includes(fan)) {
-            this.queue.push(fan);
-            fan.inQueue = true;
-            fan.queuedAt = Date.now();
-            fan.targetFoodStall = this;
-            return this.queue.length - 1; // Return position in queue
+        // Check if already in either queue
+        if (this.leftQueue.includes(fan) || this.rightQueue.includes(fan)) {
+            return -1;
         }
-        return -1;
+        
+        // Add to whichever queue is shorter
+        const queue = this.leftQueue.length <= this.rightQueue.length ? this.leftQueue : this.rightQueue;
+        const side = queue === this.leftQueue ? 'left' : 'right';
+        
+        queue.push(fan);
+        fan.inQueue = true;
+        fan.queuedAt = Date.now();
+        fan.targetFoodStall = this;
+        fan.queueSide = side; // Track which side of the stall
+        
+        return queue.length - 1; // Return position in queue
     }
 
     /**
@@ -37,13 +46,22 @@ export class FoodStall {
      * @param {Fan} fan - Fan to remove
      */
     removeFromQueue(fan) {
-        const index = this.queue.indexOf(fan);
+        let index = this.leftQueue.indexOf(fan);
         if (index !== -1) {
-            this.queue.splice(index, 1);
+            this.leftQueue.splice(index, 1);
+        } else {
+            index = this.rightQueue.indexOf(fan);
+            if (index !== -1) {
+                this.rightQueue.splice(index, 1);
+            }
+        }
+        
+        if (index !== -1) {
             fan.inQueue = false;
             fan.queuedAt = null;
             fan.waitStartTime = null;
             fan.targetFoodStall = null;
+            fan.queueSide = null;
         }
     }
 
@@ -53,21 +71,33 @@ export class FoodStall {
      * @returns {number} Position in queue (-1 if not in queue)
      */
     getQueuePosition(fan) {
-        return this.queue.indexOf(fan);
+        let index = this.leftQueue.indexOf(fan);
+        if (index !== -1) return index;
+        
+        index = this.rightQueue.indexOf(fan);
+        return index;
     }
 
     /**
      * Get the target position for a fan in the queue
      * @param {number} position - Position in queue
+     * @param {string} side - 'left' or 'right'
      * @returns {Object} {x, y} coordinates
      */
-    getQueueTargetPosition(position) {
-        // Queue forms vertically below the stall
+    getQueueTargetPosition(position, side) {
+        // Queues form horizontally to the left and right of the stall
         const spacing = 8;
-        return {
-            x: this.x + this.width / 2,
-            y: this.y + this.height + spacing * (position + 1)
-        };
+        if (side === 'left') {
+            return {
+                x: this.x - spacing * (position + 1),
+                y: this.y + this.height / 2
+            };
+        } else {
+            return {
+                x: this.x + this.width + spacing * (position + 1),
+                y: this.y + this.height / 2
+            };
+        }
     }
 
     /**
@@ -76,7 +106,7 @@ export class FoodStall {
      * @returns {boolean}
      */
     isAtFront(fan) {
-        return this.queue[0] === fan;
+        return this.leftQueue[0] === fan || this.rightQueue[0] === fan;
     }
 
     /**
@@ -85,31 +115,33 @@ export class FoodStall {
      * @param {number} height - Canvas height
      */
     processQueue(width, height) {
-        // The front fan waits for FOOD_WAIT_TIME, then leaves
-        if (this.queue.length > 0) {
-            const frontFan = this.queue[0];
-            
-            // Check if fan has reached the front position
-            if (frontFan.isNearTarget(5)) {
-                // Start waiting if not already
-                if (!frontFan.waitStartTime) {
-                    frontFan.waitStartTime = Date.now();
-                    frontFan.state = 'idle';
-                }
+        // Process both left and right queues
+        [this.leftQueue, this.rightQueue].forEach(queue => {
+            if (queue.length > 0) {
+                const frontFan = queue[0];
                 
-                // Check if wait time is complete
-                if (Date.now() - frontFan.waitStartTime >= this.config.FOOD_WAIT_TIME) {
-                    // Decrease hunger and remove from queue
-                    frontFan.hunger = Math.max(0, frontFan.hunger - this.config.HUNGER_DECREASE_AMOUNT);
-                    this.removeFromQueue(frontFan);
+                // Check if fan has reached the front position
+                if (frontFan.isNearTarget(5)) {
+                    // Start waiting if not already
+                    if (!frontFan.waitStartTime) {
+                        frontFan.waitStartTime = Date.now();
+                        frontFan.state = 'idle';
+                    }
                     
-                    // Move to a random position after eating
-                    const targetX = Math.random() * width;
-                    const targetY = Math.random() * height * 0.7;
-                    frontFan.setTarget(targetX, targetY);
+                    // Check if wait time is complete
+                    if (Date.now() - frontFan.waitStartTime >= this.config.FOOD_WAIT_TIME) {
+                        // Decrease hunger and remove from queue
+                        frontFan.hunger = Math.max(0, frontFan.hunger - this.config.HUNGER_DECREASE_AMOUNT);
+                        this.removeFromQueue(frontFan);
+                        
+                        // Move to a random position after eating
+                        const targetX = Math.random() * width;
+                        const targetY = Math.random() * height * 0.7;
+                        frontFan.setTarget(targetX, targetY);
+                    }
                 }
             }
-        }
+        });
     }
 
     /**
@@ -118,8 +150,22 @@ export class FoodStall {
      * @param {number} height - Canvas height for bounds
      */
     updateQueuePositions(width, height) {
-        this.queue.forEach((fan, index) => {
-            const targetPos = this.getQueueTargetPosition(index);
+        // Update left queue
+        this.leftQueue.forEach((fan, index) => {
+            const targetPos = this.getQueueTargetPosition(index, 'left');
+            
+            // Only update target if fan isn't at front or hasn't started waiting
+            if (index > 0 || !fan.waitStartTime) {
+                if (Math.abs(fan.targetX - targetPos.x) > 5 || 
+                    Math.abs(fan.targetY - targetPos.y) > 5) {
+                    fan.setTarget(targetPos.x, targetPos.y);
+                }
+            }
+        });
+        
+        // Update right queue
+        this.rightQueue.forEach((fan, index) => {
+            const targetPos = this.getQueueTargetPosition(index, 'right');
             
             // Only update target if fan isn't at front or hasn't started waiting
             if (index > 0 || !fan.waitStartTime) {

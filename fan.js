@@ -24,6 +24,7 @@ export class Fan extends Agent {
         this.queuedAt = null;
         this.waitStartTime = null;
         this.targetFoodStall = null;
+        this.queueSide = null; // 'left' or 'right'
     }
     
     /**

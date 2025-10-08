@@ -48,12 +48,14 @@ export class EventManager {
     
     /**
      * Find the shortest queue among food stalls
-     * @returns {FoodStall} The food stall with shortest queue
+     * @returns {FoodStall} The food stall with shortest total queue length
      */
     getShortestQueue() {
-        return this.foodStalls.reduce((shortest, stall) => 
-            stall.queue.length < shortest.queue.length ? stall : shortest
-        );
+        return this.foodStalls.reduce((shortest, stall) => {
+            const stallTotal = stall.leftQueue.length + stall.rightQueue.length;
+            const shortestTotal = shortest.leftQueue.length + shortest.rightQueue.length;
+            return stallTotal < shortestTotal ? stall : shortest;
+        });
     }
     
     /**

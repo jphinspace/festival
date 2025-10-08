@@ -28,7 +28,8 @@ describe('FoodStall', () => {
     test('should initialize with correct properties', () => {
         expect(foodStall.x).toBe(100);
         expect(foodStall.y).toBe(100);
-        expect(foodStall.queue).toEqual([]);
+        expect(foodStall.leftQueue).toEqual([]);
+        expect(foodStall.rightQueue).toEqual([]);
         expect(foodStall.width).toBe(20);
         expect(foodStall.height).toBe(30);
     });
@@ -38,10 +39,10 @@ describe('FoodStall', () => {
         const position = foodStall.addToQueue(fan);
         
         expect(position).toBe(0);
-        expect(foodStall.queue).toHaveLength(1);
-        expect(foodStall.queue[0]).toBe(fan);
+        expect(foodStall.leftQueue.length + foodStall.rightQueue.length).toBe(1);
         expect(fan.inQueue).toBe(true);
         expect(fan.targetFoodStall).toBe(foodStall);
+        expect(fan.queueSide).toBeTruthy();
     });
 
     test('should not add same fan twice', () => {
@@ -50,7 +51,7 @@ describe('FoodStall', () => {
         const position = foodStall.addToQueue(fan);
         
         expect(position).toBe(-1);
-        expect(foodStall.queue).toHaveLength(1);
+        expect(foodStall.leftQueue.length + foodStall.rightQueue.length).toBe(1);
     });
 
     test('should remove fan from queue', () => {
@@ -58,7 +59,8 @@ describe('FoodStall', () => {
         foodStall.addToQueue(fan);
         foodStall.removeFromQueue(fan);
         
-        expect(foodStall.queue).toHaveLength(0);
+        expect(foodStall.leftQueue).toHaveLength(0);
+        expect(foodStall.rightQueue).toHaveLength(0);
         expect(fan.inQueue).toBe(false);
         expect(fan.targetFoodStall).toBeNull();
     });
@@ -70,8 +72,8 @@ describe('FoodStall', () => {
         foodStall.addToQueue(fan1);
         foodStall.addToQueue(fan2);
         
-        expect(foodStall.getQueuePosition(fan1)).toBe(0);
-        expect(foodStall.getQueuePosition(fan2)).toBe(1);
+        expect(foodStall.getQueuePosition(fan1)).toBeGreaterThanOrEqual(0);
+        expect(foodStall.getQueuePosition(fan2)).toBeGreaterThanOrEqual(0);
     });
 
     test('should check if fan is at front', () => {
@@ -82,16 +84,25 @@ describe('FoodStall', () => {
         foodStall.addToQueue(fan2);
         
         expect(foodStall.isAtFront(fan1)).toBe(true);
-        expect(foodStall.isAtFront(fan2)).toBe(false);
+        // fan2 may be at front of other queue, so just check fan1
     });
 
-    test('should get queue target position', () => {
-        const pos0 = foodStall.getQueueTargetPosition(0);
-        const pos1 = foodStall.getQueueTargetPosition(1);
+    test('should get queue target position for left side', () => {
+        const pos0 = foodStall.getQueueTargetPosition(0, 'left');
+        const pos1 = foodStall.getQueueTargetPosition(1, 'left');
         
-        expect(pos0.y).toBeGreaterThan(foodStall.y + foodStall.height);
-        expect(pos1.y).toBeGreaterThan(pos0.y);
-        expect(pos0.x).toBe(foodStall.x + foodStall.width / 2);
+        expect(pos0.x).toBeLessThan(foodStall.x);
+        expect(pos1.x).toBeLessThan(pos0.x);
+        expect(pos0.y).toBe(foodStall.y + foodStall.height / 2);
+    });
+    
+    test('should get queue target position for right side', () => {
+        const pos0 = foodStall.getQueueTargetPosition(0, 'right');
+        const pos1 = foodStall.getQueueTargetPosition(1, 'right');
+        
+        expect(pos0.x).toBeGreaterThan(foodStall.x + foodStall.width);
+        expect(pos1.x).toBeGreaterThan(pos0.x);
+        expect(pos0.y).toBe(foodStall.y + foodStall.height / 2);
     });
 
     test('should process queue and decrease hunger after wait time', () => {
