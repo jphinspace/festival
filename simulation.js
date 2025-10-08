@@ -20,6 +20,9 @@ export class Simulation {
         this.currentFPS = 0;
         this.targetFrameTime = 1000 / config.MAX_FPS;
         
+        // Simulation time (scales with simulation speed)
+        this.simulationTime = 0;
+        
         // Event manager
         this.eventManager = null;
         
@@ -78,8 +81,11 @@ export class Simulation {
     // Update simulation state
     update(deltaTime) {
         if (!this.paused) {
+            // Update simulation time (in milliseconds, scaled by simulation speed)
+            this.simulationTime += deltaTime * 1000 * this.simulationSpeed;
+            
             // Update event manager (process security queue and food stalls)
-            this.eventManager.update(performance.now(), this.agents);
+            this.eventManager.update(this.simulationTime, this.agents, this.simulationSpeed);
             
             // Pass all agents and obstacles to each agent's update for collision detection
             this.agents.forEach(agent => agent.update(deltaTime, this.simulationSpeed, this.agents, this.eventManager.obstacles));

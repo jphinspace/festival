@@ -68,9 +68,11 @@ export class Fan extends Agent {
         super.update(deltaTime, simulationSpeed, otherAgents, obstacles);
         
         // Increase hunger over time (unless waiting at food stall)
+        // Note: Hunger increases at the same rate regardless of simulation speed
+        // because we want the perceived experience to remain consistent
         if (!this.waitStartTime) {
             this.hunger = Math.min(1.0, this.hunger + 
-                this.config.HUNGER_INCREASE_RATE * deltaTime * simulationSpeed);
+                this.config.HUNGER_INCREASE_RATE * deltaTime);
         }
         
         // Spread-out behavior: wander if idle and not watching a show

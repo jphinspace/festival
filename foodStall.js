@@ -113,8 +113,9 @@ export class FoodStall {
      * Process the queue, moving fans forward
      * @param {number} width - Canvas width
      * @param {number} height - Canvas height
+     * @param {number} simulationTime - Current simulation time in milliseconds
      */
-    processQueue(width, height) {
+    processQueue(width, height, simulationTime) {
         // Process both left and right queues
         [this.leftQueue, this.rightQueue].forEach(queue => {
             if (queue.length > 0) {
@@ -124,12 +125,12 @@ export class FoodStall {
                 if (frontFan.isNearTarget(5)) {
                     // Start waiting if not already
                     if (!frontFan.waitStartTime) {
-                        frontFan.waitStartTime = Date.now();
+                        frontFan.waitStartTime = simulationTime;
                         frontFan.state = 'idle';
                     }
                     
                     // Check if wait time is complete
-                    if (Date.now() - frontFan.waitStartTime >= this.config.FOOD_WAIT_TIME) {
+                    if (simulationTime - frontFan.waitStartTime >= this.config.FOOD_WAIT_TIME) {
                         // Decrease hunger and remove from queue
                         frontFan.hunger = Math.max(0, frontFan.hunger - this.config.HUNGER_DECREASE_AMOUNT);
                         this.removeFromQueue(frontFan);

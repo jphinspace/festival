@@ -115,10 +115,10 @@ describe('FoodStall', () => {
         foodStall.addToQueue(fan);
         
         // Simulate fan reaching front and starting wait
-        const now = Date.now();
-        fan.waitStartTime = now - 1001; // 1001ms ago (past wait time)
+        const simulationTime = 2000; // 2000ms simulation time
+        fan.waitStartTime = simulationTime - 1001; // 1001ms ago (past wait time)
         
-        foodStall.processQueue(800, 600);
+        foodStall.processQueue(800, 600, simulationTime);
         
         expect(fan.hunger).toBeLessThan(0.8);
         expect(fan.inQueue).toBe(false);
@@ -165,7 +165,7 @@ describe('Fan hunger', () => {
         expect(fan.hunger).toBe(0.5);
     });
 
-    test('should respect simulation speed for hunger increase', () => {
+    test('should NOT scale hunger increase with simulation speed', () => {
         const fan1 = new Fan(100, 100, mockConfig);
         const fan2 = new Fan(200, 200, mockConfig);
         fan1.hunger = 0.3;
@@ -174,6 +174,7 @@ describe('Fan hunger', () => {
         fan1.update(1.0, 1.0, []);
         fan2.update(1.0, 2.0, []);
         
-        expect(fan2.hunger).toBeGreaterThan(fan1.hunger);
+        // Hunger should increase at same rate regardless of simulation speed
+        expect(fan2.hunger).toBe(fan1.hunger);
     });
 });

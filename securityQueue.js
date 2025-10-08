@@ -79,9 +79,9 @@ export class SecurityQueue {
 
     /**
      * Process queues - handle fans at the front
-     * @param {number} currentTime - Current timestamp in milliseconds
+     * @param {number} simulationTime - Current simulation time in milliseconds
      */
-    update(currentTime) {
+    update(simulationTime) {
         for (let queueIndex = 0; queueIndex < 2; queueIndex++) {
             const queue = this.queues[queueIndex];
             
@@ -92,7 +92,7 @@ export class SecurityQueue {
                 // Check if fan has reached the front of the queue
                 if (fan.isNearTarget(5)) {
                     this.processing[queueIndex] = fan;
-                    this.processingStartTime[queueIndex] = currentTime;
+                    this.processingStartTime[queueIndex] = simulationTime;
                     fan.state = 'being_checked';
                 }
             }
@@ -100,7 +100,7 @@ export class SecurityQueue {
             // If someone is being processed, check if their time is up
             if (this.processing[queueIndex] !== null) {
                 const fan = this.processing[queueIndex];
-                const elapsedTime = currentTime - this.processingStartTime[queueIndex];
+                const elapsedTime = simulationTime - this.processingStartTime[queueIndex];
                 const requiredTime = fan.enhancedSecurity ? 
                     this.config.ENHANCED_SECURITY_TIME : 
                     this.config.REGULAR_SECURITY_TIME;
