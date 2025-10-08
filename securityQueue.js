@@ -22,6 +22,9 @@ export class SecurityQueue {
         
         // Track when processing started for each queue
         this.processingStartTime = [null, null];
+        
+        // Track fans moving to the entry point (not yet in queue)
+        this.entering = [[], []];
     }
 
     /**
@@ -39,21 +42,23 @@ export class SecurityQueue {
      * @param {Fan} fan - Fan to add to queue
      */
     addToQueue(fan) {
-        // Choose the shorter queue
-        const queueIndex = this.queues[0].length <= this.queues[1].length ? 0 : 1;
+        // Choose the shorter queue (including those entering)
+        const totalLeft = this.queues[0].length + this.entering[0].length;
+        const totalRight = this.queues[1].length + this.entering[1].length;
+        const queueIndex = totalLeft <= totalRight ? 0 : 1;
         
-        // Mark fan as in queue and determine if enhanced security
+        // Mark fan as entering and determine if enhanced security
         fan.queueIndex = queueIndex;
         fan.enhancedSecurity = Math.random() < this.config.ENHANCED_SECURITY_PERCENTAGE;
         
-        // Add to queue
-        this.queues[queueIndex].push(fan);
+        // Add to entering list first
+        this.entering[queueIndex].push(fan);
         
-        // Set position in queue (this sets state to 'moving' internally)
-        this.updateQueuePositions(queueIndex);
-        
-        // Override state to 'in_queue' after setting target
-        fan.state = 'in_queue';
+        // Send fan to entry point at the BACK of the queue (bottom of security area)
+        const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X);
+        const entryY = this.height * 0.7; // Bottom of security area
+        fan.setTarget(queueX, entryY);
+        fan.state = 'approaching_queue';
     }
 
     /**
@@ -78,12 +83,27 @@ export class SecurityQueue {
     }
 
     /**
-     * Process queues - handle fans at the front
+     * Process queues - handle fans at the front and those entering
      * @param {number} simulationTime - Current simulation time in milliseconds
      */
     update(simulationTime) {
         for (let queueIndex = 0; queueIndex < 2; queueIndex++) {
             const queue = this.queues[queueIndex];
+            const entering = this.entering[queueIndex];
+            
+            // Process fans entering the queue
+            for (let i = entering.length - 1; i >= 0; i--) {
+                const fan = entering[i];
+                // Check if fan has reached the entry point
+                if (fan.isNearTarget(5)) {
+                    // Move from entering to actual queue
+                    entering.splice(i, 1);
+                    queue.push(fan);
+                    fan.state = 'in_queue';
+                    // Update all queue positions
+                    this.updateQueuePositions(queueIndex);
+                }
+            }
             
             // If no one is being processed and queue has people, start processing
             if (this.processing[queueIndex] === null && queue.length > 0) {
@@ -110,11 +130,13 @@ export class SecurityQueue {
                     queue.shift();
                     
                     if (fan.enhancedSecurity) {
-                        // Send to back of the line
+                        // Send to back of the line - add to entering list
                         fan.enhancedSecurity = false; // Only enhanced once
-                        queue.push(fan);
-                        this.updateQueuePositions(queueIndex);
-                        fan.state = 'in_queue'; // Set state after updateQueuePositions
+                        entering.push(fan);
+                        const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X);
+                        const entryY = this.height * 0.7; // Bottom of security area
+                        fan.setTarget(queueX, entryY);
+                        fan.state = 'approaching_queue';
                     } else {
                         // Allow into festival
                         const targetX = Math.random() * this.width;
@@ -135,18 +157,19 @@ export class SecurityQueue {
     }
 
     /**
-     * Get total count of fans in both queues
+     * Get total count of fans in both queues (including those entering)
      * @returns {number} Total number of fans in queues
      */
     getTotalCount() {
-        return this.queues[0].length + this.queues[1].length;
+        return this.queues[0].length + this.queues[1].length + 
+               this.entering[0].length + this.entering[1].length;
     }
 
     /**
-     * Get all fans currently in queues
+     * Get all fans currently in queues (including those entering)
      * @returns {Fan[]} Array of all fans in queues
      */
     getAllFans() {
-        return [...this.queues[0], ...this.queues[1]];
+        return [...this.queues[0], ...this.queues[1], ...this.entering[0], ...this.entering[1]];
     }
 }

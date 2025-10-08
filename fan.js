@@ -95,7 +95,7 @@ export class Fan extends Agent {
      */
     draw(ctx) {
         // Update color based on state
-        if (this.state === 'in_queue') {
+        if (this.state === 'in_queue' || this.state === 'approaching_queue') {
             this.color = this.config.COLORS.AGENT_IN_QUEUE;
         } else if (this.state === 'being_checked') {
             this.color = this.enhancedSecurity ? 

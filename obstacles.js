@@ -123,8 +123,8 @@ export class Obstacles {
      */
     checkCollision(x, y, radius, agentState = 'idle') {
         for (const obs of this.obstacles) {
-            // Allow fans in security queue to pass through security obstacles
-            if (obs.type === 'security' && (agentState === 'in_queue' || agentState === 'being_checked')) {
+            // Allow fans in security queue or approaching to pass through security obstacles
+            if (obs.type === 'security' && (agentState === 'in_queue' || agentState === 'being_checked' || agentState === 'approaching_queue')) {
                 continue;
             }
 
@@ -149,8 +149,8 @@ export class Obstacles {
      */
     resolveCollision(agent) {
         for (const obs of this.obstacles) {
-            // Allow fans in security queue to pass through security obstacles
-            if (obs.type === 'security' && (agent.state === 'in_queue' || agent.state === 'being_checked')) {
+            // Allow fans in security queue or approaching to pass through security obstacles
+            if (obs.type === 'security' && (agent.state === 'in_queue' || agent.state === 'being_checked' || agent.state === 'approaching_queue')) {
                 continue;
             }
 

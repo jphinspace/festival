@@ -72,7 +72,7 @@ describe('EventManager', () => {
     test('new fans from bus should be added to security queue', () => {
         const newAgents = eventManager.handleBusArrival(agents);
         newAgents.forEach(fan => {
-            expect(fan.state).toBe('in_queue');
+            expect(fan.state).toBe('approaching_queue'); // Fans start by approaching queue
             expect(fan.targetX).not.toBeNull();
             expect(fan.targetY).not.toBeNull();
             expect(fan.queueIndex).toBeDefined();
