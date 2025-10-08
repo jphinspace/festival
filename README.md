@@ -7,6 +7,8 @@ An HTML5 simulation game featuring agent-based modeling of attendees at a music 
 ## Features
 - **Modular Architecture**: Separated concerns with base Agent class and Fan subclass for extensibility
 - **Collision Detection**: Agents maintain personal space and do not overlap
+- **Fan Hunger System**: Fans have hunger that increases over time and seek food stalls when hungry
+- **Food Stall Queuing**: Four food stalls positioned between stages where fans form queues
 - **Lightweight**: Optimized for minimal RAM usage and fast loading
 - **Real-time simulation**: Runs at capped 60 FPS with pause/resume capability  
 - **Variable Speed**: Adjustable simulation speed from 0.1x to 5.0x
@@ -61,6 +63,7 @@ festival/
 - **Green area**: Main festival grounds
 - **Gray/Red rectangles**: Stage areas (turn red when a concert is active)
 - **Blue rectangle**: Bus loading/unloading area
+- **Brown rectangles**: Food stalls (attendees queue here when hungry)
 - **Dark area**: Road/path at the bottom
 
 ## Development

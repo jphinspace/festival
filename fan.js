@@ -14,8 +14,33 @@ export class Fan extends Agent {
     constructor(x, y, config) {
         super(x, y, config);
         this.type = 'fan';
+        
+        // Initialize hunger to a random level
+        this.hunger = config.HUNGER_MIN_INITIAL + 
+            Math.random() * (config.HUNGER_MAX_INITIAL - config.HUNGER_MIN_INITIAL);
+        
+        // Queue-related properties
+        this.inQueue = false;
+        this.queuedAt = null;
+        this.waitStartTime = null;
+        this.targetFoodStall = null;
+        this.queueSide = null; // 'left' or 'right'
     }
-
-    // Fans inherit all base Agent functionality
-    // Future fan-specific behaviors can be added here
+    
+    /**
+     * Update fan state, including hunger
+     * @param {number} deltaTime - Time since last frame in seconds
+     * @param {number} simulationSpeed - Speed multiplier for simulation
+     * @param {Agent[]} otherAgents - Array of other agents for collision detection
+     */
+    update(deltaTime, simulationSpeed, otherAgents = []) {
+        // Update base agent behavior
+        super.update(deltaTime, simulationSpeed, otherAgents);
+        
+        // Increase hunger over time (unless waiting at food stall)
+        if (!this.waitStartTime) {
+            this.hunger = Math.min(1.0, this.hunger + 
+                this.config.HUNGER_INCREASE_RATE * deltaTime * simulationSpeed);
+        }
+    }
 }

@@ -82,6 +82,10 @@ export class Simulation {
     // Update simulation state
     update(deltaTime) {
         if (!this.paused) {
+            // Update food stalls and handle hungry fans
+            this.eventManager.updateFoodStalls();
+            this.eventManager.handleHungryFans(this.agents);
+            
             // Pass all agents to each agent's update for collision detection
             this.agents.forEach(agent => agent.update(deltaTime, this.simulationSpeed, this.agents));
         }
@@ -92,7 +96,8 @@ export class Simulation {
         this.renderer.render(
             this.agents,
             this.eventManager.leftConcertActive,
-            this.eventManager.rightConcertActive
+            this.eventManager.rightConcertActive,
+            this.eventManager.foodStalls
         );
     }
 
