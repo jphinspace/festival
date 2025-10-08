@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Festival Agent Simulation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            overflow: hidden;
+        }
+        #container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        #controls {
+            background: #2a2a2a;
+            padding: 10px;
+            border-bottom: 2px solid #444;
+        }
+        #controls button {
+            padding: 10px 15px;
+            margin: 0 5px;
+            background: #4a4a4a;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        #controls button:hover {
+            background: #5a5a5a;
+        }
+        #controls button:active {
+            background: #3a3a3a;
+        }
+        #controls button.pause {
+            background: #d9534f;
+        }
+        #controls button.pause:hover {
+            background: #c9302c;
+        }
+        #info {
+            background: #2a2a2a;
+            padding: 5px 10px;
+            font-size: 12px;
+            border-bottom: 1px solid #444;
+        }
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="controls">
+            <button id="pauseBtn">Pause</button>
+            <button id="leftConcertBtn">Left Concert (5 min)</button>
+            <button id="rightConcertBtn">Right Concert (5 min)</button>
+            <button id="busArriveBtn">Bus Arrives</button>
+            <button id="busLeaveBtn">Bus Leaving</button>
+        </div>
+        <div id="info">
+            <span id="attendeeCount">Attendees: 0</span> | 
+            <span id="fps">FPS: 0</span>
+        </div>
+        <div id="canvas-container">
+            <canvas id="canvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // ===== Configuration =====
+        const CONFIG = {
+            AGENT_RADIUS: 3,
+            AGENT_SPEED: 0.5,
+            BUS_ATTENDEE_COUNT: 50,
+            INITIAL_ATTENDEE_COUNT: 100,
+            CONCERT_PREP_TIME: 300, // 5 minutes in seconds (at 60fps = 18000 frames)
+            UPDATE_INTERVAL: 16 // ~60fps
+        };
+
+        // ===== Canvas Setup =====
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        function resizeCanvas() {
+            const container = document.getElementById('canvas-container');
+            width = container.clientWidth;
+            height = container.clientHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // ===== Agent Class =====
+        class Agent {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.targetX = null;
+                this.targetY = null;
+                this.state = 'idle'; // idle, moving, leaving
+                this.color = '#4a90e2';
+            }
+
+            setTarget(x, y) {
+                this.targetX = x;
+                this.targetY = y;
+                this.state = 'moving';
+            }
+
+            update() {
+                if (this.state === 'moving' && this.targetX !== null) {
+                    const dx = this.targetX - this.x;
+                    const dy = this.targetY - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < CONFIG.AGENT_SPEED) {
+                        this.x = this.targetX;
+                        this.y = this.targetY;
+                        this.targetX = null;
+                        this.targetY = null;
+                        this.state = 'idle';
+                    } else {
+                        this.x += (dx / distance) * CONFIG.AGENT_SPEED;
+                        this.y += (dy / distance) * CONFIG.AGENT_SPEED;
+                    }
+                }
+            }
+
+            draw(ctx) {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, CONFIG.AGENT_RADIUS, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // ===== Simulation State =====
+        let agents = [];
+        let paused = false;
+        let leftConcertActive = false;
+        let rightConcertActive = false;
+        let leftConcertCountdown = 0;
+        let rightConcertCountdown = 0;
+
+        // ===== Initialize Agents =====
+        function initializeAgents() {
+            agents = [];
+            for (let i = 0; i < CONFIG.INITIAL_ATTENDEE_COUNT; i++) {
+                const x = Math.random() * width;
+                const y = Math.random() * height;
+                agents.push(new Agent(x, y));
+            }
+        }
+
+        // ===== Event Handlers =====
+        function handleLeftConcert() {
+            leftConcertCountdown = CONFIG.CONCERT_PREP_TIME;
+            leftConcertActive = true;
+            
+            // After 5 minutes, move agents to left side
+            setTimeout(() => {
+                if (leftConcertActive) {
+                    const targetX = width * 0.15;
+                    agents.forEach(agent => {
+                        if (agent.state !== 'leaving') {
+                            const targetY = height * 0.3 + Math.random() * height * 0.4;
+                            agent.setTarget(targetX + (Math.random() - 0.5) * 100, targetY);
+                        }
+                    });
+                }
+            }, 5000); // 5 seconds for demo purposes (change to 300000 for real 5 minutes)
+        }
+
+        function handleRightConcert() {
+            rightConcertCountdown = CONFIG.CONCERT_PREP_TIME;
+            rightConcertActive = true;
+            
+            // After 5 minutes, move agents to right side
+            setTimeout(() => {
+                if (rightConcertActive) {
+                    const targetX = width * 0.85;
+                    agents.forEach(agent => {
+                        if (agent.state !== 'leaving') {
+                            const targetY = height * 0.3 + Math.random() * height * 0.4;
+                            agent.setTarget(targetX + (Math.random() - 0.5) * 100, targetY);
+                        }
+                    });
+                }
+            }, 5000); // 5 seconds for demo purposes
+        }
+
+        function handleBusArrives() {
+            // Add new agents at the bus location (bottom center)
+            const busX = width * 0.5;
+            const busY = height * 0.9;
+            
+            for (let i = 0; i < CONFIG.BUS_ATTENDEE_COUNT; i++) {
+                const offsetX = (Math.random() - 0.5) * 50;
+                const offsetY = (Math.random() - 0.5) * 30;
+                const agent = new Agent(busX + offsetX, busY + offsetY);
+                agents.push(agent);
+                
+                // Move to random position in festival
+                const targetX = Math.random() * width;
+                const targetY = Math.random() * height * 0.7;
+                agent.setTarget(targetX, targetY);
+            }
+        }
+
+        function handleBusLeaving() {
+            // Some random agents decide to leave
+            const leavingCount = Math.floor(Math.random() * 30) + 20;
+            let count = 0;
+            
+            for (let i = 0; i < agents.length && count < leavingCount; i++) {
+                if (Math.random() > 0.5) {
+                    const agent = agents[i];
+                    agent.state = 'leaving';
+                    agent.color = '#e24a4a';
+                    const busX = width * 0.5;
+                    const busY = height * 0.9;
+                    agent.setTarget(busX + (Math.random() - 0.5) * 40, busY);
+                    count++;
+                }
+            }
+            
+            // Remove agents that reach the bus after 3 seconds
+            setTimeout(() => {
+                agents = agents.filter(agent => agent.state !== 'leaving' || 
+                    Math.abs(agent.y - height * 0.9) > 10);
+            }, 3000);
+        }
+
+        // ===== Button Event Listeners =====
+        document.getElementById('pauseBtn').addEventListener('click', () => {
+            paused = !paused;
+            const btn = document.getElementById('pauseBtn');
+            btn.textContent = paused ? 'Resume' : 'Pause';
+            btn.className = paused ? '' : 'pause';
+        });
+
+        document.getElementById('leftConcertBtn').addEventListener('click', handleLeftConcert);
+        document.getElementById('rightConcertBtn').addEventListener('click', handleRightConcert);
+        document.getElementById('busArriveBtn').addEventListener('click', handleBusArrives);
+        document.getElementById('busLeaveBtn').addEventListener('click', handleBusLeaving);
+
+        // ===== Render Functions =====
+        function drawBackground() {
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Draw ground/grass
+            ctx.fillStyle = '#1a3a1a';
+            ctx.fillRect(0, 0, width, height * 0.7);
+            
+            // Draw road/path at bottom
+            ctx.fillStyle = '#3a3a3a';
+            ctx.fillRect(0, height * 0.85, width, height * 0.15);
+        }
+
+        function drawStages() {
+            // Left stage
+            ctx.fillStyle = leftConcertActive ? '#ff6b6b' : '#4a4a4a';
+            ctx.fillRect(width * 0.05, height * 0.2, width * 0.2, height * 0.1);
+            ctx.fillStyle = '#fff';
+            ctx.font = '12px Arial';
+            ctx.fillText('LEFT STAGE', width * 0.08, height * 0.25);
+            
+            // Right stage
+            ctx.fillStyle = rightConcertActive ? '#ff6b6b' : '#4a4a4a';
+            ctx.fillRect(width * 0.75, height * 0.2, width * 0.2, height * 0.1);
+            ctx.fillStyle = '#fff';
+            ctx.fillText('RIGHT STAGE', width * 0.78, height * 0.25);
+            
+            // Bus area
+            ctx.fillStyle = '#6b6bff';
+            ctx.fillRect(width * 0.4, height * 0.88, width * 0.2, height * 0.05);
+            ctx.fillStyle = '#fff';
+            ctx.fillText('BUS', width * 0.48, height * 0.91);
+        }
+
+        function drawAgents() {
+            agents.forEach(agent => agent.draw(ctx));
+        }
+
+        function render() {
+            drawBackground();
+            drawStages();
+            drawAgents();
+        }
+
+        // ===== Update Loop =====
+        let lastTime = Date.now();
+        let frameCount = 0;
+        let fps = 0;
+
+        function update() {
+            if (!paused) {
+                agents.forEach(agent => agent.update());
+                
+                if (leftConcertCountdown > 0) leftConcertCountdown--;
+                if (rightConcertCountdown > 0) rightConcertCountdown--;
+            }
+            
+            render();
+            
+            // Update info
+            document.getElementById('attendeeCount').textContent = `Attendees: ${agents.length}`;
+            
+            // Calculate FPS
+            frameCount++;
+            const now = Date.now();
+            if (now - lastTime >= 1000) {
+                fps = frameCount;
+                frameCount = 0;
+                lastTime = now;
+                document.getElementById('fps').textContent = `FPS: ${fps}`;
+            }
+            
+            requestAnimationFrame(update);
+        }
+
+        // ===== Start Simulation =====
+        initializeAgents();
+        update();
+    </script>
+</body>
+</html>
