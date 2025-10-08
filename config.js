@@ -18,10 +18,19 @@ export const CONFIG = {
     REGULAR_SECURITY_TIME: 1000, // 1 second (1 simulated minute)
     ENHANCED_SECURITY_TIME: 3000, // 3 seconds (3 simulated minutes)
     ENHANCED_SECURITY_PERCENTAGE: 0.05, // 5% of fans get enhanced security
-    QUEUE_LEFT_X: 0.45, // X position of left queue
-    QUEUE_RIGHT_X: 0.55, // X position of right queue
+    QUEUE_LEFT_X: 0.45, // X position of left security queue
+    QUEUE_RIGHT_X: 0.55, // X position of right security queue
     QUEUE_START_Y: 0.85, // Y position where queue starts (front of line)
     QUEUE_SPACING: 8, // Spacing between people in queue
+    
+    // Hunger settings
+    HUNGER_MIN_INITIAL: 0.5,
+    HUNGER_MAX_INITIAL: 0.8,
+    HUNGER_INCREASE_RATE: 0.02, // per second
+    HUNGER_DECREASE_AMOUNT: 0.5,
+    FOOD_WAIT_TIME: 1000, // 1 second (1 simulated minute)
+    FOOD_STALL_COUNT: 4,
+    FOOD_STALL_X: 0.5, // Center between the two stages
     
     // Performance settings
     MAX_FPS: 60,
@@ -43,6 +52,7 @@ export const CONFIG = {
         STAGE_ACTIVE: '#ff6b6b',
         BUS_AREA: '#6b6bff',
         SECURITY_QUEUE: '#9b6bff',
+        FOOD_STALL: '#8b4513',
         TEXT: '#fff'
     },
     

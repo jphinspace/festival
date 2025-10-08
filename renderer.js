@@ -106,11 +106,16 @@ export class Renderer {
     drawAgents(agents) {
         agents.forEach(agent => agent.draw(this.ctx));
     }
+    
+    drawFoodStalls(foodStalls) {
+        foodStalls.forEach(stall => stall.draw(this.ctx));
+    }
 
-    render(agents, leftConcertActive, rightConcertActive) {
+    render(agents, leftConcertActive, rightConcertActive, foodStalls = []) {
         this.drawBackground();
         this.drawStages(leftConcertActive, rightConcertActive);
         this.drawSecurityQueues();
+        this.drawFoodStalls(foodStalls);
         this.drawBusArea();
         this.drawAgents(agents);
     }

@@ -1,6 +1,7 @@
 // EventManager class for handling festival events
 import { Fan } from './fan.js';
 import { SecurityQueue } from './securityQueue.js';
+import { FoodStall } from './foodStall.js';
 
 export class EventManager {
     constructor(config, width, height) {
@@ -10,12 +11,70 @@ export class EventManager {
         this.leftConcertActive = false;
         this.rightConcertActive = false;
         this.securityQueue = new SecurityQueue(config, width, height);
+        this.foodStalls = [];
+        this.createFoodStalls();
+    }
+
+    createFoodStalls() {
+        // Create 4 food stalls vertically in the center, dividing the two stages
+        this.foodStalls = [];
+        const stallCount = this.config.FOOD_STALL_COUNT;
+        const stallX = this.width * this.config.FOOD_STALL_X;
+        
+        // Position stalls vertically between y: 0.25 and y: 0.7 of height
+        const startY = this.height * 0.25;
+        const endY = this.height * 0.7;
+        const spacing = (endY - startY) / (stallCount + 1);
+        
+        for (let i = 0; i < stallCount; i++) {
+            const stallY = startY + spacing * (i + 1);
+            this.foodStalls.push(new FoodStall(stallX, stallY, this.config));
+        }
     }
 
     updateDimensions(width, height) {
         this.width = width;
         this.height = height;
         this.securityQueue.updateDimensions(width, height);
+        this.createFoodStalls(); // Recreate stalls with new dimensions
+    }
+    
+    /**
+     * Update food stalls and their queues
+     */
+    updateFoodStalls() {
+        this.foodStalls.forEach(stall => {
+            stall.processQueue(this.width, this.height);
+            stall.updateQueuePositions(this.width, this.height);
+        });
+    }
+    
+    /**
+     * Find the shortest queue among food stalls
+     * @returns {FoodStall} The food stall with shortest total queue length
+     */
+    getShortestQueue() {
+        return this.foodStalls.reduce((shortest, stall) => {
+            const stallTotal = stall.leftQueue.length + stall.rightQueue.length;
+            const shortestTotal = shortest.leftQueue.length + shortest.rightQueue.length;
+            return stallTotal < shortestTotal ? stall : shortest;
+        });
+    }
+    
+    /**
+     * Handle hungry fans seeking food
+     * @param {Agent[]} agents - All agents in simulation
+     */
+    handleHungryFans(agents) {
+        agents.forEach(agent => {
+            if (agent.type === 'fan' && !agent.inQueue && agent.state !== 'leaving') {
+                // If fan is very hungry, send them to food
+                if (agent.hunger > 0.7) {
+                    const stall = this.getShortestQueue();
+                    stall.addToQueue(agent);
+                }
+            }
+        });
     }
 
     handleLeftConcert(agents) {
@@ -101,10 +160,13 @@ export class EventManager {
     }
 
     /**
-     * Update event manager state (processes security queue)
+     * Update event manager state (processes security queue and food stalls)
      * @param {number} currentTime - Current timestamp in milliseconds
+     * @param {Agent[]} agents - All agents in simulation
      */
-    update(currentTime) {
+    update(currentTime, agents) {
         this.securityQueue.update(currentTime);
+        this.updateFoodStalls();
+        this.handleHungryFans(agents);
     }
 }
