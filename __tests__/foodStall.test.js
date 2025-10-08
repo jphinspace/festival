@@ -106,10 +106,10 @@ describe('FoodStall', () => {
     });
 
     test('should process queue and decrease hunger after wait time', () => {
-        const fan = new Fan(138, 110, mockConfig); // Position near front of queue
+        const fan = new Fan(92, 115, mockConfig); // Position at front of left queue
         fan.hunger = 0.8;
-        fan.targetX = 138;
-        fan.targetY = 110;
+        fan.targetX = 92;
+        fan.targetY = 115;
         fan.state = 'idle';
         
         foodStall.addToQueue(fan);

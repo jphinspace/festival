@@ -34,11 +34,17 @@ export class FoodStall {
         
         queue.push(fan);
         fan.inQueue = true;
-        fan.queuedAt = Date.now();
+        fan.queuedAt = null; // Not used for timing anymore
         fan.targetFoodStall = this;
         fan.queueSide = side; // Track which side of the stall
         
-        return queue.length - 1; // Return position in queue
+        // Immediately set the fan's target position
+        const position = queue.length - 1;
+        const targetPos = this.getQueueTargetPosition(position, side);
+        fan.setTarget(targetPos.x, targetPos.y);
+        fan.state = 'in_queue';
+        
+        return position;
     }
 
     /**
