@@ -84,7 +84,8 @@ export class Agent {
      * @param {Agent[]} otherAgents - Array of other agents for collision detection
      */
     update(deltaTime, simulationSpeed, otherAgents = []) {
-        if (this.state === 'moving' && this.targetX !== null) {
+        // Allow movement for moving, in_queue, and passed_security states
+        if ((this.state === 'moving' || this.state === 'in_queue' || this.state === 'passed_security') && this.targetX !== null) {
             const dx = this.targetX - this.x;
             const dy = this.targetY - this.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
@@ -97,7 +98,10 @@ export class Agent {
                 this.y = this.targetY;
                 this.targetX = null;
                 this.targetY = null;
-                this.state = 'idle';
+                // Only set to idle if not in special states
+                if (this.state === 'moving') {
+                    this.state = 'idle';
+                }
             } else {
                 this.x += (dx / distance) * moveDistance;
                 this.y += (dy / distance) * moveDistance;

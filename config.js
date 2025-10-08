@@ -27,7 +27,7 @@ export const CONFIG = {
     MAX_FPS: 60,
     DEFAULT_SIMULATION_SPEED: 1.0,
     MIN_SIMULATION_SPEED: 0.1,
-    MAX_SIMULATION_SPEED: 5.0,
+    MAX_SIMULATION_SPEED: 20.0, // Increased for faster testing
     
     // Visual settings
     COLORS: {
