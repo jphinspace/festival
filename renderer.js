@@ -1,0 +1,87 @@
+// Renderer class for drawing the simulation
+export class Renderer {
+    constructor(canvas, config) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.config = config;
+        this.width = 0;
+        this.height = 0;
+    }
+
+    resize(width, height) {
+        this.width = width;
+        this.height = height;
+        this.canvas.width = width;
+        this.canvas.height = height;
+    }
+
+    drawBackground() {
+        // Background
+        this.ctx.fillStyle = this.config.COLORS.BACKGROUND;
+        this.ctx.fillRect(0, 0, this.width, this.height);
+        
+        // Ground/grass area
+        this.ctx.fillStyle = this.config.COLORS.GROUND;
+        this.ctx.fillRect(0, 0, this.width, this.height * this.config.GROUND_HEIGHT);
+        
+        // Road/path at bottom
+        this.ctx.fillStyle = this.config.COLORS.ROAD;
+        this.ctx.fillRect(0, this.height * this.config.ROAD_START, this.width, this.height * 0.15);
+    }
+
+    drawStage(x, y, width, height, label, isActive) {
+        this.ctx.fillStyle = isActive ? this.config.COLORS.STAGE_ACTIVE : this.config.COLORS.STAGE_INACTIVE;
+        this.ctx.fillRect(x, y, width, height);
+        
+        this.ctx.fillStyle = this.config.COLORS.TEXT;
+        this.ctx.font = '12px Arial';
+        this.ctx.fillText(label, x + width * 0.15, y + height * 0.5);
+    }
+
+    drawStages(leftActive, rightActive) {
+        // Left stage
+        this.drawStage(
+            this.width * 0.05,
+            this.height * 0.2,
+            this.width * 0.2,
+            this.height * 0.1,
+            'LEFT STAGE',
+            leftActive
+        );
+        
+        // Right stage
+        this.drawStage(
+            this.width * 0.75,
+            this.height * 0.2,
+            this.width * 0.2,
+            this.height * 0.1,
+            'RIGHT STAGE',
+            rightActive
+        );
+    }
+
+    drawBusArea() {
+        this.ctx.fillStyle = this.config.COLORS.BUS_AREA;
+        this.ctx.fillRect(
+            this.width * 0.4,
+            this.height * 0.88,
+            this.width * 0.2,
+            this.height * 0.05
+        );
+        
+        this.ctx.fillStyle = this.config.COLORS.TEXT;
+        this.ctx.font = '12px Arial';
+        this.ctx.fillText('BUS', this.width * 0.48, this.height * 0.91);
+    }
+
+    drawAgents(agents) {
+        agents.forEach(agent => agent.draw(this.ctx));
+    }
+
+    render(agents, leftConcertActive, rightConcertActive) {
+        this.drawBackground();
+        this.drawStages(leftConcertActive, rightConcertActive);
+        this.drawBusArea();
+        this.drawAgents(agents);
+    }
+}

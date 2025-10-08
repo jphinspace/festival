@@ -1,0 +1,101 @@
+// EventManager class for handling festival events
+import { Fan } from './fan.js';
+
+export class EventManager {
+    constructor(config, width, height) {
+        this.config = config;
+        this.width = width;
+        this.height = height;
+        this.leftConcertActive = false;
+        this.rightConcertActive = false;
+    }
+
+    updateDimensions(width, height) {
+        this.width = width;
+        this.height = height;
+    }
+
+    handleLeftConcert(agents) {
+        this.leftConcertActive = true;
+        
+        // Schedule agent movement after CONCERT_PREP_TIME
+        setTimeout(() => {
+            if (this.leftConcertActive) {
+                const targetX = this.width * this.config.STAGE_LEFT_X;
+                agents.forEach(agent => {
+                    if (agent.state !== 'leaving') {
+                        const targetY = this.height * 0.3 + Math.random() * this.height * 0.4;
+                        agent.setTarget(targetX + (Math.random() - 0.5) * 100, targetY);
+                    }
+                });
+            }
+        }, this.config.CONCERT_PREP_TIME);
+    }
+
+    handleRightConcert(agents) {
+        this.rightConcertActive = true;
+        
+        // Schedule agent movement after CONCERT_PREP_TIME
+        setTimeout(() => {
+            if (this.rightConcertActive) {
+                const targetX = this.width * this.config.STAGE_RIGHT_X;
+                agents.forEach(agent => {
+                    if (agent.state !== 'leaving') {
+                        const targetY = this.height * 0.3 + Math.random() * this.height * 0.4;
+                        agent.setTarget(targetX + (Math.random() - 0.5) * 100, targetY);
+                    }
+                });
+            }
+        }, this.config.CONCERT_PREP_TIME);
+    }
+
+    handleBusArrival(agents) {
+        const busX = this.width * this.config.BUS_X;
+        const busY = this.height * this.config.BUS_Y;
+        const newAgents = [];
+        
+        for (let i = 0; i < this.config.BUS_ATTENDEE_COUNT; i++) {
+            const offsetX = (Math.random() - 0.5) * 50;
+            const offsetY = (Math.random() - 0.5) * 30;
+            const fan = new Fan(busX + offsetX, busY + offsetY, this.config);
+            
+            // Move to random position in festival
+            const targetX = Math.random() * this.width;
+            const targetY = Math.random() * this.height * 0.7;
+            fan.setTarget(targetX, targetY);
+            
+            newAgents.push(fan);
+        }
+        
+        return newAgents;
+    }
+
+    handleBusDeparture(agents) {
+        const leavingCount = Math.floor(Math.random() * 30) + 20;
+        let count = 0;
+        const leavingAgents = [];
+        
+        for (let i = 0; i < agents.length && count < leavingCount; i++) {
+            if (Math.random() > 0.5) {
+                const agent = agents[i];
+                agent.markAsLeaving();
+                const busX = this.width * this.config.BUS_X;
+                const busY = this.height * this.config.BUS_Y;
+                agent.setTarget(busX + (Math.random() - 0.5) * 40, busY);
+                leavingAgents.push(agent);
+                count++;
+            }
+        }
+        
+        // Schedule removal of agents after 3 seconds
+        setTimeout(() => {
+            const busY = this.height * this.config.BUS_Y;
+            for (let i = agents.length - 1; i >= 0; i--) {
+                const agent = agents[i];
+                if (agent.state === 'leaving' && Math.abs(agent.y - busY) <= 10) {
+                    agents.splice(i, 1);
+                }
+            }
+        }, 3000);
+    }
+}
