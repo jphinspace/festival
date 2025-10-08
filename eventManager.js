@@ -71,12 +71,50 @@ export class EventManager {
     }
     
     /**
+     * Check if a fan can leave their current show for food or other reasons
+     * This applies to both VIP and up-front fans
+     * @param {Fan} agent - The fan to check
+     * @param {string} reason - 'food', 'other_show', or 'bus'
+     * @returns {boolean}
+     */
+    canFanLeaveShow(agent, reason) {
+        // Only applies to fans at their preferred show in VIP or up-front positions
+        if (agent.currentShow !== agent.stagePreference) {
+            return true; // Can leave non-preferred show anytime
+        }
+        
+        if (!agent.isVIP && !agent.isUpFront) {
+            return true; // Regular fans can leave
+        }
+        
+        // VIP and up-front fans at their preferred show follow special rules
+        const showStartTime = agent.currentShow === 'left' ? this.leftConcertStartTime : this.rightConcertStartTime;
+        if (!showStartTime) {
+            return true; // Show hasn't started yet
+        }
+        
+        const elapsed = Date.now() - showStartTime;
+        const progress = elapsed / this.showDuration;
+        
+        if (reason === 'food') {
+            // Can only leave for food if show is >90% complete
+            return progress >= 0.9;
+        } else if (reason === 'other_show') {
+            // Can only leave for another show if show is >90% complete
+            return progress >= 0.9;
+        } else if (reason === 'bus') {
+            // Can only leave for bus if show is >90% complete
+            return progress >= 0.9;
+        }
+        
+        return false;
+    }
+    
+    /**
      * Handle hungry fans seeking food
      * @param {Agent[]} agents - All agents in simulation
      */
     handleHungryFans(agents) {
-        const currentTime = Date.now();
-        
         agents.forEach(agent => {
             if (agent.type === 'fan' && !agent.inQueue && agent.state !== 'leaving') {
                 // Check if fan is hungry enough
@@ -89,19 +127,9 @@ export class EventManager {
                         canLeaveForFood = false;
                     }
                     
-                    // Fans at their preferred show
-                    if (agent.currentShow === agent.stagePreference) {
-                        // VIP and up-front fans won't leave until show is 90% over
-                        if (agent.isVIP || agent.isUpFront) {
-                            const showStartTime = agent.currentShow === 'left' ? this.leftConcertStartTime : this.rightConcertStartTime;
-                            if (showStartTime) {
-                                const elapsed = currentTime - showStartTime;
-                                const progress = elapsed / this.showDuration;
-                                if (progress < 0.9) {
-                                    canLeaveForFood = false;
-                                }
-                            }
-                        }
+                    // Check if VIP/up-front fans can leave their preferred show
+                    if (agent.currentShow) {
+                        canLeaveForFood = this.canFanLeaveShow(agent, 'food');
                     }
                     
                     if (canLeaveForFood) {
@@ -150,10 +178,16 @@ export class EventManager {
                 agents.forEach(agent => {
                     if (agent.type !== 'fan' || agent.state === 'leaving' || agent.isVIP) return;
                     
-                    const shouldAttend = 
-                        agent.stagePreference === 'left' || // Preferred stage
-                        (agent.stagePreference === 'none' && !agent.inQueue) || // No preference and not in queue
-                        (agent.currentShow === 'right' && agent.stagePreference === 'left'); // Leave non-preferred for preferred
+                    // Determine if fan should attend this show
+                    let shouldAttend = false;
+                    
+                    if (agent.stagePreference === 'left') {
+                        // Preferred stage - check if they can leave current show
+                        shouldAttend = agent.currentShow !== 'left' && this.canFanLeaveShow(agent, 'other_show');
+                    } else if (agent.stagePreference === 'none' && !agent.inQueue && !agent.currentShow) {
+                        // No preference, not in queue, and not watching another show
+                        shouldAttend = true;
+                    }
                     
                     if (shouldAttend) {
                         // Leave food queue if going to preferred stage
@@ -214,10 +248,16 @@ export class EventManager {
                 agents.forEach(agent => {
                     if (agent.type !== 'fan' || agent.state === 'leaving' || agent.isVIP) return;
                     
-                    const shouldAttend = 
-                        agent.stagePreference === 'right' || // Preferred stage
-                        (agent.stagePreference === 'none' && !agent.inQueue) || // No preference and not in queue
-                        (agent.currentShow === 'left' && agent.stagePreference === 'right'); // Leave non-preferred for preferred
+                    // Determine if fan should attend this show
+                    let shouldAttend = false;
+                    
+                    if (agent.stagePreference === 'right') {
+                        // Preferred stage - check if they can leave current show
+                        shouldAttend = agent.currentShow !== 'right' && this.canFanLeaveShow(agent, 'other_show');
+                    } else if (agent.stagePreference === 'none' && !agent.inQueue && !agent.currentShow) {
+                        // No preference, not in queue, and not watching another show
+                        shouldAttend = true;
+                    }
                     
                     if (shouldAttend) {
                         // Leave food queue if going to preferred stage
@@ -264,7 +304,8 @@ export class EventManager {
     }
 
     handleBusDeparture(agents) {
-        // Select fans who have seen their preferred show and are not in food queue
+        // Select fans who have seen their preferred show, are not in food queue,
+        // and can leave (VIP/up-front fans must wait until show is 90% complete)
         const leavingAgents = [];
         
         for (const agent of agents) {
@@ -272,6 +313,12 @@ export class EventManager {
                 agent.hasSeenPreferredShow && 
                 !agent.inQueue &&
                 agent.state !== 'leaving') {
+                
+                // Check if VIP/up-front fans can leave their current show for bus
+                if (agent.currentShow && !this.canFanLeaveShow(agent, 'bus')) {
+                    continue; // Skip this fan, they can't leave yet
+                }
+                
                 agent.markAsLeaving();
                 const busX = this.width * this.config.BUS_X;
                 const busY = this.height * this.config.BUS_Y;
@@ -280,22 +327,7 @@ export class EventManager {
             }
         }
         
-        // If no one qualifies, select some random fans
-        if (leavingAgents.length === 0) {
-            const leavingCount = Math.floor(Math.random() * 30) + 20;
-            let count = 0;
-            for (let i = 0; i < agents.length && count < leavingCount; i++) {
-                if (Math.random() > 0.5 && agents[i].type === 'fan') {
-                    const agent = agents[i];
-                    agent.markAsLeaving();
-                    const busX = this.width * this.config.BUS_X;
-                    const busY = this.height * this.config.BUS_Y;
-                    agent.setTarget(busX + (Math.random() - 0.5) * 40, busY);
-                    leavingAgents.push(agent);
-                    count++;
-                }
-            }
-        }
+        // Bus leaves empty if no one qualifies - no fallback to random selection
         
         // Schedule removal of agents after 3 seconds
         setTimeout(() => {
