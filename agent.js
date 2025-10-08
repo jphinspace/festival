@@ -82,8 +82,9 @@ export class Agent {
      * @param {number} deltaTime - Time since last frame in seconds
      * @param {number} simulationSpeed - Speed multiplier for simulation
      * @param {Agent[]} otherAgents - Array of other agents for collision detection
+     * @param {Obstacles} obstacles - Obstacles manager for static object collision
      */
-    update(deltaTime, simulationSpeed, otherAgents = []) {
+    update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null) {
         // Allow movement for moving, in_queue, and passed_security states
         if ((this.state === 'moving' || this.state === 'in_queue' || this.state === 'passed_security') && this.targetX !== null) {
             const dx = this.targetX - this.x;
@@ -113,6 +114,11 @@ export class Agent {
             if (other !== this && this.overlapsWith(other)) {
                 this.resolveOverlap(other);
             }
+        }
+
+        // Check and resolve collisions with obstacles
+        if (obstacles) {
+            obstacles.resolveCollision(this);
         }
     }
 

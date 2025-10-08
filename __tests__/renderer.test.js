@@ -9,10 +9,14 @@ const mockConfig = {
         STAGE_INACTIVE: '#4a4a4a',
         STAGE_ACTIVE: '#ff6b6b',
         BUS_AREA: '#6b6bff',
+        SECURITY_QUEUE: '#9b6bff',
+        SECURITY_BORDER: '#ff00ff',
         TEXT: '#fff'
     },
     GROUND_HEIGHT: 0.7,
-    ROAD_START: 0.85
+    ROAD_START: 0.85,
+    QUEUE_LEFT_X: 0.45,
+    QUEUE_RIGHT_X: 0.55
 };
 
 describe('Renderer', () => {
@@ -30,8 +34,11 @@ describe('Renderer', () => {
         
         ctx = {
             fillStyle: '',
+            strokeStyle: '',
+            lineWidth: 0,
             font: '',
             fillRect: () => {},
+            strokeRect: () => {},
             fillText: () => {},
             beginPath: () => {},
             arc: () => {},

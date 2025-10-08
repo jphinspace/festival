@@ -12,11 +12,11 @@ export const CONFIG = {
     // Event settings
     BUS_ATTENDEE_COUNT: 50,
     INITIAL_ATTENDEE_COUNT: 100,
-    CONCERT_PREP_TIME: 5000, // 5 seconds to represent 5 minutes
+    CONCERT_PREP_TIME: 100000, // 100 seconds at 20x speed = 5 seconds perceived (5 simulated minutes)
     
     // Security queue settings
-    REGULAR_SECURITY_TIME: 1000, // 1 second (1 simulated minute)
-    ENHANCED_SECURITY_TIME: 3000, // 3 seconds (3 simulated minutes)
+    REGULAR_SECURITY_TIME: 20000, // 20 seconds at 20x speed = 1 second perceived (1 simulated minute)
+    ENHANCED_SECURITY_TIME: 60000, // 60 seconds at 20x speed = 3 seconds perceived (3 simulated minutes)
     ENHANCED_SECURITY_PERCENTAGE: 0.05, // 5% of fans get enhanced security
     QUEUE_LEFT_X: 0.45, // X position of left security queue
     QUEUE_RIGHT_X: 0.55, // X position of right security queue
@@ -24,19 +24,21 @@ export const CONFIG = {
     QUEUE_SPACING: 8, // Spacing between people in queue
     
     // Hunger settings
-    HUNGER_MIN_INITIAL: 0.5,
-    HUNGER_MAX_INITIAL: 0.8,
-    HUNGER_INCREASE_RATE: 0.02, // per second
+    HUNGER_MIN_INITIAL: 0.3,  // Reduced from 0.5
+    HUNGER_MAX_INITIAL: 0.6,  // Reduced from 0.8
+    HUNGER_INCREASE_RATE: 0.01, // Reduced from 0.02 (half speed)
     HUNGER_DECREASE_AMOUNT: 0.5,
-    FOOD_WAIT_TIME: 1000, // 1 second (1 simulated minute)
+    HUNGER_THRESHOLD_BASE: 0.7, // Base threshold for getting food
+    HUNGER_THRESHOLD_VARIANCE: 0.1, // ±10% randomness
+    FOOD_WAIT_TIME: 20000, // 20 seconds at 20x speed = 1 second perceived (1 simulated minute)
     FOOD_STALL_COUNT: 4,
     FOOD_STALL_X: 0.5, // Center between the two stages
     
     // Performance settings
     MAX_FPS: 60,
-    DEFAULT_SIMULATION_SPEED: 1.0,
-    MIN_SIMULATION_SPEED: 0.1,
-    MAX_SIMULATION_SPEED: 20.0, // Increased for faster testing
+    DEFAULT_SIMULATION_SPEED: 20.0, // Rescaled: old 20x is now 1x
+    MIN_SIMULATION_SPEED: 2.0, // Rescaled: old 0.1x is now 0.1x * 20 = 2.0x
+    MAX_SIMULATION_SPEED: 40.0, // Increased to 40x (old 20x → new 1x, old 40x → new 2x)
     
     // Visual settings
     COLORS: {
@@ -52,16 +54,21 @@ export const CONFIG = {
         STAGE_ACTIVE: '#ff6b6b',
         BUS_AREA: '#6b6bff',
         SECURITY_QUEUE: '#9b6bff',
+        SECURITY_BORDER: '#ff00ff',
         FOOD_STALL: '#8b4513',
         TEXT: '#fff'
     },
     
     // Layout settings
-    STAGE_LEFT_X: 0.15,
-    STAGE_RIGHT_X: 0.85,
-    STAGE_Y: 0.25,
+    STAGE_LEFT_X: 0.10,  // Center of left stage
+    STAGE_RIGHT_X: 0.90, // Center of right stage
+    STAGE_Y: 0.30,       // Center Y of stages
+    STAGE_WIDTH: 0.1,    // Stage width (after rotation)
+    STAGE_HEIGHT: 0.3,   // Stage height (after rotation)
     BUS_X: 0.5,
     BUS_Y: 0.9,
+    BUS_WIDTH: 0.2,
+    BUS_HEIGHT: 0.05,
     GROUND_HEIGHT: 0.7,
     ROAD_START: 0.85
 };

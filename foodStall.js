@@ -160,6 +160,10 @@ export class FoodStall {
                     Math.abs(fan.targetY - targetPos.y) > 5) {
                     fan.setTarget(targetPos.x, targetPos.y);
                 }
+                // Ensure fans in queue have proper state
+                if (fan.state !== 'in_queue') {
+                    fan.state = 'in_queue';
+                }
             }
         });
         
@@ -172,6 +176,10 @@ export class FoodStall {
                 if (Math.abs(fan.targetX - targetPos.x) > 5 || 
                     Math.abs(fan.targetY - targetPos.y) > 5) {
                     fan.setTarget(targetPos.x, targetPos.y);
+                }
+                // Ensure fans in queue have proper state
+                if (fan.state !== 'in_queue') {
+                    fan.state = 'in_queue';
                 }
             }
         });

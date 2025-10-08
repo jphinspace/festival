@@ -31,12 +31,8 @@ export class Simulation {
         this.resize();
         this.eventManager = new EventManager(this.config, this.renderer.width, this.renderer.height);
         
-        // Create initial fans
-        for (let i = 0; i < this.config.INITIAL_ATTENDEE_COUNT; i++) {
-            const x = Math.random() * this.renderer.width;
-            const y = Math.random() * this.renderer.height;
-            this.agents.push(new Fan(x, y, this.config));
-        }
+        // Don't spawn initial fans randomly - they will come via bus/security
+        // This prevents fans from spawning inside stages or other obstacles
     }
 
     resize() {
@@ -85,18 +81,23 @@ export class Simulation {
             // Update event manager (process security queue and food stalls)
             this.eventManager.update(performance.now(), this.agents);
             
-            // Pass all agents to each agent's update for collision detection
-            this.agents.forEach(agent => agent.update(deltaTime, this.simulationSpeed, this.agents));
+            // Pass all agents and obstacles to each agent's update for collision detection
+            this.agents.forEach(agent => agent.update(deltaTime, this.simulationSpeed, this.agents, this.eventManager.obstacles));
         }
     }
 
     // Render the current state
     render() {
+        const leftProgress = this.eventManager.getLeftShowProgress();
+        const rightProgress = this.eventManager.getRightShowProgress();
+        
         this.renderer.render(
             this.agents,
             this.eventManager.leftConcertActive,
             this.eventManager.rightConcertActive,
-            this.eventManager.foodStalls
+            this.eventManager.foodStalls,
+            leftProgress,
+            rightProgress
         );
     }
 

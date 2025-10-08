@@ -24,12 +24,36 @@ export class Fan extends Agent {
         this.hunger = config.HUNGER_MIN_INITIAL + 
             Math.random() * (config.HUNGER_MAX_INITIAL - config.HUNGER_MIN_INITIAL);
         
+        // Randomized hunger threshold (±10% variance)
+        this.hungerThreshold = config.HUNGER_THRESHOLD_BASE + 
+            (Math.random() - 0.5) * 2 * config.HUNGER_THRESHOLD_VARIANCE;
+        
         // Food queue-related properties
         this.inQueue = false;
         this.queuedAt = null;
         this.waitStartTime = null;
         this.targetFoodStall = null;
         this.queueSide = null; // 'left' or 'right' for food stalls
+        
+        // Stage preference: 'left', 'right', or 'none'
+        const rand = Math.random();
+        if (rand < 0.4) {
+            this.stagePreference = 'left';
+        } else if (rand < 0.8) {
+            this.stagePreference = 'right';
+        } else {
+            this.stagePreference = 'none'; // No preference, watches both
+        }
+        
+        // Show tracking
+        this.currentShow = null; // Which stage they're watching
+        this.hasSeenPreferredShow = false; // Whether they've seen a full show at their preferred stage
+        this.isVIP = false; // Whether in VIP seating
+        this.vipSeat = null; // VIP seat coordinates
+        this.isUpFront = false; // Whether they're in the front cluster at a show
+        
+        // Spread out behavior
+        this.wanderTargetUpdateTime = 0; // Last time wander target was updated
     }
     
     /**
@@ -37,15 +61,29 @@ export class Fan extends Agent {
      * @param {number} deltaTime - Time since last frame in seconds
      * @param {number} simulationSpeed - Speed multiplier for simulation
      * @param {Agent[]} otherAgents - Array of other agents for collision detection
+     * @param {Obstacles} obstacles - Obstacles manager for static object collision
      */
-    update(deltaTime, simulationSpeed, otherAgents = []) {
+    update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null) {
         // Update base agent behavior
-        super.update(deltaTime, simulationSpeed, otherAgents);
+        super.update(deltaTime, simulationSpeed, otherAgents, obstacles);
         
         // Increase hunger over time (unless waiting at food stall)
         if (!this.waitStartTime) {
             this.hunger = Math.min(1.0, this.hunger + 
                 this.config.HUNGER_INCREASE_RATE * deltaTime * simulationSpeed);
+        }
+        
+        // Spread-out behavior: wander if idle and not watching a show
+        if (this.state === 'idle' && !this.currentShow && !this.inQueue && this.state !== 'leaving') {
+            const now = Date.now();
+            // Update wander target every 5-10 seconds
+            if (now - this.wanderTargetUpdateTime > 5000 + Math.random() * 5000) {
+                this.wanderTargetUpdateTime = now;
+                // Pick a random position to wander to (spread out)
+                const targetX = Math.random() * (obstacles ? obstacles.width : 800);
+                const targetY = Math.random() * (obstacles ? obstacles.height * 0.7 : 400);
+                this.setTarget(targetX, targetY);
+            }
         }
     }
 
