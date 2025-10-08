@@ -85,8 +85,8 @@ export class Agent {
      * @param {Obstacles} obstacles - Obstacles manager for static object collision
      */
     update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null) {
-        // Allow movement for moving, in_queue, and passed_security states
-        if ((this.state === 'moving' || this.state === 'in_queue' || this.state === 'passed_security') && this.targetX !== null) {
+        // Allow movement for moving, in_queue, passed_security, and approaching_queue states
+        if ((this.state === 'moving' || this.state === 'in_queue' || this.state === 'passed_security' || this.state === 'approaching_queue') && this.targetX !== null) {
             const dx = this.targetX - this.x;
             const dy = this.targetY - this.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
