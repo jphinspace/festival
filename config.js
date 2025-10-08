@@ -21,7 +21,7 @@ export const CONFIG = {
     HUNGER_DECREASE_AMOUNT: 0.5,
     FOOD_WAIT_TIME: 1000, // 1 second (1 simulated minute)
     FOOD_STALL_COUNT: 4,
-    FOOD_STALL_Y: 0.5, // Between the stages vertically
+    FOOD_STALL_X: 0.5, // Center between the two stages
     
     // Performance settings
     MAX_FPS: 60,

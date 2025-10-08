@@ -29,8 +29,8 @@ describe('FoodStall', () => {
         expect(foodStall.x).toBe(100);
         expect(foodStall.y).toBe(100);
         expect(foodStall.queue).toEqual([]);
-        expect(foodStall.width).toBe(30);
-        expect(foodStall.height).toBe(20);
+        expect(foodStall.width).toBe(20);
+        expect(foodStall.height).toBe(30);
     });
 
     test('should add fan to queue', () => {
@@ -89,9 +89,9 @@ describe('FoodStall', () => {
         const pos0 = foodStall.getQueueTargetPosition(0);
         const pos1 = foodStall.getQueueTargetPosition(1);
         
-        expect(pos0.x).toBeGreaterThan(foodStall.x + foodStall.width);
-        expect(pos1.x).toBeGreaterThan(pos0.x);
-        expect(pos0.y).toBe(foodStall.y + foodStall.height / 2);
+        expect(pos0.y).toBeGreaterThan(foodStall.y + foodStall.height);
+        expect(pos1.y).toBeGreaterThan(pos0.y);
+        expect(pos0.x).toBe(foodStall.x + foodStall.width / 2);
     });
 
     test('should process queue and decrease hunger after wait time', () => {

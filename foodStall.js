@@ -12,8 +12,8 @@ export class FoodStall {
         this.x = x;
         this.y = y;
         this.config = config;
-        this.width = 30;
-        this.height = 20;
+        this.width = 20;  // Narrower for vertical orientation
+        this.height = 30; // Taller for vertical orientation
         this.queue = []; // Array of fans in queue
     }
 
@@ -62,11 +62,11 @@ export class FoodStall {
      * @returns {Object} {x, y} coordinates
      */
     getQueueTargetPosition(position) {
-        // Queue forms horizontally to the right of the stall
+        // Queue forms vertically below the stall
         const spacing = 8;
         return {
-            x: this.x + this.width + spacing * (position + 1),
-            y: this.y + this.height / 2
+            x: this.x + this.width / 2,
+            y: this.y + this.height + spacing * (position + 1)
         };
     }
 
@@ -141,6 +141,6 @@ export class FoodStall {
         
         ctx.fillStyle = this.config.COLORS.TEXT;
         ctx.font = '10px Arial';
-        ctx.fillText('FOOD', this.x + 4, this.y + 13);
+        ctx.fillText('FOOD', this.x + 1, this.y + 18);
     }
 }

@@ -14,18 +14,18 @@ export class EventManager {
     }
 
     createFoodStalls() {
-        // Create 4 food stalls in a row between the two stages
+        // Create 4 food stalls vertically in the center, dividing the two stages
         this.foodStalls = [];
         const stallCount = this.config.FOOD_STALL_COUNT;
-        const stallY = this.height * this.config.FOOD_STALL_Y;
+        const stallX = this.width * this.config.FOOD_STALL_X;
         
-        // Position stalls evenly between x: 0.3 and x: 0.7 of width
-        const startX = this.width * 0.3;
-        const endX = this.width * 0.7;
-        const spacing = (endX - startX) / (stallCount + 1);
+        // Position stalls vertically between y: 0.25 and y: 0.7 of height
+        const startY = this.height * 0.25;
+        const endY = this.height * 0.7;
+        const spacing = (endY - startY) / (stallCount + 1);
         
         for (let i = 0; i < stallCount; i++) {
-            const stallX = startX + spacing * (i + 1);
+            const stallY = startY + spacing * (i + 1);
             this.foodStalls.push(new FoodStall(stallX, stallY, this.config));
         }
     }
