@@ -14,6 +14,15 @@ export const CONFIG = {
     INITIAL_ATTENDEE_COUNT: 100,
     CONCERT_PREP_TIME: 5000, // 5 seconds to represent 5 minutes
     
+    // Hunger settings
+    HUNGER_MIN_INITIAL: 0.5,
+    HUNGER_MAX_INITIAL: 0.8,
+    HUNGER_INCREASE_RATE: 0.02, // per second
+    HUNGER_DECREASE_AMOUNT: 0.5,
+    FOOD_WAIT_TIME: 1000, // 1 second (1 simulated minute)
+    FOOD_STALL_COUNT: 4,
+    FOOD_STALL_Y: 0.5, // Between the stages vertically
+    
     // Performance settings
     MAX_FPS: 60,
     DEFAULT_SIMULATION_SPEED: 1.0,
@@ -30,6 +39,7 @@ export const CONFIG = {
         STAGE_INACTIVE: '#4a4a4a',
         STAGE_ACTIVE: '#ff6b6b',
         BUS_AREA: '#6b6bff',
+        FOOD_STALL: '#8b4513',
         TEXT: '#fff'
     },
     

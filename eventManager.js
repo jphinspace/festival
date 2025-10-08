@@ -1,5 +1,6 @@
 // EventManager class for handling festival events
 import { Fan } from './fan.js';
+import { FoodStall } from './foodStall.js';
 
 export class EventManager {
     constructor(config, width, height) {
@@ -8,11 +9,67 @@ export class EventManager {
         this.height = height;
         this.leftConcertActive = false;
         this.rightConcertActive = false;
+        this.foodStalls = [];
+        this.createFoodStalls();
+    }
+
+    createFoodStalls() {
+        // Create 4 food stalls in a row between the two stages
+        this.foodStalls = [];
+        const stallCount = this.config.FOOD_STALL_COUNT;
+        const stallY = this.height * this.config.FOOD_STALL_Y;
+        
+        // Position stalls evenly between x: 0.3 and x: 0.7 of width
+        const startX = this.width * 0.3;
+        const endX = this.width * 0.7;
+        const spacing = (endX - startX) / (stallCount + 1);
+        
+        for (let i = 0; i < stallCount; i++) {
+            const stallX = startX + spacing * (i + 1);
+            this.foodStalls.push(new FoodStall(stallX, stallY, this.config));
+        }
     }
 
     updateDimensions(width, height) {
         this.width = width;
         this.height = height;
+        this.createFoodStalls(); // Recreate stalls with new dimensions
+    }
+    
+    /**
+     * Update food stalls and their queues
+     */
+    updateFoodStalls() {
+        this.foodStalls.forEach(stall => {
+            stall.processQueue(this.width, this.height);
+            stall.updateQueuePositions(this.width, this.height);
+        });
+    }
+    
+    /**
+     * Find the shortest queue among food stalls
+     * @returns {FoodStall} The food stall with shortest queue
+     */
+    getShortestQueue() {
+        return this.foodStalls.reduce((shortest, stall) => 
+            stall.queue.length < shortest.queue.length ? stall : shortest
+        );
+    }
+    
+    /**
+     * Handle hungry fans seeking food
+     * @param {Agent[]} agents - All agents in simulation
+     */
+    handleHungryFans(agents) {
+        agents.forEach(agent => {
+            if (agent.type === 'fan' && !agent.inQueue && agent.state !== 'leaving') {
+                // If fan is very hungry, send them to food
+                if (agent.hunger > 0.7) {
+                    const stall = this.getShortestQueue();
+                    stall.addToQueue(agent);
+                }
+            }
+        });
     }
 
     handleLeftConcert(agents) {
