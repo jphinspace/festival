@@ -90,9 +90,12 @@ export class SecurityQueue {
         // Update fans approaching/entering the queue - they should target the end of current queue
         entering.forEach((fan, index) => {
             const position = queue.length + index;
-            const targetY = startY + (position * spacing);
+            // If queue is empty and this is first fan in entering, ensure they're at least
+            // at position 1 to avoid staying at front position (position 0)
+            const adjustedPosition = (queue.length === 0 && index === 0) ? Math.max(1, position) : position;
+            const targetY = startY + (adjustedPosition * spacing);
             fan.setTarget(queueX, targetY);
-            fan.queuePosition = position;
+            fan.queuePosition = position; // Keep original position for queue logic
             if (fan.state !== 'approaching_queue') {
                 fan.state = 'approaching_queue';
             }
