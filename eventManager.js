@@ -15,7 +15,7 @@ export class EventManager {
         this.rightConcertStartTime = null;
         this.leftConcertPrepStartTime = null;
         this.rightConcertPrepStartTime = null;
-        this.showDuration = 1200000; // 1200 seconds at 20x speed = 60 seconds realtime at 1x perceived
+        this.showDuration = 1200000; // 1200 seconds at 40x speed = 30 seconds realtime at 1x perceived
         this.simulationTime = 0; // Track simulation time
         this.securityQueue = new SecurityQueue(config, width, height);
         this.obstacles = new Obstacles(config, width, height);
@@ -86,14 +86,8 @@ export class EventManager {
         if (this.leftConcertPrepStartTime !== null && !this.leftConcertStartTime) {
             const prepElapsed = simulationTime - this.leftConcertPrepStartTime;
             if (prepElapsed >= this.config.CONCERT_PREP_TIME) {
-                // Start the left concert
+                // Start the left concert (fans are already at the stage)
                 this.leftConcertStartTime = simulationTime;
-                
-                // Move fans to left stage based on preferences
-                if (this.pendingLeftConcertAgents) {
-                    this.moveAgentsToStage(this.pendingLeftConcertAgents, 'left');
-                    this.pendingLeftConcertAgents = null;
-                }
             }
         }
         
@@ -101,14 +95,8 @@ export class EventManager {
         if (this.rightConcertPrepStartTime !== null && !this.rightConcertStartTime) {
             const prepElapsed = simulationTime - this.rightConcertPrepStartTime;
             if (prepElapsed >= this.config.CONCERT_PREP_TIME) {
-                // Start the right concert
+                // Start the right concert (fans are already at the stage)
                 this.rightConcertStartTime = simulationTime;
-                
-                // Move fans to right stage based on preferences
-                if (this.pendingRightConcertAgents) {
-                    this.moveAgentsToStage(this.pendingRightConcertAgents, 'right');
-                    this.pendingRightConcertAgents = null;
-                }
             }
         }
         
@@ -236,13 +224,17 @@ export class EventManager {
     handleLeftConcert(agents) {
         this.leftConcertActive = true;
         this.leftConcertPrepStartTime = this.simulationTime;
-        this.pendingLeftConcertAgents = agents;
+        // Move fans to stage immediately when prep starts
+        this.moveAgentsToStage(agents, 'left');
+        this.pendingLeftConcertAgents = null;
     }
 
     handleRightConcert(agents) {
         this.rightConcertActive = true;
         this.rightConcertPrepStartTime = this.simulationTime;
-        this.pendingRightConcertAgents = agents;
+        // Move fans to stage immediately when prep starts
+        this.moveAgentsToStage(agents, 'right');
+        this.pendingRightConcertAgents = null;
     }
 
     handleBusArrival(agents) {

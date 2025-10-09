@@ -283,7 +283,7 @@ describe('Fan hunger', () => {
         expect(fan.hunger).toBe(0.5);
     });
 
-    test('should NOT scale hunger increase with simulation speed', () => {
+    test('should scale hunger increase with simulation speed', () => {
         const fan1 = new Fan(100, 100, mockConfig);
         const fan2 = new Fan(200, 200, mockConfig);
         fan1.hunger = 0.3;
@@ -292,7 +292,12 @@ describe('Fan hunger', () => {
         fan1.update(1.0, 1.0, []);
         fan2.update(1.0, 2.0, []);
         
-        // Hunger should increase at same rate regardless of simulation speed
-        expect(fan2.hunger).toBe(fan1.hunger);
+        // Hunger should increase twice as fast at 2x simulation speed
+        const expectedFan1Hunger = 0.3 + mockConfig.HUNGER_INCREASE_RATE * 1.0 * 1.0;
+        const expectedFan2Hunger = 0.3 + mockConfig.HUNGER_INCREASE_RATE * 1.0 * 2.0;
+        
+        expect(fan1.hunger).toBeCloseTo(expectedFan1Hunger, 5);
+        expect(fan2.hunger).toBeCloseTo(expectedFan2Hunger, 5);
+        expect(fan2.hunger).toBeGreaterThan(fan1.hunger);
     });
 });

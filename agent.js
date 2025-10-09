@@ -130,9 +130,30 @@ export class Agent {
                             nextX = altX;
                             nextY = altY;
                         } else {
-                            // Can't move, stay in place
-                            nextX = this.x;
-                            nextY = this.y;
+                            // Try diagonal combinations for better navigation
+                            const diagMoveDistance = moveDistance * 0.7; // Reduced for diagonal
+                            
+                            // Try forward-right diagonal
+                            altX = this.x + (dx / distance) * diagMoveDistance + perpX * diagMoveDistance;
+                            altY = this.y + (dy / distance) * diagMoveDistance + perpY * diagMoveDistance;
+                            
+                            if (!obstacles.checkCollision(altX, altY, this.radius, this.state)) {
+                                nextX = altX;
+                                nextY = altY;
+                            } else {
+                                // Try forward-left diagonal
+                                altX = this.x + (dx / distance) * diagMoveDistance - perpX * diagMoveDistance;
+                                altY = this.y + (dy / distance) * diagMoveDistance - perpY * diagMoveDistance;
+                                
+                                if (!obstacles.checkCollision(altX, altY, this.radius, this.state)) {
+                                    nextX = altX;
+                                    nextY = altY;
+                                } else {
+                                    // Can't move, stay in place
+                                    nextX = this.x;
+                                    nextY = this.y;
+                                }
+                            }
                         }
                     }
                 }
