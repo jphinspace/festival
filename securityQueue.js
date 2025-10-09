@@ -54,9 +54,9 @@ export class SecurityQueue {
         // Add to entering list first
         this.entering[queueIndex].push(fan);
         
-        // Send fan to entry point at the BACK of the queue (bottom of security area)
+        // Send fan to entry point at the BACK of the queue (bottom, near bus at 0.88)
         const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X);
-        const entryY = this.height * 0.7; // Bottom of security area
+        const entryY = this.height * 0.88; // Bottom of security area, near bus
         fan.setTarget(queueX, entryY);
         fan.state = 'approaching_queue';
     }
@@ -72,7 +72,7 @@ export class SecurityQueue {
         const spacing = this.config.QUEUE_SPACING;
         
         queue.forEach((fan, index) => {
-            const targetY = startY - (index * spacing);
+            const targetY = startY + (index * spacing); // Queue extends downward from front
             fan.setTarget(queueX, targetY);
             fan.queuePosition = index;
             // All fans in queue should have in_queue state (unless being checked)
@@ -134,7 +134,7 @@ export class SecurityQueue {
                         fan.enhancedSecurity = false; // Only enhanced once
                         entering.push(fan);
                         const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X);
-                        const entryY = this.height * 0.7; // Bottom of security area
+                        const entryY = this.height * 0.88; // Bottom of security area, near bus
                         fan.setTarget(queueX, entryY);
                         fan.state = 'approaching_queue';
                     } else {
