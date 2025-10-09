@@ -137,6 +137,27 @@ describe('FoodStall', () => {
         expect(fan.inQueue).toBe(false);
     });
 
+    test('should set fan state to moving after getting food', () => {
+        const fan = new Fan(92, 115, mockConfig); // Position at front of left queue
+        fan.hunger = 0.8;
+        fan.targetX = 92;
+        fan.targetY = 115;
+        fan.state = 'idle';
+        
+        foodStall.addToQueue(fan);
+        
+        // Simulate fan reaching front and starting wait
+        const simulationTime = 2000;
+        fan.waitStartTime = simulationTime - 1001; // Past wait time
+        
+        foodStall.processQueue(800, 600, simulationTime);
+        
+        // Fan should have state set to 'moving' so they leave the food stall area
+        expect(fan.state).toBe('moving');
+        expect(fan.targetX).toBeDefined();
+        expect(fan.targetY).toBeDefined();
+    });
+
     test('should not reserve slots - fans join at end of current queue', () => {
         // Add first fan
         const fan1 = new Fan(50, 50, mockConfig);
