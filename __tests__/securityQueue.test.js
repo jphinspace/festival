@@ -94,35 +94,40 @@ describe('SecurityQueue', () => {
     });
 
     test('should process fan through security after regular time', () => {
-        const fan = new Fan(360, 420, mockConfig); // Position at queue entrance (y=0.7 * 600)
+        const fan = new Fan(360, 420, mockConfig);
         fan.enhancedSecurity = false; // Ensure regular security
         securityQueue.addToQueue(fan);
         
-        // Manually set fan at entry point and trigger entering logic
-        fan.x = fan.targetX;
-        fan.y = fan.targetY;
+        const queueIndex = fan.queueIndex; // Track which queue the fan is in
         
+        // Fan starts away from their target
         const startTime = 1000;
         
-        // First update - should move fan from entering to queue
+        // First update - fan is still approaching
         securityQueue.update(startTime);
-        expect(fan.state).toBe('in_queue');
+        expect(fan.state).toBe('approaching_queue');
+        expect(securityQueue.entering[queueIndex]).toContain(fan);
         
-        // Move fan to front of queue position
+        // Manually move fan to their entry point
         fan.x = fan.targetX;
         fan.y = fan.targetY;
         
-        // Second update - should start processing
+        // Second update - should move fan from entering to queue AND start processing
+        // (since they're the first in line and already at the front position)
         securityQueue.update(startTime + 10);
         expect(fan.state).toBe('being_checked');
+        expect(securityQueue.queues[queueIndex]).toContain(fan);
+        expect(securityQueue.processing[queueIndex]).toBe(fan);
         
         // Keep fan at target during processing
         fan.x = fan.targetX;
         fan.y = fan.targetY;
         
         // Third update after regular security time - should pass
-        securityQueue.update(startTime + mockConfig.REGULAR_SECURITY_TIME + 100);
+        const processTime = startTime + 10 + mockConfig.REGULAR_SECURITY_TIME + 10;
+        securityQueue.update(processTime);
         expect(fan.state).toBe('passed_security');
+        expect(securityQueue.processing[queueIndex]).toBeNull();
     });
 
     test('should send enhanced security fan to back of queue', () => {
@@ -201,5 +206,55 @@ describe('SecurityQueue', () => {
         // Back should be further down (432 + spacing = 440)
         expect(backY).toBeGreaterThan(frontY);
         expect(backY).toBeCloseTo(432 + mockConfig.QUEUE_SPACING, 0);
+    });
+
+    test('should prevent slot reservation - fans join at actual end of queue', () => {
+        // Add first fan
+        const fan1 = new Fan(400, 540, mockConfig);
+        securityQueue.addToQueue(fan1);
+        const queueIndex = fan1.queueIndex;
+        
+        // Fan1 is approaching, not in actual queue yet
+        expect(securityQueue.entering[queueIndex]).toContain(fan1);
+        expect(securityQueue.queues[queueIndex]).not.toContain(fan1);
+        
+        // Add second fan - it should go to the other queue naturally
+        const fan2 = new Fan(400, 540, mockConfig);
+        securityQueue.addToQueue(fan2);
+        
+        // Force fan2 to same queue for testing
+        if (fan2.queueIndex !== queueIndex) {
+            // Move fan2 to same queue as fan1
+            const otherIndex = fan2.queueIndex;
+            const idx = securityQueue.entering[otherIndex].indexOf(fan2);
+            if (idx !== -1) {
+                securityQueue.entering[otherIndex].splice(idx, 1);
+                securityQueue.entering[queueIndex].push(fan2);
+                fan2.queueIndex = queueIndex;
+            }
+        }
+        
+        // Both should be in entering for same queue
+        expect(securityQueue.entering[queueIndex]).toContain(fan1);
+        expect(securityQueue.entering[queueIndex]).toContain(fan2);
+        
+        // Simulate fan1 reaching their position and joining queue
+        fan1.x = fan1.targetX;
+        fan1.y = fan1.targetY;
+        securityQueue.update(1000);
+        
+        // Fan1 should now be in actual queue
+        expect(securityQueue.queues[queueIndex].length).toBe(1);
+        expect(securityQueue.entering[queueIndex]).not.toContain(fan1);
+        
+        // Fan2 should still be approaching
+        expect(securityQueue.entering[queueIndex]).toContain(fan2);
+        
+        // Update queue positions - fan2's target should be after fan1
+        securityQueue.updateQueuePositions(queueIndex);
+        
+        // Fan2's target should be at position 1 (after fan1 at position 0)
+        const fan1Y = securityQueue.queues[queueIndex][0].targetY;
+        expect(fan2.targetY).toBeGreaterThan(fan1Y);
     });
 });
