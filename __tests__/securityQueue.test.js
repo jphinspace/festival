@@ -8,10 +8,10 @@ const mockConfig = {
     ENHANCED_SECURITY_PERCENTAGE: 0.1, // 10% for testing
     QUEUE_LEFT_X: 0.45,
     QUEUE_RIGHT_X: 0.55,
-    QUEUE_START_Y: 0.85,
+    QUEUE_START_Y: 0.72, // Updated to match new config
     QUEUE_SPACING: 8,
     AGENT_RADIUS: 3,
-    AGENT_SPEED: 0.5,
+    AGENT_SPEED: 0.75, // Updated to match new config (50% faster)
     COLORS: {
         AGENT_ACTIVE: '#4a90e2',
         AGENT_LEAVING: '#e24a4a',
@@ -172,5 +172,34 @@ describe('SecurityQueue', () => {
         
         // Now fan2 should be at front (position 0)
         expect(securityQueue.queues[queueIndex][0]).toBe(fan2);
+    });
+
+    test('should position queue correctly with entry at bottom and exit at top', () => {
+        const fan1 = new Fan(400, 540, mockConfig);
+        const fan2 = new Fan(400, 540, mockConfig);
+        const queueIndex = 0;
+        
+        // Add fans manually to queue to ensure they're in the same queue
+        fan1.queueIndex = queueIndex;
+        fan2.queueIndex = queueIndex;
+        
+        // Manually add to queue (bypass entering)
+        securityQueue.queues[queueIndex].push(fan1);
+        securityQueue.queues[queueIndex].push(fan2);
+        
+        // Update positions
+        securityQueue.updateQueuePositions(queueIndex);
+        
+        // Fan at position 0 (front) should have lower Y value (closer to festival/top)
+        // Fan at position 1 (back) should have higher Y value (closer to bus/bottom)
+        const frontY = fan1.targetY;
+        const backY = fan2.targetY;
+        
+        // Front should be at QUEUE_START_Y (0.72 * 600 = 432)
+        expect(frontY).toBeCloseTo(432, 0);
+        
+        // Back should be further down (432 + spacing = 440)
+        expect(backY).toBeGreaterThan(frontY);
+        expect(backY).toBeCloseTo(432 + mockConfig.QUEUE_SPACING, 0);
     });
 });
