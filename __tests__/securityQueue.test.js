@@ -94,35 +94,40 @@ describe('SecurityQueue', () => {
     });
 
     test('should process fan through security after regular time', () => {
-        const fan = new Fan(360, 420, mockConfig); // Position at queue entrance (y=0.7 * 600)
+        const fan = new Fan(360, 420, mockConfig);
         fan.enhancedSecurity = false; // Ensure regular security
         securityQueue.addToQueue(fan);
         
-        // Manually set fan at entry point and trigger entering logic
-        fan.x = fan.targetX;
-        fan.y = fan.targetY;
+        const queueIndex = fan.queueIndex; // Track which queue the fan is in
         
+        // Fan starts away from their target
         const startTime = 1000;
         
-        // First update - should move fan from entering to queue
+        // First update - fan is still approaching
         securityQueue.update(startTime);
-        expect(fan.state).toBe('in_queue');
+        expect(fan.state).toBe('approaching_queue');
+        expect(securityQueue.entering[queueIndex]).toContain(fan);
         
-        // Move fan to front of queue position
+        // Manually move fan to their entry point
         fan.x = fan.targetX;
         fan.y = fan.targetY;
         
-        // Second update - should start processing
+        // Second update - should move fan from entering to queue AND start processing
+        // (since they're the first in line and already at the front position)
         securityQueue.update(startTime + 10);
         expect(fan.state).toBe('being_checked');
+        expect(securityQueue.queues[queueIndex]).toContain(fan);
+        expect(securityQueue.processing[queueIndex]).toBe(fan);
         
         // Keep fan at target during processing
         fan.x = fan.targetX;
         fan.y = fan.targetY;
         
         // Third update after regular security time - should pass
-        securityQueue.update(startTime + mockConfig.REGULAR_SECURITY_TIME + 100);
+        const processTime = startTime + 10 + mockConfig.REGULAR_SECURITY_TIME + 10;
+        securityQueue.update(processTime);
         expect(fan.state).toBe('passed_security');
+        expect(securityQueue.processing[queueIndex]).toBeNull();
     });
 
     test('should send enhanced security fan to back of queue', () => {
