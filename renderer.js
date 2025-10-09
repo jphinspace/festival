@@ -6,6 +6,7 @@ export class Renderer {
         this.config = config;
         this.width = 0;
         this.height = 0;
+        this.hoveredFan = null; // Track which fan is being hovered
     }
 
     resize(width, height) {
@@ -160,6 +161,66 @@ export class Renderer {
         foodStalls.forEach(stall => stall.draw(this.ctx));
     }
 
+    drawDebugOverlay(fan, mouseX, mouseY) {
+        // Draw debug information for a hovered fan
+        const padding = 10;
+        const lineHeight = 14;
+        const lines = [
+            `State: ${fan.state}`,
+            `Hunger: ${(fan.hunger * 100).toFixed(1)}%`,
+            `Target: (${fan.targetX ? fan.targetX.toFixed(0) : 'none'}, ${fan.targetY ? fan.targetY.toFixed(0) : 'none'})`,
+            `Position: (${fan.x.toFixed(0)}, ${fan.y.toFixed(0)})`,
+            `In Queue: ${fan.inQueue ? 'Yes' : 'No'}`,
+            `Queue Position: ${fan.queuePosition !== null ? fan.queuePosition : 'N/A'}`,
+            `Enhanced Security: ${fan.enhancedSecurity ? 'Yes' : 'No'}`,
+            `Wait Start: ${fan.waitStartTime ? 'Yes' : 'No'}`,
+            `Stage Pref: ${fan.stagePreference}`,
+            `Current Show: ${fan.currentShow || 'None'}`
+        ];
+        
+        // Calculate overlay dimensions
+        const maxWidth = Math.max(...lines.map(line => this.ctx.measureText(line).width));
+        const overlayWidth = maxWidth + padding * 2;
+        const overlayHeight = lines.length * lineHeight + padding * 2;
+        
+        // Position overlay near mouse, but keep it on screen
+        let overlayX = mouseX + 15;
+        let overlayY = mouseY + 15;
+        
+        if (overlayX + overlayWidth > this.width) {
+            overlayX = mouseX - overlayWidth - 15;
+        }
+        if (overlayY + overlayHeight > this.height) {
+            overlayY = mouseY - overlayHeight - 15;
+        }
+        
+        // Draw background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        this.ctx.fillRect(overlayX, overlayY, overlayWidth, overlayHeight);
+        
+        // Draw border
+        this.ctx.strokeStyle = '#4a90e2';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(overlayX, overlayY, overlayWidth, overlayHeight);
+        
+        // Draw text
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = '11px monospace';
+        lines.forEach((line, index) => {
+            this.ctx.fillText(line, overlayX + padding, overlayY + padding + (index + 1) * lineHeight);
+        });
+        
+        // Draw line from fan to overlay
+        this.ctx.strokeStyle = '#4a90e2';
+        this.ctx.lineWidth = 1;
+        this.ctx.setLineDash([3, 3]);
+        this.ctx.beginPath();
+        this.ctx.moveTo(fan.x, fan.y);
+        this.ctx.lineTo(overlayX, overlayY);
+        this.ctx.stroke();
+        this.ctx.setLineDash([]);
+    }
+
     render(agents, leftConcertActive, rightConcertActive, foodStalls = [], leftShowInfo = null, rightShowInfo = null) {
         this.drawBackground();
         this.drawStages(leftConcertActive, rightConcertActive);
@@ -176,5 +237,16 @@ export class Renderer {
         this.drawFoodStalls(foodStalls);
         this.drawBusArea();
         this.drawAgents(agents);
+        
+        // Draw debug overlay if a fan is hovered
+        if (this.hoveredFan && this.mouseX !== undefined && this.mouseY !== undefined) {
+            this.drawDebugOverlay(this.hoveredFan, this.mouseX, this.mouseY);
+        }
+    }
+    
+    setHoveredFan(fan, mouseX, mouseY) {
+        this.hoveredFan = fan;
+        this.mouseX = mouseX;
+        this.mouseY = mouseY;
     }
 }

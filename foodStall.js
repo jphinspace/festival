@@ -192,6 +192,7 @@ export class FoodStall {
                         const targetX = Math.random() * width;
                         const targetY = Math.random() * height * 0.7;
                         frontFan.setTarget(targetX, targetY);
+                        frontFan.state = 'moving'; // Set state to moving so they leave
                     }
                 }
             }
