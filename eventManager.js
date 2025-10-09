@@ -15,7 +15,7 @@ export class EventManager {
         this.rightConcertStartTime = null;
         this.leftConcertPrepStartTime = null;
         this.rightConcertPrepStartTime = null;
-        this.showDuration = 1200000; // 1200 seconds at 20x speed = 60 seconds perceived (1 simulated hour)
+        this.showDuration = 1200000; // 1200 seconds at 20x speed = 60 seconds realtime at 1x perceived
         this.simulationTime = 0; // Track simulation time
         this.securityQueue = new SecurityQueue(config, width, height);
         this.obstacles = new Obstacles(config, width, height);
@@ -122,11 +122,9 @@ export class EventManager {
                 
                 // Fans disperse after show
                 agents.forEach(agent => {
-                    if (agent.type === 'fan' && agent.currentShow === 'left' && !agent.isVIP) {
-                        // Mark as having seen preferred show if applicable
-                        if (agent.stagePreference === 'left') {
-                            agent.hasSeenPreferredShow = true;
-                        }
+                    if (agent.type === 'fan' && agent.currentShow === 'left') {
+                        // Mark as having seen a show
+                        agent.hasSeenShow = true;
                         agent.currentShow = null;
                         agent.isUpFront = false;
                         // Wander to random position
@@ -148,11 +146,9 @@ export class EventManager {
                 
                 // Fans disperse after show
                 agents.forEach(agent => {
-                    if (agent.type === 'fan' && agent.currentShow === 'right' && !agent.isVIP) {
-                        // Mark as having seen preferred show if applicable
-                        if (agent.stagePreference === 'right') {
-                            agent.hasSeenPreferredShow = true;
-                        }
+                    if (agent.type === 'fan' && agent.currentShow === 'right') {
+                        // Mark as having seen a show
+                        agent.hasSeenShow = true;
                         agent.currentShow = null;
                         agent.isUpFront = false;
                         // Wander to random position
@@ -174,25 +170,26 @@ export class EventManager {
         const targetX = this.width * (stage === 'left' ? this.config.STAGE_LEFT_X : this.config.STAGE_RIGHT_X);
         
         agents.forEach(agent => {
-            if (agent.type !== 'fan' || agent.state === 'leaving' || agent.isVIP) return;
+            if (agent.type !== 'fan' || agent.state === 'leaving') return;
+            
+            // Skip fans who are in food queue - they must finish getting food first
+            if (agent.inQueue) return;
+            
+            // Skip fans who haven't passed security yet
+            if (agent.state !== 'passed_security' && agent.state !== 'idle' && agent.state !== 'moving') return;
             
             // Determine if fan should attend this show
             let shouldAttend = false;
             
             if (agent.stagePreference === stage) {
-                // Preferred stage - check if they can leave current show
-                shouldAttend = agent.currentShow !== stage && this.canFanLeaveShow(agent, 'other_show');
-            } else if (agent.stagePreference === 'none' && !agent.inQueue && !agent.currentShow) {
-                // No preference, not in queue, and not watching another show
+                // Preferred stage - always attend if not in food queue
+                shouldAttend = agent.currentShow !== stage;
+            } else if (agent.stagePreference === 'none' && !agent.currentShow) {
+                // No preference, not watching another show
                 shouldAttend = true;
             }
             
             if (shouldAttend) {
-                // Leave food queue if going to preferred stage
-                if (agent.stagePreference === stage && agent.inQueue && agent.targetFoodStall) {
-                    agent.targetFoodStall.removeFromQueue(agent);
-                }
-                
                 agent.currentShow = stage;
                 
                 // Small percentage go up front (cluster tightly)
@@ -209,58 +206,6 @@ export class EventManager {
             }
         });
     }
-
-    /**
-     * Check if a fan can leave their current show for food or other reasons
-     * This applies to both VIP and up-front fans
-     * @param {Fan} agent - The fan to check
-     * @param {string} reason - 'food', 'other_show', or 'bus'
-     * @returns {boolean}
-     */
-    canFanLeaveShow(agent, reason) {
-        // Only applies to fans at their preferred show in VIP or up-front positions
-        if (agent.currentShow !== agent.stagePreference) {
-            return true; // Can leave non-preferred show anytime
-        }
-        
-        if (!agent.isVIP && !agent.isUpFront) {
-            return true; // Regular fans can leave
-        }
-        
-        // VIP and up-front fans at their preferred show follow special rules
-        const showStartTime = agent.currentShow === 'left' ? this.leftConcertStartTime : this.rightConcertStartTime;
-        if (!showStartTime) {
-            return true; // Show hasn't started yet
-        }
-        
-        const progress = this.getShowProgress(agent.currentShow);
-        
-        if (reason === 'food') {
-            // Can only leave for food if show is >90% complete
-            return progress >= 0.9;
-        } else if (reason === 'other_show') {
-            // Can only leave for another show if show is >90% complete
-            return progress >= 0.9;
-        } else if (reason === 'bus') {
-            // Can only leave for bus if show is >90% complete
-            return progress >= 0.9;
-        }
-        
-        return false;
-    }
-
-    /**
-     * Get show progress for a specific stage
-     * @param {string} stage - 'left' or 'right'
-     * @returns {number} Progress from 0 to 1
-     */
-    getShowProgress(stage) {
-        const startTime = stage === 'left' ? this.leftConcertStartTime : this.rightConcertStartTime;
-        if (!startTime) return 0;
-        
-        const elapsed = this.simulationTime - startTime;
-        return Math.min(1.0, elapsed / this.showDuration);
-    }
     
     /**
      * Handle hungry fans seeking food
@@ -271,26 +216,18 @@ export class EventManager {
             if (agent.type === 'fan' && !agent.inQueue && agent.state !== 'leaving') {
                 // Check if fan is hungry enough
                 if (agent.hunger > agent.hungerThreshold) {
-                    // Check if fan can leave for food based on show rules
-                    let canLeaveForFood = true;
-                    
-                    // Fans with no preference won't get food until all shows end
-                    if (agent.stagePreference === 'none' && (this.leftConcertActive || this.rightConcertActive)) {
-                        canLeaveForFood = false;
-                    }
-                    
-                    // Check if VIP/up-front fans can leave their preferred show
+                    // Fans won't leave a show to get food - they must wait until the show ends
                     if (agent.currentShow) {
-                        canLeaveForFood = this.canFanLeaveShow(agent, 'food');
+                        return; // Don't get food while watching a show
                     }
                     
-                    if (canLeaveForFood) {
-                        const stall = this.getShortestQueue();
-                        stall.addToQueue(agent);
-                        // Clear show status when leaving for food
-                        agent.currentShow = null;
-                        agent.isUpFront = false;
+                    // Skip fans who haven't passed security
+                    if (agent.state !== 'passed_security' && agent.state !== 'idle' && agent.state !== 'moving') {
+                        return;
                     }
+                    
+                    const stall = this.getShortestQueue();
+                    stall.addToQueue(agent);
                 }
             }
         });
@@ -328,20 +265,15 @@ export class EventManager {
     }
 
     handleBusDeparture(agents) {
-        // Select fans who have seen their preferred show, are not in food queue,
-        // and can leave (VIP/up-front fans must wait until show is 90% complete)
+        // Select fans who have BOTH seen a show AND eaten food
         const leavingAgents = [];
         
         for (const agent of agents) {
             if (agent.type === 'fan' && 
-                agent.hasSeenPreferredShow && 
+                agent.hasSeenShow && 
+                agent.hasEatenFood &&
                 !agent.inQueue &&
                 agent.state !== 'leaving') {
-                
-                // Check if VIP/up-front fans can leave their current show for bus
-                if (agent.currentShow && !this.canFanLeaveShow(agent, 'bus')) {
-                    continue; // Skip this fan, they can't leave yet
-                }
                 
                 agent.markAsLeaving();
                 const busX = this.width * this.config.BUS_X;
@@ -350,8 +282,6 @@ export class EventManager {
                 leavingAgents.push(agent);
             }
         }
-        
-        // Bus leaves empty if no one qualifies - no fallback to random selection
         
         // Schedule removal of agents after 3 seconds
         setTimeout(() => {
@@ -380,18 +310,54 @@ export class EventManager {
     }
 
     /**
-     * Get show progress for left stage
-     * @returns {number} Progress from 0 to 1
+     * Get show progress for left stage (0-1 during show, returns prep progress if in prep)
+     * @returns {Object} {isPrep: boolean, progress: number}
      */
     getLeftShowProgress() {
-        return this.getShowProgress('left');
+        // Check if in prep phase
+        if (this.leftConcertPrepStartTime !== null && this.leftConcertStartTime === null) {
+            const elapsed = this.simulationTime - this.leftConcertPrepStartTime;
+            return {
+                isPrep: true,
+                progress: Math.min(1.0, elapsed / this.config.CONCERT_PREP_TIME)
+            };
+        }
+        
+        // Check if show is running
+        if (this.leftConcertStartTime !== null) {
+            const elapsed = this.simulationTime - this.leftConcertStartTime;
+            return {
+                isPrep: false,
+                progress: Math.min(1.0, elapsed / this.showDuration)
+            };
+        }
+        
+        return { isPrep: false, progress: 0 };
     }
     
     /**
-     * Get show progress for right stage
-     * @returns {number} Progress from 0 to 1
+     * Get show progress for right stage (0-1 during show, returns prep progress if in prep)
+     * @returns {Object} {isPrep: boolean, progress: number}
      */
     getRightShowProgress() {
-        return this.getShowProgress('right');
+        // Check if in prep phase
+        if (this.rightConcertPrepStartTime !== null && this.rightConcertStartTime === null) {
+            const elapsed = this.simulationTime - this.rightConcertPrepStartTime;
+            return {
+                isPrep: true,
+                progress: Math.min(1.0, elapsed / this.config.CONCERT_PREP_TIME)
+            };
+        }
+        
+        // Check if show is running
+        if (this.rightConcertStartTime !== null) {
+            const elapsed = this.simulationTime - this.rightConcertStartTime;
+            return {
+                isPrep: false,
+                progress: Math.min(1.0, elapsed / this.showDuration)
+            };
+        }
+        
+        return { isPrep: false, progress: 0 };
     }
 }

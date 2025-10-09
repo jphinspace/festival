@@ -47,9 +47,8 @@ export class Fan extends Agent {
         
         // Show tracking
         this.currentShow = null; // Which stage they're watching
-        this.hasSeenPreferredShow = false; // Whether they've seen a full show at their preferred stage
-        this.isVIP = false; // Whether in VIP seating
-        this.vipSeat = null; // VIP seat coordinates
+        this.hasSeenShow = false; // Whether they've seen a full show (any stage)
+        this.hasEatenFood = false; // Whether they've eaten food
         this.isUpFront = false; // Whether they're in the front cluster at a show
         
         // Spread out behavior

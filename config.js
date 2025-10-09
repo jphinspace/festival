@@ -12,25 +12,25 @@ export const CONFIG = {
     // Event settings
     BUS_ATTENDEE_COUNT: 50,
     INITIAL_ATTENDEE_COUNT: 100,
-    CONCERT_PREP_TIME: 100000, // 100 seconds at 20x speed = 5 seconds perceived (5 simulated minutes)
+    CONCERT_PREP_TIME: 100000, // 100 seconds at 20x speed = 5 seconds realtime at 1x perceived
     
     // Security queue settings
-    REGULAR_SECURITY_TIME: 20000, // 20 seconds at 20x speed = 1 second perceived (1 simulated minute)
-    ENHANCED_SECURITY_TIME: 60000, // 60 seconds at 20x speed = 3 seconds perceived (3 simulated minutes)
+    REGULAR_SECURITY_TIME: 20000, // 20 seconds at 20x speed = 1 realtime second at 1x perceived
+    ENHANCED_SECURITY_TIME: 60000, // 60 seconds at 20x speed = 3 realtime seconds at 1x perceived
     ENHANCED_SECURITY_PERCENTAGE: 0.05, // 5% of fans get enhanced security
     QUEUE_LEFT_X: 0.45, // X position of left security queue
     QUEUE_RIGHT_X: 0.55, // X position of right security queue
     QUEUE_START_Y: 0.85, // Y position where queue starts (front of line)
     QUEUE_SPACING: 8, // Spacing between people in queue
     
-    // Hunger settings
-    HUNGER_MIN_INITIAL: 0.3,  // Reduced from 0.5
-    HUNGER_MAX_INITIAL: 0.6,  // Reduced from 0.8
-    HUNGER_INCREASE_RATE: 0.01, // Reduced from 0.02 (half speed)
-    HUNGER_DECREASE_AMOUNT: 0.5,
+    // Hunger settings - VERY VERY slowly
+    HUNGER_MIN_INITIAL: 0.1,  // Start with very low hunger
+    HUNGER_MAX_INITIAL: 0.2,  // Reduced even more
+    HUNGER_INCREASE_RATE: 0.002, // Much slower than before (5x slower than 0.01)
+    HUNGER_DECREASE_AMOUNT: 1.0,  // Reset hunger completely
     HUNGER_THRESHOLD_BASE: 0.7, // Base threshold for getting food
     HUNGER_THRESHOLD_VARIANCE: 0.1, // ±10% randomness
-    FOOD_WAIT_TIME: 20000, // 20 seconds at 20x speed = 1 second perceived (1 simulated minute)
+    FOOD_WAIT_TIME: 20000, // 20 seconds at 20x speed = 1 realtime second at 1x perceived
     FOOD_STALL_COUNT: 4,
     FOOD_STALL_X: 0.5, // Center between the two stages
     
