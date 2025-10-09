@@ -38,7 +38,7 @@ export class Renderer {
         this.ctx.fillText(label, x + width * 0.15, y + height * 0.5);
     }
     
-    drawShowTimer(x, y, progress) {
+    drawShowTimer(x, y, isPrep, progress) {
         // Draw a circular progress indicator
         const centerX = x;
         const centerY = y;
@@ -51,8 +51,8 @@ export class Renderer {
         this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         this.ctx.stroke();
         
-        // Progress arc
-        this.ctx.strokeStyle = '#ff6b6b';
+        // Progress arc - different color for prep vs show
+        this.ctx.strokeStyle = isPrep ? '#ffaa00' : '#ff6b6b';
         this.ctx.lineWidth = 3;
         this.ctx.beginPath();
         this.ctx.arc(centerX, centerY, radius, -Math.PI / 2, -Math.PI / 2 + (progress * Math.PI * 2));
@@ -62,7 +62,8 @@ export class Renderer {
         this.ctx.fillStyle = this.config.COLORS.TEXT;
         this.ctx.font = '8px Arial';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText(Math.floor(progress * 100) + '%', centerX, centerY + 3);
+        const label = isPrep ? 'PREP' : Math.floor(progress * 100) + '%';
+        this.ctx.fillText(label, centerX, centerY + 3);
         this.ctx.textAlign = 'left'; // Reset
     }
 
@@ -159,16 +160,16 @@ export class Renderer {
         foodStalls.forEach(stall => stall.draw(this.ctx));
     }
 
-    render(agents, leftConcertActive, rightConcertActive, foodStalls = [], leftShowProgress = 0, rightShowProgress = 0) {
+    render(agents, leftConcertActive, rightConcertActive, foodStalls = [], leftShowInfo = null, rightShowInfo = null) {
         this.drawBackground();
         this.drawStages(leftConcertActive, rightConcertActive);
         
-        // Draw show timers if concerts are active
-        if (leftConcertActive && leftShowProgress > 0) {
-            this.drawShowTimer(this.width * 0.10, this.height * 0.12, leftShowProgress);
+        // Draw show timers if concerts are active or in prep
+        if (leftShowInfo && leftShowInfo.progress > 0) {
+            this.drawShowTimer(this.width * 0.10, this.height * 0.12, leftShowInfo.isPrep, leftShowInfo.progress);
         }
-        if (rightConcertActive && rightShowProgress > 0) {
-            this.drawShowTimer(this.width * 0.90, this.height * 0.12, rightShowProgress);
+        if (rightShowInfo && rightShowInfo.progress > 0) {
+            this.drawShowTimer(this.width * 0.90, this.height * 0.12, rightShowInfo.isPrep, rightShowInfo.progress);
         }
         
         this.drawSecurityQueues();

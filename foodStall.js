@@ -139,6 +139,7 @@ export class FoodStall {
                     if (simulationTime - frontFan.waitStartTime >= this.config.FOOD_WAIT_TIME) {
                         // Decrease hunger and remove from queue
                         frontFan.hunger = Math.max(0, frontFan.hunger - this.config.HUNGER_DECREASE_AMOUNT);
+                        frontFan.hasEatenFood = true; // Mark as having eaten
                         this.removeFromQueue(frontFan);
                         
                         // Move to a random position after eating
