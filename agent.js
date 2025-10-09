@@ -104,8 +104,41 @@ export class Agent {
                     this.state = 'idle';
                 }
             } else {
-                this.x += (dx / distance) * moveDistance;
-                this.y += (dy / distance) * moveDistance;
+                // Calculate next position
+                let nextX = this.x + (dx / distance) * moveDistance;
+                let nextY = this.y + (dy / distance) * moveDistance;
+                
+                // Simple obstacle avoidance: if next position would collide, try moving around
+                if (obstacles && obstacles.checkCollision(nextX, nextY, this.radius, this.state)) {
+                    // Try moving perpendicular to the obstacle
+                    const perpX = -dy / distance;
+                    const perpY = dx / distance;
+                    
+                    // Try right first
+                    let altX = this.x + perpX * moveDistance;
+                    let altY = this.y + perpY * moveDistance;
+                    
+                    if (!obstacles.checkCollision(altX, altY, this.radius, this.state)) {
+                        nextX = altX;
+                        nextY = altY;
+                    } else {
+                        // Try left
+                        altX = this.x - perpX * moveDistance;
+                        altY = this.y - perpY * moveDistance;
+                        
+                        if (!obstacles.checkCollision(altX, altY, this.radius, this.state)) {
+                            nextX = altX;
+                            nextY = altY;
+                        } else {
+                            // Can't move, stay in place
+                            nextX = this.x;
+                            nextY = this.y;
+                        }
+                    }
+                }
+                
+                this.x = nextX;
+                this.y = nextY;
             }
         }
 

@@ -252,7 +252,8 @@ export class EventManager {
         
         for (let i = 0; i < this.config.BUS_ATTENDEE_COUNT; i++) {
             const offsetX = (Math.random() - 0.5) * 50;
-            const offsetY = (Math.random() - 0.5) * 30;
+            // Only spawn fans in front of or on the bus, never behind it (positive offset only)
+            const offsetY = -Math.random() * 15; // 0 to -15, always above the bus
             const fan = new Fan(busX + offsetX, busY + offsetY, this.config);
             
             // Add fan to security queue instead of directly to festival
