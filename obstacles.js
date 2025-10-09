@@ -128,6 +128,11 @@ export class Obstacles {
                 continue;
             }
 
+            // Skip bus collision - fans can pass through bus area
+            if (obs.type === 'bus') {
+                continue;
+            }
+
             // Check if circle (agent) intersects with rectangle (obstacle)
             const closestX = Math.max(obs.x, Math.min(x, obs.x + obs.width));
             const closestY = Math.max(obs.y, Math.min(y, obs.y + obs.height));
@@ -151,6 +156,11 @@ export class Obstacles {
         for (const obs of this.obstacles) {
             // Allow fans in security queue or approaching to pass through security obstacles
             if (obs.type === 'security' && (agent.state === 'in_queue' || agent.state === 'being_checked' || agent.state === 'approaching_queue')) {
+                continue;
+            }
+
+            // Skip bus collision - fans can pass through bus area
+            if (obs.type === 'bus') {
                 continue;
             }
 

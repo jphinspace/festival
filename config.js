@@ -7,7 +7,7 @@
 export const CONFIG = {
     // Agent settings
     AGENT_RADIUS: 3,
-    AGENT_SPEED: 0.5,
+    AGENT_SPEED: 0.75,
     
     // Event settings
     BUS_ATTENDEE_COUNT: 50,
@@ -20,7 +20,7 @@ export const CONFIG = {
     ENHANCED_SECURITY_PERCENTAGE: 0.05, // 5% of fans get enhanced security
     QUEUE_LEFT_X: 0.45, // X position of left security queue
     QUEUE_RIGHT_X: 0.55, // X position of right security queue
-    QUEUE_START_Y: 0.85, // Y position where queue starts (front of line)
+    QUEUE_START_Y: 0.72, // Y position where queue starts (front of line, near festival)
     QUEUE_SPACING: 8, // Spacing between people in queue
     
     // Hunger settings - VERY VERY slowly
