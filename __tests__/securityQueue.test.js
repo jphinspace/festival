@@ -207,4 +207,54 @@ describe('SecurityQueue', () => {
         expect(backY).toBeGreaterThan(frontY);
         expect(backY).toBeCloseTo(432 + mockConfig.QUEUE_SPACING, 0);
     });
+
+    test('should prevent slot reservation - fans join at actual end of queue', () => {
+        // Add first fan
+        const fan1 = new Fan(400, 540, mockConfig);
+        securityQueue.addToQueue(fan1);
+        const queueIndex = fan1.queueIndex;
+        
+        // Fan1 is approaching, not in actual queue yet
+        expect(securityQueue.entering[queueIndex]).toContain(fan1);
+        expect(securityQueue.queues[queueIndex]).not.toContain(fan1);
+        
+        // Add second fan - it should go to the other queue naturally
+        const fan2 = new Fan(400, 540, mockConfig);
+        securityQueue.addToQueue(fan2);
+        
+        // Force fan2 to same queue for testing
+        if (fan2.queueIndex !== queueIndex) {
+            // Move fan2 to same queue as fan1
+            const otherIndex = fan2.queueIndex;
+            const idx = securityQueue.entering[otherIndex].indexOf(fan2);
+            if (idx !== -1) {
+                securityQueue.entering[otherIndex].splice(idx, 1);
+                securityQueue.entering[queueIndex].push(fan2);
+                fan2.queueIndex = queueIndex;
+            }
+        }
+        
+        // Both should be in entering for same queue
+        expect(securityQueue.entering[queueIndex]).toContain(fan1);
+        expect(securityQueue.entering[queueIndex]).toContain(fan2);
+        
+        // Simulate fan1 reaching their position and joining queue
+        fan1.x = fan1.targetX;
+        fan1.y = fan1.targetY;
+        securityQueue.update(1000);
+        
+        // Fan1 should now be in actual queue
+        expect(securityQueue.queues[queueIndex].length).toBe(1);
+        expect(securityQueue.entering[queueIndex]).not.toContain(fan1);
+        
+        // Fan2 should still be approaching
+        expect(securityQueue.entering[queueIndex]).toContain(fan2);
+        
+        // Update queue positions - fan2's target should be after fan1
+        securityQueue.updateQueuePositions(queueIndex);
+        
+        // Fan2's target should be at position 1 (after fan1 at position 0)
+        const fan1Y = securityQueue.queues[queueIndex][0].targetY;
+        expect(fan2.targetY).toBeGreaterThan(fan1Y);
+    });
 });
