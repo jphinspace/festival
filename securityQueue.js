@@ -163,10 +163,10 @@ export class SecurityQueue {
                         fan.setTarget(queueX, entryY);
                         fan.state = 'approaching_queue';
                     } else {
-                        // Allow into festival
-                        const targetX = Math.random() * this.width;
+                        // Allow into festival - move straight ahead
+                        const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X);
                         const targetY = Math.random() * this.height * 0.7;
-                        fan.setTarget(targetX, targetY);
+                        fan.setTarget(queueX, targetY);
                         fan.state = 'passed_security'; // Set state after setTarget
                     }
                     
