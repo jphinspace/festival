@@ -179,6 +179,50 @@ describe('SecurityQueue', () => {
         expect(securityQueue.queues[queueIndex][0]).toBe(fan2);
     });
 
+    test('should ensure enhanced security fan moves away from front when queue becomes empty', () => {
+        // Test case: only one fan in queue with enhanced security
+        const fan = new Fan(360, 420, mockConfig);
+        const queueIndex = 0;
+        
+        fan.enhancedSecurity = true;
+        fan.queueIndex = queueIndex;
+        
+        // Manually add to queue (bypass entering)
+        securityQueue.queues[queueIndex].push(fan);
+        securityQueue.updateQueuePositions(queueIndex);
+        fan.state = 'in_queue';
+        
+        // Store initial front position
+        const frontX = fan.targetX;
+        const frontY = fan.targetY;
+        
+        // Move fan to front position
+        fan.x = frontX;
+        fan.y = frontY;
+        
+        const startTime = 1000;
+        
+        // Start processing
+        securityQueue.update(startTime);
+        expect(fan.state).toBe('being_checked');
+        
+        // Keep fan at position during check
+        fan.x = frontX;
+        fan.y = frontY;
+        
+        // After enhanced security time - fan should be sent to back
+        securityQueue.update(startTime + mockConfig.ENHANCED_SECURITY_TIME + 100);
+        
+        // Fan should be in entering list with approaching_queue state
+        expect(fan.state).toBe('approaching_queue');
+        expect(securityQueue.entering[queueIndex]).toContain(fan);
+        expect(securityQueue.queues[queueIndex]).not.toContain(fan);
+        
+        // Critical test: fan's target should be different from front position
+        // even though queue is now empty (to ensure they move away)
+        expect(fan.targetY).toBeGreaterThan(frontY);
+    });
+
     test('should position queue correctly with entry at bottom and exit at top', () => {
         const fan1 = new Fan(400, 540, mockConfig);
         const fan2 = new Fan(400, 540, mockConfig);

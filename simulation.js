@@ -28,6 +28,10 @@ export class Simulation {
         
         // Callbacks
         this.onStatsUpdate = null;
+        
+        // Mouse tracking for debug overlay
+        this.mouseX = 0;
+        this.mouseY = 0;
     }
 
     initialize() {
@@ -36,6 +40,40 @@ export class Simulation {
         
         // Don't spawn initial fans randomly - they will come via bus/security
         // This prevents fans from spawning inside stages or other obstacles
+        
+        // Setup mouse event handlers for debug overlay
+        this.setupMouseHandlers();
+    }
+    
+    setupMouseHandlers() {
+        // Track mouse movement on canvas
+        this.canvas.addEventListener('mousemove', (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            this.mouseX = e.clientX - rect.left;
+            this.mouseY = e.clientY - rect.top;
+        });
+        
+        // Clear hover when mouse leaves canvas
+        this.canvas.addEventListener('mouseleave', () => {
+            this.renderer.setHoveredFan(null, 0, 0);
+        });
+    }
+    
+    findFanUnderMouse(x, y) {
+        // Find fan under mouse cursor (closest within radius)
+        const threshold = 10; // Pixels around the fan
+        for (let i = this.agents.length - 1; i >= 0; i--) {
+            const agent = this.agents[i];
+            if (agent.type === 'fan') {
+                const dx = agent.x - x;
+                const dy = agent.y - y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance <= agent.radius + threshold) {
+                    return agent;
+                }
+            }
+        }
+        return null;
     }
 
     resize() {
@@ -96,6 +134,10 @@ export class Simulation {
     render() {
         const leftProgress = this.eventManager.getLeftShowProgress();
         const rightProgress = this.eventManager.getRightShowProgress();
+        
+        // Check if mouse is over any fan
+        const hoveredFan = this.findFanUnderMouse(this.mouseX, this.mouseY);
+        this.renderer.setHoveredFan(hoveredFan, this.mouseX, this.mouseY);
         
         this.renderer.render(
             this.agents,
