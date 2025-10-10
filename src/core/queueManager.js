@@ -54,18 +54,70 @@ export class QueueManager {
             }
         });
         
-        // For approaching fans, find their natural insertion point based on distance
-        // This prevents them from always going to the back
+        // For approaching fans, find their position based on proximity to other fans in the same queue
+        // This creates natural queue formation instead of everyone heading to the front
         approaching.forEach((fan) => {
-            const fanDist = Math.sqrt(Math.pow(fan.x - frontPosition.x, 2) + Math.pow(fan.y - frontPosition.y, 2));
+            // Combine queue and approaching fans to find where this fan fits geographically
+            const allFansInQueue = [...queue, ...approaching];
             
-            // Find where this fan would fit in the queue based on distance
-            let insertPosition = queue.length; // Default to end
-            for (let i = 0; i < queue.length; i++) {
-                const queueFanDist = Math.sqrt(Math.pow(queue[i].x - frontPosition.x, 2) + Math.pow(queue[i].y - frontPosition.y, 2));
-                if (fanDist < queueFanDist) {
-                    insertPosition = i;
-                    break;
+            // Calculate distance to front for this fan
+            const fanDistToFront = Math.sqrt(Math.pow(fan.x - frontPosition.x, 2) + Math.pow(fan.y - frontPosition.y, 2));
+            
+            // Find all fans that are geographically close and determine who's ahead/behind
+            const nearbyFans = [];
+            const proximityThreshold = 80; // pixels - fans within this distance are considered "nearby"
+            
+            allFansInQueue.forEach((otherFan) => {
+                if (otherFan === fan) return; // Skip self
+                
+                const otherDistToFront = Math.sqrt(Math.pow(otherFan.x - frontPosition.x, 2) + Math.pow(otherFan.y - frontPosition.y, 2));
+                const distToOther = Math.sqrt(Math.pow(fan.x - otherFan.x, 2) + Math.pow(fan.y - otherFan.y, 2));
+                
+                // Only consider fans within proximity
+                if (distToOther <= proximityThreshold) {
+                    nearbyFans.push({
+                        fan: otherFan,
+                        distToFront: otherDistToFront,
+                        distToSelf: distToOther,
+                        isAhead: otherDistToFront < fanDistToFront
+                    });
+                }
+            });
+            
+            // Sort nearby fans by distance to front
+            nearbyFans.sort((a, b) => a.distToFront - b.distToFront);
+            
+            // Find the closest fan ahead (if any)
+            const fansAhead = nearbyFans.filter(f => f.isAhead);
+            const closestAhead = fansAhead.length > 0 ? fansAhead[fansAhead.length - 1].fan : null; // Last in sorted list = closest to us but still ahead
+            
+            // Determine position based on where we fit
+            let insertPosition;
+            if (closestAhead && closestAhead.queuePosition !== null && closestAhead.queuePosition !== undefined) {
+                // Position ourselves right after the closest fan ahead
+                insertPosition = closestAhead.queuePosition + 1;
+            } else if (nearbyFans.length > 0 && fansAhead.length > 0) {
+                // We have fans ahead but they don't have positions yet
+                // Find where the closest ahead fan would fit in the queue
+                const closestAheadDistToFront = fansAhead[fansAhead.length - 1].distToFront;
+                insertPosition = queue.length; // Default to end
+                for (let i = 0; i < queue.length; i++) {
+                    const queueFanDist = Math.sqrt(Math.pow(queue[i].x - frontPosition.x, 2) + Math.pow(queue[i].y - frontPosition.y, 2));
+                    if (closestAheadDistToFront < queueFanDist) {
+                        insertPosition = i;
+                        break;
+                    }
+                }
+                insertPosition += 1; // One position after the closest ahead
+            } else {
+                // No nearby fans or no fans ahead - use distance-based positioning
+                insertPosition = queue.length; // Default to end
+                for (let i = 0; i < queue.length; i++) {
+                    const queueFanDist = Math.sqrt(Math.pow(queue[i].x - frontPosition.x, 2) + Math.pow(queue[i].y - frontPosition.y, 2));
+                    if (fanDistToFront < queueFanDist) {
+                        insertPosition = i;
+                        break;
+                    }
                 }
             }
             
