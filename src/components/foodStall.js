@@ -152,25 +152,28 @@ export class FoodStall {
      * @param {number} height - Canvas height
      * @param {number} simulationTime - Current simulation time in milliseconds
      */
+    /**
+     * Process queue - handle fans at front and those entering
+     * @param {number} width - Canvas width
+     * @param {number} height - Canvas height
+     * @param {number} simulationTime - Current simulation time
+     */
     processQueue(width, height, simulationTime) {
         // Update positions every frame for responsive movement
         this.updateQueuePositions(width, height, false);
         
-        // First, process fans approaching each queue
+        // Use QueueManager to process both queues
         [
             { queue: this.leftQueue, approaching: this.leftApproaching, side: 'left' },
             { queue: this.rightQueue, approaching: this.rightApproaching, side: 'right' }
         ].forEach(({ queue, approaching, side }) => {
-            // Move fans from approaching to queue when they reach their position
-            for (let i = approaching.length - 1; i >= 0; i--) {
-                const fan = approaching[i];
-                if (QueueManager.shouldJoinQueue(fan, 10)) { // Use slightly larger threshold
-                    // Use QueueManager to promote the fan
-                    QueueManager.promoteFanToQueue(fan, approaching, queue);
-                    // Update all queue positions since someone joined
-                    this.updateQueuePositions(width, height, true);
-                }
-            }
+            // Use QueueManager to handle approaching->queue transitions
+            QueueManager.processApproaching(
+                queue,
+                approaching,
+                () => this.updateQueuePositions(width, height, true),
+                10  // Threshold
+            );
             
             // Process the fan at the front of the queue
             if (queue.length > 0) {
@@ -237,23 +240,31 @@ export class FoodStall {
         // For right queue, position 0 is at: this.x + this.width + spacing * 1
         const frontRightX = this.x + this.width + spacing;
         
-        // Update left queue using QueueManager
+        // Update left queue using QueueManager - pass obstacles for pathfinding
         QueueManager.updatePositions(
             this.leftQueue,
             this.leftApproaching,
             (position) => this.getQueueTargetPosition(position, 'left'),
             { x: frontLeftX, y: frontY },
-            { skipWaypoints: true }
+            this.obstacles  // Pass obstacles for pathfinding
         );
         
-        // Update right queue using QueueManager
+        // Update right queue using QueueManager - pass obstacles for pathfinding
         QueueManager.updatePositions(
             this.rightQueue,
             this.rightApproaching,
             (position) => this.getQueueTargetPosition(position, 'right'),
             { x: frontRightX, y: frontY },
-            { skipWaypoints: true }
+            this.obstacles  // Pass obstacles for pathfinding
         );
+    }
+    
+    /**
+     * Set obstacles reference for pathfinding
+     * @param {Obstacles} obstacles - Obstacles manager
+     */
+    setObstacles(obstacles) {
+        this.obstacles = obstacles;
     }
 
     /**

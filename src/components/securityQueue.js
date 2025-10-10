@@ -82,7 +82,7 @@ export class SecurityQueue {
         const startY = this.height * this.config.QUEUE_START_Y;
         const spacing = this.config.QUEUE_SPACING;
         
-        // Update using QueueManager
+        // Update using QueueManager - pass obstacles for pathfinding
         QueueManager.updatePositions(
             this.queues[queueIndex],
             this.entering[queueIndex],
@@ -96,8 +96,16 @@ export class SecurityQueue {
                 };
             },
             { x: queueX, y: startY },
-            { skipWaypoints: true }
+            this.obstacles  // Pass obstacles for pathfinding
         );
+    }
+    
+    /**
+     * Set obstacles reference for pathfinding
+     * @param {Obstacles} obstacles - Obstacles manager
+     */
+    setObstacles(obstacles) {
+        this.obstacles = obstacles;
     }
 
     /**

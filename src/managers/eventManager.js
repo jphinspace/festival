@@ -17,8 +17,9 @@ export class EventManager {
         this.rightConcertPrepStartTime = null;
         this.showDuration = 1200000; // 1200 seconds at 40x speed = 30 seconds realtime at 1x perceived
         this.simulationTime = 0; // Track simulation time
-        this.securityQueue = new SecurityQueue(config, width, height);
         this.obstacles = new Obstacles(config, width, height);
+        this.securityQueue = new SecurityQueue(config, width, height);
+        this.securityQueue.setObstacles(this.obstacles); // Pass obstacles for pathfinding
         this.foodStalls = [];
         this.createFoodStalls();
         this.pendingLeftConcertAgents = null;
@@ -38,7 +39,9 @@ export class EventManager {
         
         for (let i = 0; i < stallCount; i++) {
             const stallY = startY + spacing * (i + 1);
-            this.foodStalls.push(new FoodStall(stallX, stallY, this.config));
+            const stall = new FoodStall(stallX, stallY, this.config);
+            stall.setObstacles(this.obstacles); // Pass obstacles for pathfinding
+            this.foodStalls.push(stall);
         }
         
         // Update obstacles with food stalls

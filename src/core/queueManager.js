@@ -33,9 +33,9 @@ export class QueueManager {
      * @param {Array} approaching - Fans approaching the queue
      * @param {Function} getTargetPosition - Function(index) that returns {x, y} for a position
      * @param {Object} frontPosition - {x, y} position of queue front for sorting
-     * @param {Object} options - Optional settings {skipWaypoints: boolean}
+     * @param {Obstacles} obstacles - Obstacles for pathfinding (pass to setTarget)
      */
-    static updatePositions(queue, approaching, getTargetPosition, frontPosition, options = {}) {
+    static updatePositions(queue, approaching, getTargetPosition, frontPosition, obstacles = null) {
         // Sort every frame by actual distance to ensure accurate positions
         this.sortByDistance(queue, approaching, frontPosition);
         
@@ -43,8 +43,8 @@ export class QueueManager {
         queue.forEach((fan, index) => {
             fan.queuePosition = index;
             const targetPos = getTargetPosition(index);
-            // Pass null to skip waypoint recalculation for queue movement
-            fan.setTarget(targetPos.x, targetPos.y, options.skipWaypoints ? null : undefined);
+            // Pass obstacles for pathfinding - fans should route around obstacles to reach queue position
+            fan.setTarget(targetPos.x, targetPos.y, obstacles);
             fan.inQueue = true;
             if (fan.state !== 'being_checked' && !fan.waitStartTime) {
                 fan.state = 'in_queue';
@@ -56,13 +56,32 @@ export class QueueManager {
             const position = queue.length + index;
             fan.queuePosition = position;
             const targetPos = getTargetPosition(position);
-            // Pass null to skip waypoint recalculation for queue movement
-            fan.setTarget(targetPos.x, targetPos.y, options.skipWaypoints ? null : undefined);
+            // Pass obstacles for pathfinding - fans should route around obstacles to reach queue
+            fan.setTarget(targetPos.x, targetPos.y, obstacles);
             fan.inQueue = false;
             if (fan.state !== 'approaching_queue') {
                 fan.state = 'approaching_queue';
             }
         });
+    }
+
+    /**
+     * Process fans transitioning from approaching to queue
+     * @param {Array} queue - Main queue array
+     * @param {Array} approaching - Approaching fans array
+     * @param {Function} updateCallback - Function to call after promotion (for resorting)
+     * @param {number} threshold - Distance threshold for joining (default 10)
+     */
+    static processApproaching(queue, approaching, updateCallback, threshold = 10) {
+        for (let i = approaching.length - 1; i >= 0; i--) {
+            const fan = approaching[i];
+            if (this.shouldJoinQueue(fan, threshold)) {
+                this.promoteFanToQueue(fan, approaching, queue);
+                if (updateCallback) {
+                    updateCallback();
+                }
+            }
+        }
     }
 
     /**
