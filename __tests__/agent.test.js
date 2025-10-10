@@ -5,6 +5,8 @@ import { Fan } from '../src/core/fan.js';
 const mockConfig = {
     AGENT_RADIUS: 3,
     AGENT_SPEED: 0.5,
+    PERSONAL_SPACE: 12,
+    CONCERT_PERSONAL_SPACE: 4,
     COLORS: {
         AGENT_ACTIVE: '#4a90e2',
         AGENT_LEAVING: '#e24a4a'
@@ -42,7 +44,7 @@ describe('Agent', () => {
     });
 
     test('should detect overlaps with other agents', () => {
-        const otherAgent = new Agent(104, 100, mockConfig); // Within overlap distance
+        const otherAgent = new Agent(108, 100, mockConfig); // Within personal space (8 pixels away, < 12)
         expect(agent.overlapsWith(otherAgent)).toBe(true);
         
         const farAgent = new Agent(200, 200, mockConfig); // Far away
@@ -50,7 +52,7 @@ describe('Agent', () => {
     });
 
     test('should resolve overlaps by pushing agents apart', () => {
-        const otherAgent = new Agent(102, 100, mockConfig);
+        const otherAgent = new Agent(108, 100, mockConfig); // 8 pixels away (within 12 pixel personal space)
         const initialDistance = Math.sqrt((agent.x - otherAgent.x) ** 2 + (agent.y - otherAgent.y) ** 2);
         
         agent.resolveOverlap(otherAgent);
@@ -127,7 +129,7 @@ describe('Fan', () => {
     });
 
     test('should handle collisions like base Agent', () => {
-        const otherFan = new Fan(104, 100, mockConfig);
+        const otherFan = new Fan(108, 100, mockConfig); // Within personal space (8 pixels away)
         expect(fan.overlapsWith(otherFan)).toBe(true);
     });
 });

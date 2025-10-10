@@ -40,16 +40,45 @@ export class Agent {
     }
 
     /**
-     * Check if this agent overlaps with another agent
+     * Get personal space distance based on context
+     * @param {Agent} other - Another agent to check context with
+     * @returns {number} Personal space distance in pixels
+     */
+    getPersonalSpace(other) {
+        // Check if both agents are watching a concert and up front (packed crowd)
+        if (this.currentShow && other.currentShow && 
+            this.isUpFront && other.isUpFront) {
+            return this.config.CONCERT_PERSONAL_SPACE;
+        }
+        
+        // Check if one agent is passing through a queue (special case)
+        // An agent is "passing through" if they're moving and not in queue, 
+        // while the other is in queue
+        const thisPassingThrough = (this.state === 'moving' || this.state === 'idle') && !this.inQueue;
+        const otherInQueue = other.inQueue || other.state === 'in_queue' || other.state === 'approaching_queue';
+        const otherPassingThrough = (other.state === 'moving' || other.state === 'idle') && !other.inQueue;
+        const thisInQueue = this.inQueue || this.state === 'in_queue' || this.state === 'approaching_queue';
+        
+        if ((thisPassingThrough && otherInQueue) || (otherPassingThrough && thisInQueue)) {
+            // Allow closer proximity when passing through queues
+            return this.config.CONCERT_PERSONAL_SPACE;
+        }
+        
+        // Normal personal space for all other situations
+        return this.config.PERSONAL_SPACE;
+    }
+
+    /**
+     * Check if this agent overlaps with another agent (considering personal space)
      * @param {Agent} other - Another agent to check collision with
-     * @returns {boolean} True if agents overlap
+     * @returns {boolean} True if agents are too close
      */
     overlapsWith(other) {
         const dx = this.x - other.x;
         const dy = this.y - other.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        const minDistance = this.radius + other.radius;
-        return distance < minDistance;
+        const personalSpace = this.getPersonalSpace(other);
+        return distance < personalSpace;
     }
 
     /**
@@ -61,11 +90,11 @@ export class Agent {
         const dx = this.x - other.x;
         const dy = this.y - other.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        const minDistance = this.radius + other.radius;
+        const personalSpace = this.getPersonalSpace(other);
         
-        if (distance < minDistance && distance > 0) {
+        if (distance < personalSpace && distance > 0) {
             // Calculate push direction
-            const pushDistance = (minDistance - distance) / 2;
+            const pushDistance = (personalSpace - distance) / 2;
             const pushX = (dx / distance) * pushDistance;
             const pushY = (dy / distance) * pushDistance;
             
@@ -75,6 +104,57 @@ export class Agent {
             other.x -= pushX;
             other.y -= pushY;
         }
+    }
+
+    /**
+     * Try to find a valid position that avoids obstacles
+     * @param {number} targetDx - Direction to target (X)
+     * @param {number} targetDy - Direction to target (Y)
+     * @param {number} moveDistance - Distance to move
+     * @param {Obstacles} obstacles - Obstacles manager
+     * @returns {Object|null} {x, y} position or null if no valid position found
+     */
+    findAvoidancePosition(targetDx, targetDy, moveDistance, obstacles) {
+        const distance = Math.sqrt(targetDx * targetDx + targetDy * targetDy);
+        if (distance === 0) return null;
+        
+        const dirX = targetDx / distance;
+        const dirY = targetDy / distance;
+        
+        // Perpendicular direction for side-stepping
+        const perpX = -dirY;
+        const perpY = dirX;
+        
+        // Try multiple avoidance strategies in order of preference
+        const strategies = [
+            // 1. Try moving at an angle (30 degrees) to the right
+            { x: this.x + (dirX * 0.866 + perpX * 0.5) * moveDistance, 
+              y: this.y + (dirY * 0.866 + perpY * 0.5) * moveDistance },
+            // 2. Try moving at an angle (30 degrees) to the left
+            { x: this.x + (dirX * 0.866 - perpX * 0.5) * moveDistance, 
+              y: this.y + (dirY * 0.866 - perpY * 0.5) * moveDistance },
+            // 3. Try moving at steeper angle (60 degrees) to the right
+            { x: this.x + (dirX * 0.5 + perpX * 0.866) * moveDistance, 
+              y: this.y + (dirY * 0.5 + perpY * 0.866) * moveDistance },
+            // 4. Try moving at steeper angle (60 degrees) to the left
+            { x: this.x + (dirX * 0.5 - perpX * 0.866) * moveDistance, 
+              y: this.y + (dirY * 0.5 - perpY * 0.866) * moveDistance },
+            // 5. Try moving perpendicular right
+            { x: this.x + perpX * moveDistance, 
+              y: this.y + perpY * moveDistance },
+            // 6. Try moving perpendicular left
+            { x: this.x - perpX * moveDistance, 
+              y: this.y - perpY * moveDistance }
+        ];
+        
+        // Try each strategy
+        for (const pos of strategies) {
+            if (!obstacles.checkCollision(pos.x, pos.y, this.radius, this.state)) {
+                return pos;
+            }
+        }
+        
+        return null; // No valid position found
     }
 
     /**
@@ -108,79 +188,16 @@ export class Agent {
                 let nextX = this.x + (dx / distance) * moveDistance;
                 let nextY = this.y + (dy / distance) * moveDistance;
                 
-                // Simple obstacle avoidance: if next position would collide, try moving around
+                // Check if next position collides with obstacle
                 if (obstacles && obstacles.checkCollision(nextX, nextY, this.radius, this.state)) {
-                    // Try moving perpendicular to the obstacle
-                    const perpX = -dy / distance;
-                    const perpY = dx / distance;
-                    
-                    // Try right first
-                    let altX = this.x + perpX * moveDistance;
-                    let altY = this.y + perpY * moveDistance;
-                    
-                    if (!obstacles.checkCollision(altX, altY, this.radius, this.state)) {
-                        nextX = altX;
-                        nextY = altY;
-                    } else {
-                        // Try left
-                        altX = this.x - perpX * moveDistance;
-                        altY = this.y - perpY * moveDistance;
-                        
-                        if (!obstacles.checkCollision(altX, altY, this.radius, this.state)) {
-                            nextX = altX;
-                            nextY = altY;
-                        } else {
-                            // Try diagonal combinations for better navigation
-                            const diagMoveDistance = moveDistance * 0.7; // Reduced for diagonal
-                            
-                            // Try forward-right diagonal
-                            altX = this.x + (dx / distance) * diagMoveDistance + perpX * diagMoveDistance;
-                            altY = this.y + (dy / distance) * diagMoveDistance + perpY * diagMoveDistance;
-                            
-                            if (!obstacles.checkCollision(altX, altY, this.radius, this.state)) {
-                                nextX = altX;
-                                nextY = altY;
-                            } else {
-                                // Try forward-left diagonal
-                                altX = this.x + (dx / distance) * diagMoveDistance - perpX * diagMoveDistance;
-                                altY = this.y + (dy / distance) * diagMoveDistance - perpY * diagMoveDistance;
-                                
-                                if (!obstacles.checkCollision(altX, altY, this.radius, this.state)) {
-                                    nextX = altX;
-                                    nextY = altY;
-                                } else {
-                                    // Try just moving in one axis to slide along obstacles
-                                    // Try X movement only
-                                    altX = this.x + (dx / distance) * moveDistance;
-                                    altY = this.y;
-                                    if (!obstacles.checkCollision(altX, altY, this.radius, this.state)) {
-                                        nextX = altX;
-                                        nextY = altY;
-                                    } else {
-                                        // Try Y movement only  
-                                        altX = this.x;
-                                        altY = this.y + (dy / distance) * moveDistance;
-                                        if (!obstacles.checkCollision(altX, altY, this.radius, this.state)) {
-                                            nextX = altX;
-                                            nextY = altY;
-                                        } else {
-                                            // Last resort: try small random jitter to unstuck
-                                            const jitterX = (Math.random() - 0.5) * moveDistance * 0.5;
-                                            const jitterY = (Math.random() - 0.5) * moveDistance * 0.5;
-                                            altX = this.x + jitterX;
-                                            altY = this.y + jitterY;
-                                            if (!obstacles.checkCollision(altX, altY, this.radius, this.state)) {
-                                                nextX = altX;
-                                                nextY = altY;
-                                            }
-                                            // If even jitter doesn't work, stay in place but don't permanently block
-                                            // The resolveCollision after movement will push away from obstacles
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    // Try to find alternative path around obstacle
+                    const avoidancePos = this.findAvoidancePosition(dx, dy, moveDistance, obstacles);
+                    if (avoidancePos) {
+                        nextX = avoidancePos.x;
+                        nextY = avoidancePos.y;
                     }
+                    // If no avoidance position found, stay in place
+                    // The resolveCollision after movement will push away from obstacles
                 }
                 
                 this.x = nextX;
