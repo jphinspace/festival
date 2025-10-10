@@ -302,6 +302,67 @@ describe('FoodStall', () => {
         expect(foodStall.rightQueue[1]).toBe(fan2);
         expect(foodStall.rightQueue[2]).toBe(fan1);
     });
+
+    test('approaching fans should position based on proximity to other fans in queue', () => {
+        // Set up a scenario with fans in queue and approaching fans
+        // Left queue: stall is at x=100, queue forms to the left
+        const fan1 = new Fan(92, 115, mockConfig); // In queue, position 0 (closest to stall)
+        const fan2 = new Fan(84, 115, mockConfig); // In queue, position 1
+        
+        // Add to actual queue
+        foodStall.leftQueue.push(fan1, fan2);
+        fan1.inQueue = true;
+        fan2.inQueue = true;
+        fan1.targetFoodStall = foodStall;
+        fan2.targetFoodStall = foodStall;
+        fan1.queueSide = 'left';
+        fan2.queueSide = 'left';
+        
+        // Approaching fan positioned between fan1 and fan2
+        const approachingFan = new Fan(88, 115, mockConfig);
+        foodStall.leftApproaching.push(approachingFan);
+        approachingFan.state = 'approaching_queue';
+        approachingFan.targetFoodStall = foodStall;
+        approachingFan.queueSide = 'left';
+        
+        // Update queue positions
+        foodStall.updateQueuePositions(800, 600, false);
+        
+        // The approaching fan should be assigned position 1 (between fan1 at pos 0 and fan2 at pos 2)
+        // because it's geographically between them
+        expect(approachingFan.queuePosition).toBe(1);
+        
+        // The approaching fan's target should be at position 1
+        // For left queue: x = stall.x - spacing * (position + 1) = 100 - 8 * 2 = 84
+        expect(approachingFan.targetX).toBe(100 - 8 * 2); // Position 1 means 2nd from front
+    });
+
+    test('approaching fans far from queue should go to back', () => {
+        // Set up fans in queue
+        const fan1 = new Fan(92, 115, mockConfig); // In queue, position 0
+        const fan2 = new Fan(84, 115, mockConfig); // In queue, position 1
+        
+        foodStall.leftQueue.push(fan1, fan2);
+        fan1.inQueue = true;
+        fan2.inQueue = true;
+        fan1.targetFoodStall = foodStall;
+        fan2.targetFoodStall = foodStall;
+        fan1.queueSide = 'left';
+        fan2.queueSide = 'left';
+        
+        // Approaching fan positioned far from the queue (more than 80px away)
+        const approachingFan = new Fan(50, 200, mockConfig);
+        foodStall.leftApproaching.push(approachingFan);
+        approachingFan.state = 'approaching_queue';
+        approachingFan.targetFoodStall = foodStall;
+        approachingFan.queueSide = 'left';
+        
+        // Update queue positions
+        foodStall.updateQueuePositions(800, 600, false);
+        
+        // The approaching fan should be assigned to the back (position 2, after fan2)
+        expect(approachingFan.queuePosition).toBe(2);
+    });
 });
 
 describe('Fan hunger', () => {
