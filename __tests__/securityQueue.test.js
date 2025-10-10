@@ -1,6 +1,6 @@
 // Unit tests for SecurityQueue class
-import { SecurityQueue } from '../securityQueue.js';
-import { Fan } from '../fan.js';
+import { SecurityQueue } from '../src/components/securityQueue.js';
+import { Fan } from '../src/core/fan.js';
 
 const mockConfig = {
     REGULAR_SECURITY_TIME: 1000,
@@ -283,9 +283,15 @@ describe('SecurityQueue', () => {
         expect(securityQueue.entering[queueIndex]).toContain(fan2);
         
         // Simulate fan1 reaching their position and joining queue
+        // Fan needs to complete two-stage movement: vertical then lateral
         fan1.x = fan1.targetX;
         fan1.y = fan1.targetY;
-        securityQueue.update(1000);
+        securityQueue.update(1000); // Complete stage 1
+        
+        // Now move to final target for stage 2
+        fan1.x = fan1.targetX;
+        fan1.y = fan1.targetY;
+        securityQueue.update(1000); // Complete stage 2 and join queue
         
         // Fan1 should now be in actual queue
         expect(securityQueue.queues[queueIndex].length).toBe(1);
@@ -323,7 +329,7 @@ describe('SecurityQueue', () => {
         expect(securityQueue.queues[queueIndex][2]).toBe(fan3);
         
         // Update queue positions - should reorder by Y position (lower Y = closer to front)
-        securityQueue.updateQueuePositions(queueIndex);
+        securityQueue.updateQueuePositions(queueIndex, true);
         
         // After update: array order should be fan3, fan2, fan1 (sorted by Y)
         expect(securityQueue.queues[queueIndex][0]).toBe(fan3);

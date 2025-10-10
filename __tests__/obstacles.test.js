@@ -1,5 +1,5 @@
 // Unit tests for Obstacles class
-import { Obstacles } from '../obstacles.js';
+import { Obstacles } from '../src/components/obstacles.js';
 
 const mockConfig = {
     QUEUE_LEFT_X: 0.45,

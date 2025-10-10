@@ -1,8 +1,8 @@
 // EventManager class for handling festival events
-import { Fan } from './fan.js';
-import { SecurityQueue } from './securityQueue.js';
-import { FoodStall } from './foodStall.js';
-import { Obstacles } from './obstacles.js';
+import { Fan } from '../core/fan.js';
+import { SecurityQueue } from '../components/securityQueue.js';
+import { FoodStall } from '../components/foodStall.js';
+import { Obstacles } from '../components/obstacles.js';
 
 export class EventManager {
     constructor(config, width, height) {

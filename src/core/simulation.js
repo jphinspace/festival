@@ -1,7 +1,7 @@
 // Simulation class managing the entire simulation state and loop
 import { Fan } from './fan.js';
-import { Renderer } from './renderer.js';
-import { EventManager } from './eventManager.js';
+import { Renderer } from '../components/renderer.js';
+import { EventManager } from '../managers/eventManager.js';
 
 export class Simulation {
     constructor(canvas, config) {

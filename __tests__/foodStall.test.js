@@ -1,6 +1,6 @@
 // Unit tests for FoodStall class
-import { FoodStall } from '../foodStall.js';
-import { Fan } from '../fan.js';
+import { FoodStall } from '../src/components/foodStall.js';
+import { Fan } from '../src/core/fan.js';
 
 const mockConfig = {
     AGENT_RADIUS: 3,
@@ -219,7 +219,7 @@ describe('FoodStall', () => {
         
         // Set positions based on geographic location
         // fan2 is closer to stall (x=60 > x=50), so will be sorted to position 0
-        foodStall.updateQueuePositions(800, 600);
+        foodStall.updateQueuePositions(800, 600, true);
         
         // fan1 is far from target, fan2 is also far
         fan1.hunger = 0.8;
@@ -265,7 +265,7 @@ describe('FoodStall', () => {
         expect(foodStall.leftQueue[0]).toBe(fan1);
         
         // Update queue positions - should reorder by X (higher X = closer for left queue)
-        foodStall.updateQueuePositions(800, 600);
+        foodStall.updateQueuePositions(800, 600, true);
         
         // After update: fan3 should be at front (highest X = closest)
         expect(foodStall.leftQueue[0]).toBe(fan3);
@@ -295,7 +295,7 @@ describe('FoodStall', () => {
         expect(foodStall.rightQueue[0]).toBe(fan1);
         
         // Update queue positions - should reorder by X (lower X = closer for right queue)
-        foodStall.updateQueuePositions(800, 600);
+        foodStall.updateQueuePositions(800, 600, true);
         
         // After update: fan3 should be at front (lowest X = closest)
         expect(foodStall.rightQueue[0]).toBe(fan3);

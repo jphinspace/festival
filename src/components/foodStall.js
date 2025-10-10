@@ -1,6 +1,8 @@
 /**
  * FoodStall class - represents a food stall where fans can queue
  */
+import { QueueManager } from '../core/queueManager.js';
+
 export class FoodStall {
     /**
      * Create a new food stall
@@ -164,8 +166,8 @@ export class FoodStall {
                     approaching.splice(i, 1);
                     queue.push(fan);
                     fan.state = 'in_queue';
-                    // Update all queue positions since someone joined
-                    this.updateQueuePositions(width, height);
+                    // Update all queue positions and sort since someone joined
+                    this.updateQueuePositions(width, height, true);
                 }
             }
             
@@ -219,32 +221,36 @@ export class FoodStall {
      * Update all fans in queue with their positions
      * @param {number} width - Canvas width for bounds
      * @param {number} height - Canvas height for bounds
+     * @param {boolean} sortNeeded - Whether to sort queues (only on join/leave events)
      */
-    updateQueuePositions(width, height) {
-        // CRITICAL: Sort queues by distance to stall
-        // For left queue, fans closer to stall (higher X) should be at front
-        this.leftQueue.sort((a, b) => b.x - a.x);
+    updateQueuePositions(width, height, sortNeeded = false) {
+        // Only sort when needed (someone joined/left), not every frame
+        if (sortNeeded) {
+            // Sort queues by distance to stall (X position)
+            // Left queue: higher X = closer to stall
+            this.leftQueue.sort((a, b) => b.x - a.x);
+            // Right queue: lower X = closer to stall  
+            this.rightQueue.sort((a, b) => a.x - b.x);
+            
+            // Sort approaching fans by distance to target
+            this.leftApproaching.sort((a, b) => {
+                const distA = Math.sqrt(Math.pow(a.x - a.targetX, 2) + Math.pow(a.y - a.targetY, 2));
+                const distB = Math.sqrt(Math.pow(b.x - b.targetX, 2) + Math.pow(b.y - b.targetY, 2));
+                return distA - distB;
+            });
+            
+            this.rightApproaching.sort((a, b) => {
+                const distA = Math.sqrt(Math.pow(a.x - a.targetX, 2) + Math.pow(a.y - a.targetY, 2));
+                const distB = Math.sqrt(Math.pow(b.x - b.targetX, 2) + Math.pow(b.y - b.targetY, 2));
+                return distA - distB;
+            });
+        }
         
-        // For right queue, fans closer to stall (lower X) should be at front  
-        this.rightQueue.sort((a, b) => a.x - b.x);
-        
-        // Sort approaching fans by distance to their target
-        this.leftApproaching.sort((a, b) => {
-            const distA = Math.sqrt(Math.pow(a.x - a.targetX, 2) + Math.pow(a.y - a.targetY, 2));
-            const distB = Math.sqrt(Math.pow(b.x - b.targetX, 2) + Math.pow(b.y - b.targetY, 2));
-            return distA - distB;
-        });
-        
-        this.rightApproaching.sort((a, b) => {
-            const distA = Math.sqrt(Math.pow(a.x - a.targetX, 2) + Math.pow(a.y - a.targetY, 2));
-            const distB = Math.sqrt(Math.pow(b.x - b.targetX, 2) + Math.pow(b.y - b.targetY, 2));
-            return distA - distB;
-        });
-        
-        // Update left approaching fans - they go to the end of the current queue
+        // Update left approaching fans
         this.leftApproaching.forEach((fan, approachIndex) => {
             const position = this.leftQueue.length + approachIndex;
             const targetPos = this.getQueueTargetPosition(position, 'left');
+            // Only update if changed significantly (avoid jitter)
             if (Math.abs(fan.targetX - targetPos.x) > 5 || 
                 Math.abs(fan.targetY - targetPos.y) > 5) {
                 fan.setTarget(targetPos.x, targetPos.y);
@@ -258,23 +264,23 @@ export class FoodStall {
         this.leftQueue.forEach((fan, index) => {
             const targetPos = this.getQueueTargetPosition(index, 'left');
             
-            // Only update target if fan isn't at front or hasn't started waiting
+            // Only update if not at front waiting, or if position changed significantly
             if (index > 0 || !fan.waitStartTime) {
                 if (Math.abs(fan.targetX - targetPos.x) > 5 || 
                     Math.abs(fan.targetY - targetPos.y) > 5) {
                     fan.setTarget(targetPos.x, targetPos.y);
                 }
-                // Ensure fans in queue have proper state
-                if (fan.state !== 'in_queue') {
+                if (fan.state !== 'in_queue' && !fan.waitStartTime) {
                     fan.state = 'in_queue';
                 }
             }
         });
         
-        // Update right approaching fans - they go to the end of the current queue
+        // Update right approaching fans
         this.rightApproaching.forEach((fan, approachIndex) => {
             const position = this.rightQueue.length + approachIndex;
             const targetPos = this.getQueueTargetPosition(position, 'right');
+            // Only update if changed significantly
             if (Math.abs(fan.targetX - targetPos.x) > 5 || 
                 Math.abs(fan.targetY - targetPos.y) > 5) {
                 fan.setTarget(targetPos.x, targetPos.y);
@@ -288,14 +294,13 @@ export class FoodStall {
         this.rightQueue.forEach((fan, index) => {
             const targetPos = this.getQueueTargetPosition(index, 'right');
             
-            // Only update target if fan isn't at front or hasn't started waiting
+            // Only update if not at front waiting, or if position changed significantly
             if (index > 0 || !fan.waitStartTime) {
                 if (Math.abs(fan.targetX - targetPos.x) > 5 || 
                     Math.abs(fan.targetY - targetPos.y) > 5) {
                     fan.setTarget(targetPos.x, targetPos.y);
                 }
-                // Ensure fans in queue have proper state
-                if (fan.state !== 'in_queue') {
+                if (fan.state !== 'in_queue' && !fan.waitStartTime) {
                     fan.state = 'in_queue';
                 }
             }

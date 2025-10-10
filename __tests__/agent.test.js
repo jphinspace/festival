@@ -1,6 +1,6 @@
 // Unit tests for Agent class
-import { Agent } from '../agent.js';
-import { Fan } from '../fan.js';
+import { Agent } from '../src/core/agent.js';
+import { Fan } from '../src/core/fan.js';
 
 const mockConfig = {
     AGENT_RADIUS: 3,
