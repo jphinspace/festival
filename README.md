@@ -6,8 +6,10 @@ An HTML5 simulation game featuring agent-based modeling of attendees at a music 
 
 ## Features
 - **Modular Architecture**: Separated concerns with base Agent class and Fan subclass for extensibility
-- **Collision Detection**: Agents maintain personal space and cannot pass through obstacles (stages, food stalls, bus, security)
+- **Smart Collision Detection**: Context-aware personal space system with simplified obstacle avoidance (6 strategic angles)
+- **Personal Space System**: Agents maintain 12-pixel personal space (4 pixels when packed at concerts or passing through queues)
 - **Obstacle System**: Fans cannot walk through stages, food stalls, bus area, or security lines
+- **Intelligent Pathfinding**: Fans validate target positions to avoid attempting impossible routes through obstacles
 - **Visual Security Boundaries**: Pink borders around security queues and behind stages
 - **Fan Hunger System**: Fans have hunger that increases over time with randomized thresholds
 - **Food Stall Queuing**: Four food stalls positioned between stages where fans form queues
