@@ -119,9 +119,10 @@ export class Obstacles {
      * @param {number} y - Y coordinate
      * @param {number} radius - Agent radius
      * @param {string} agentState - Agent state (some states allow through security)
+     * @param {number} personalSpaceBuffer - Extra buffer for personal space around obstacles (default: 0)
      * @returns {boolean} True if collision detected
      */
-    checkCollision(x, y, radius, agentState = 'idle') {
+    checkCollision(x, y, radius, agentState = 'idle', personalSpaceBuffer = 0) {
         for (const obs of this.obstacles) {
             // Allow fans in security process to pass through security obstacles
             // This includes: approaching, in queue, being checked, AND passed security (moving away)
@@ -139,9 +140,15 @@ export class Obstacles {
                 continue;
             }
 
-            // Check if circle (agent) intersects with rectangle (obstacle)
-            const closestX = Math.max(obs.x, Math.min(x, obs.x + obs.width));
-            const closestY = Math.max(obs.y, Math.min(y, obs.y + obs.height));
+            // Apply personal space buffer to food stalls for approaching_queue and moving states
+            let effectiveBuffer = 0;
+            if (obs.type === 'foodStall' && (agentState === 'approaching_queue' || agentState === 'moving')) {
+                effectiveBuffer = personalSpaceBuffer;
+            }
+
+            // Check if circle (agent) intersects with rectangle (obstacle) including buffer
+            const closestX = Math.max(obs.x - effectiveBuffer, Math.min(x, obs.x + obs.width + effectiveBuffer));
+            const closestY = Math.max(obs.y - effectiveBuffer, Math.min(y, obs.y + obs.height + effectiveBuffer));
 
             const distanceX = x - closestX;
             const distanceY = y - closestY;
@@ -205,5 +212,30 @@ export class Obstacles {
      */
     getSecurityBoundaries() {
         return this.obstacles.filter(obs => obs.type === 'security' || obs.type === 'boundary');
+    }
+
+    /**
+     * Check if a position is valid (not inside food stalls or stages)
+     * Used for setting target positions to avoid routing through obstacles
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
+     * @param {number} buffer - Extra buffer space around obstacles (default: 10)
+     * @returns {boolean} True if position is valid (not in obstacle)
+     */
+    isValidPosition(x, y, buffer = 10) {
+        for (const obs of this.obstacles) {
+            // Only check food stalls and stages - these are solid obstacles
+            // Don't check security or bus areas as fans can pass through
+            if (obs.type !== 'foodStall' && obs.type !== 'stage' && obs.type !== 'boundary') {
+                continue;
+            }
+            
+            // Check if point is inside obstacle (with buffer)
+            if (x >= obs.x - buffer && x <= obs.x + obs.width + buffer &&
+                y >= obs.y - buffer && y <= obs.y + obs.height + buffer) {
+                return false;
+            }
+        }
+        return true;
     }
 }

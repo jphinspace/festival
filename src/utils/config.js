@@ -8,6 +8,8 @@ export const CONFIG = {
     // Agent settings
     AGENT_RADIUS: 3,
     AGENT_SPEED: 0.75,
+    PERSONAL_SPACE: 12, // Buffer zone around agents where they avoid getting too close
+    CONCERT_PERSONAL_SPACE: 4, // Reduced personal space during concerts (packed crowd)
     
     // Event settings
     BUS_ATTENDEE_COUNT: 50,

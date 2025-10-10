@@ -112,8 +112,24 @@ describe('Obstacles', () => {
         // Should include security and boundary types
         const hasSecurityType = boundaries.some(b => b.type === 'security');
         const hasBoundaryType = boundaries.some(b => b.type === 'boundary');
-        
         expect(hasSecurityType).toBe(true);
         expect(hasBoundaryType).toBe(true);
+    });
+
+    test('should validate positions not inside food stalls or stages', () => {
+        // Add a food stall
+        const mockFoodStalls = [
+            { x: 400, y: 150, width: 20, height: 30 }
+        ];
+        obstacles.setFoodStalls(mockFoodStalls);
+        
+        // Position inside food stall should be invalid
+        expect(obstacles.isValidPosition(410, 165)).toBe(false);
+        
+        // Position in open space should be valid
+        expect(obstacles.isValidPosition(300, 300)).toBe(true);
+        
+        // Position inside stage should be invalid
+        expect(obstacles.isValidPosition(40, 90)).toBe(false);
     });
 });

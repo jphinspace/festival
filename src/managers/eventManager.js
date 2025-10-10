@@ -17,8 +17,9 @@ export class EventManager {
         this.rightConcertPrepStartTime = null;
         this.showDuration = 1200000; // 1200 seconds at 40x speed = 30 seconds realtime at 1x perceived
         this.simulationTime = 0; // Track simulation time
-        this.securityQueue = new SecurityQueue(config, width, height);
         this.obstacles = new Obstacles(config, width, height);
+        this.securityQueue = new SecurityQueue(config, width, height);
+        this.securityQueue.setObstacles(this.obstacles); // Pass obstacles for pathfinding
         this.foodStalls = [];
         this.createFoodStalls();
         this.pendingLeftConcertAgents = null;
@@ -38,7 +39,9 @@ export class EventManager {
         
         for (let i = 0; i < stallCount; i++) {
             const stallY = startY + spacing * (i + 1);
-            this.foodStalls.push(new FoodStall(stallX, stallY, this.config));
+            const stall = new FoodStall(stallX, stallY, this.config);
+            stall.setObstacles(this.obstacles); // Pass obstacles for pathfinding
+            this.foodStalls.push(stall);
         }
         
         // Update obstacles with food stalls
@@ -118,7 +121,7 @@ export class EventManager {
                         // Wander to random position
                         const targetX = Math.random() * this.width;
                         const targetY = Math.random() * this.height * 0.7;
-                        agent.setTarget(targetX, targetY);
+                        agent.setTarget(targetX, targetY, this.obstacles);
                     }
                 });
             }
@@ -142,7 +145,7 @@ export class EventManager {
                         // Wander to random position
                         const targetX = Math.random() * this.width;
                         const targetY = Math.random() * this.height * 0.7;
-                        agent.setTarget(targetX, targetY);
+                        agent.setTarget(targetX, targetY, this.obstacles);
                     }
                 });
             }
@@ -185,12 +188,12 @@ export class EventManager {
                 if (Math.random() < 0.2) {
                     agent.isUpFront = true;
                     const targetY = this.height * 0.20 + Math.random() * this.height * 0.15;
-                    agent.setTarget(targetX + (Math.random() - 0.5) * 40, targetY);
+                    agent.setTarget(targetX + (Math.random() - 0.5) * 40, targetY, this.obstacles);
                 } else {
                     // Others watch from farther away, more spaced
                     agent.isUpFront = false;
                     const targetY = this.height * 0.25 + Math.random() * this.height * 0.3;
-                    agent.setTarget(targetX + (Math.random() - 0.5) * 150, targetY);
+                    agent.setTarget(targetX + (Math.random() - 0.5) * 150, targetY, this.obstacles);
                 }
             }
         });
@@ -273,7 +276,7 @@ export class EventManager {
                 agent.markAsLeaving();
                 const busX = this.width * this.config.BUS_X;
                 const busY = this.height * this.config.BUS_Y;
-                agent.setTarget(busX + (Math.random() - 0.5) * 40, busY);
+                agent.setTarget(busX + (Math.random() - 0.5) * 40, busY, this.obstacles);
                 leavingAgents.push(agent);
             }
         }

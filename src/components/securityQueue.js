@@ -77,48 +77,35 @@ export class SecurityQueue {
      * @param {boolean} sortNeeded - Whether to sort the queue (only on join/leave events)
      */
     updateQueuePositions(queueIndex, sortNeeded = false) {
-        const queue = this.queues[queueIndex];
-        const entering = this.entering[queueIndex];
+        // Use shared QueueManager for consistent behavior
         const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X);
         const startY = this.height * this.config.QUEUE_START_Y;
         const spacing = this.config.QUEUE_SPACING;
         
-        // Only sort when needed (someone joined/left), not every frame
-        if (sortNeeded) {
-            // Sort queue by Y position - fans closer to front (lower Y) go first
-            queue.sort((a, b) => a.y - b.y);
-            
-            // Sort entering by distance to target
-            entering.sort((a, b) => {
-                const distA = Math.abs(a.y - a.targetY);
-                const distB = Math.abs(b.y - b.targetY);
-                return distA - distB;
-            });
-        }
-        
-        // Update fans in the actual queue - update positions every frame for responsiveness
-        queue.forEach((fan, index) => {
-            const targetY = startY + (index * spacing);
-            fan.queuePosition = index; // Track position in queue
-            fan.setTarget(queueX, targetY); // Update every frame for smooth movement
-            fan.inQueue = true;
-            if (fan.state !== 'being_checked') {
-                fan.state = 'in_queue';
-            }
-        });
-        
-        // Update fans approaching/entering the queue - update every frame
-        entering.forEach((fan, index) => {
-            const position = queue.length + index;
-            const adjustedPosition = (queue.length === 0 && index === 0) ? Math.max(1, position) : position;
-            const targetY = startY + (adjustedPosition * spacing);
-            fan.queuePosition = position; // Track position
-            fan.setTarget(queueX, targetY); // Update every frame
-            fan.inQueue = false;
-            if (fan.state !== 'approaching_queue') {
-                fan.state = 'approaching_queue';
-            }
-        });
+        // Update using QueueManager - pass obstacles for pathfinding
+        QueueManager.updatePositions(
+            this.queues[queueIndex],
+            this.entering[queueIndex],
+            (position) => {
+                // For entering fans, ensure they don't get position 0 when queue is empty
+                const adjustedPosition = (this.queues[queueIndex].length === 0 && position === 0) ? 
+                    Math.max(1, position) : position;
+                return {
+                    x: queueX,
+                    y: startY + (adjustedPosition * spacing)
+                };
+            },
+            { x: queueX, y: startY },
+            this.obstacles  // Pass obstacles for pathfinding
+        );
+    }
+    
+    /**
+     * Set obstacles reference for pathfinding
+     * @param {Obstacles} obstacles - Obstacles manager
+     */
+    setObstacles(obstacles) {
+        this.obstacles = obstacles;
     }
 
     /**

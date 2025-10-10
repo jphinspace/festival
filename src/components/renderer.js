@@ -162,6 +162,36 @@ export class Renderer {
     }
 
     drawDebugOverlay(fan, mouseX, mouseY) {
+        // Draw line from fan to destination/waypoint FIRST (so it's behind the tooltip)
+        if (fan.targetX !== null && fan.targetY !== null) {
+            // Determine the actual target (waypoint or final destination)
+            let targetX, targetY;
+            if (fan.waypoints && fan.waypoints.length > 0) {
+                // Show line to next waypoint
+                targetX = fan.waypoints[0].x;
+                targetY = fan.waypoints[0].y;
+            } else {
+                // Show line to final destination
+                targetX = fan.targetX;
+                targetY = fan.targetY;
+            }
+            
+            // Draw thin red line from fan to target
+            this.ctx.strokeStyle = '#ff0000';
+            this.ctx.lineWidth = 1;
+            this.ctx.setLineDash([]);  // Solid line
+            this.ctx.beginPath();
+            this.ctx.moveTo(fan.x, fan.y);
+            this.ctx.lineTo(targetX, targetY);
+            this.ctx.stroke();
+            
+            // Draw small circle at the target
+            this.ctx.fillStyle = '#ff0000';
+            this.ctx.beginPath();
+            this.ctx.arc(targetX, targetY, 3, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
+        
         // Draw debug information for a hovered fan
         const padding = 10;
         const lineHeight = 14;
@@ -171,7 +201,8 @@ export class Renderer {
             `Target: (${fan.targetX ? fan.targetX.toFixed(0) : 'none'}, ${fan.targetY ? fan.targetY.toFixed(0) : 'none'})`,
             `Position: (${fan.x.toFixed(0)}, ${fan.y.toFixed(0)})`,
             `In Queue: ${fan.inQueue ? 'Yes' : 'No'}`,
-            `Queue Position: ${fan.queuePosition !== null ? fan.queuePosition : 'N/A'}`,
+            `Queue Position: ${fan.queuePosition !== null && fan.queuePosition !== undefined ? fan.queuePosition : 'N/A'}`,
+            `Waypoints: ${fan.waypoints ? fan.waypoints.length : 0}`,
             `Enhanced Security: ${fan.enhancedSecurity ? 'Yes' : 'No'}`,
             `Wait Start: ${fan.waitStartTime ? 'Yes' : 'No'}`,
             `Stage Pref: ${fan.stagePreference}`,

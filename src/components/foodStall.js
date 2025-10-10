@@ -152,27 +152,28 @@ export class FoodStall {
      * @param {number} height - Canvas height
      * @param {number} simulationTime - Current simulation time in milliseconds
      */
+    /**
+     * Process queue - handle fans at front and those entering
+     * @param {number} width - Canvas width
+     * @param {number} height - Canvas height
+     * @param {number} simulationTime - Current simulation time
+     */
     processQueue(width, height, simulationTime) {
         // Update positions every frame for responsive movement
         this.updateQueuePositions(width, height, false);
         
-        // First, process fans approaching each queue
+        // Use QueueManager to process both queues
         [
             { queue: this.leftQueue, approaching: this.leftApproaching, side: 'left' },
             { queue: this.rightQueue, approaching: this.rightApproaching, side: 'right' }
         ].forEach(({ queue, approaching, side }) => {
-            // Move fans from approaching to queue when they reach their position
-            for (let i = approaching.length - 1; i >= 0; i--) {
-                const fan = approaching[i];
-                if (fan.isNearTarget(5)) {
-                    // Fan has reached their position, move to actual queue
-                    approaching.splice(i, 1);
-                    queue.push(fan);
-                    fan.state = 'in_queue';
-                    // Update all queue positions and sort since someone joined
-                    this.updateQueuePositions(width, height, true);
-                }
-            }
+            // Use QueueManager to handle approaching->queue transitions
+            QueueManager.processApproaching(
+                queue,
+                approaching,
+                () => this.updateQueuePositions(width, height, true),
+                10  // Threshold
+            );
             
             // Process the fan at the front of the queue
             if (queue.length > 0) {
@@ -228,69 +229,42 @@ export class FoodStall {
      * @param {boolean} sortNeeded - Whether to sort queues (only on join/leave events)
      */
     updateQueuePositions(width, height, sortNeeded = false) {
-        // Only sort when needed (someone joined/left), not every frame
-        if (sortNeeded) {
-            // Sort queues by distance to stall (X position)
-            // Left queue: higher X = closer to stall
-            this.leftQueue.sort((a, b) => b.x - a.x);
-            // Right queue: lower X = closer to stall  
-            this.rightQueue.sort((a, b) => a.x - b.x);
-            
-            // Sort approaching fans by distance to target
-            this.leftApproaching.sort((a, b) => {
-                const distA = Math.sqrt(Math.pow(a.x - a.targetX, 2) + Math.pow(a.y - a.targetY, 2));
-                const distB = Math.sqrt(Math.pow(b.x - b.targetX, 2) + Math.pow(b.y - b.targetY, 2));
-                return distA - distB;
-            });
-            
-            this.rightApproaching.sort((a, b) => {
-                const distA = Math.sqrt(Math.pow(a.x - a.targetX, 2) + Math.pow(a.y - a.targetY, 2));
-                const distB = Math.sqrt(Math.pow(b.x - b.targetX, 2) + Math.pow(b.y - b.targetY, 2));
-                return distA - distB;
-            });
-        }
+        // Use shared QueueManager for consistent behavior
+        // The "front" position should match where position 0 fans actually stand
+        const spacing = 8;
+        const frontY = this.y + this.height / 2;
         
-        // Update left approaching fans - update every frame for responsiveness
-        this.leftApproaching.forEach((fan, approachIndex) => {
-            const position = this.leftQueue.length + approachIndex;
-            fan.queuePosition = position; // Track queue position
-            const targetPos = this.getQueueTargetPosition(position, 'left');
-            fan.setTarget(targetPos.x, targetPos.y); // Update every frame
-            if (fan.state !== 'approaching_queue') {
-                fan.state = 'approaching_queue';
-            }
-        });
+        // For left queue, position 0 is at: this.x - spacing * 1
+        const frontLeftX = this.x - spacing;
         
-        // Update left queue - update every frame
-        this.leftQueue.forEach((fan, index) => {
-            fan.queuePosition = index; // Track position
-            const targetPos = this.getQueueTargetPosition(index, 'left');
-            fan.setTarget(targetPos.x, targetPos.y); // Update every frame
-            if (fan.state !== 'in_queue' && !fan.waitStartTime) {
-                fan.state = 'in_queue';
-            }
-        });
+        // For right queue, position 0 is at: this.x + this.width + spacing * 1
+        const frontRightX = this.x + this.width + spacing;
         
-        // Update right approaching fans - update every frame
-        this.rightApproaching.forEach((fan, approachIndex) => {
-            const position = this.rightQueue.length + approachIndex;
-            fan.queuePosition = position; // Track queue position
-            const targetPos = this.getQueueTargetPosition(position, 'right');
-            fan.setTarget(targetPos.x, targetPos.y); // Update every frame
-            if (fan.state !== 'approaching_queue') {
-                fan.state = 'approaching_queue';
-            }
-        });
+        // Update left queue using QueueManager - pass obstacles for pathfinding
+        QueueManager.updatePositions(
+            this.leftQueue,
+            this.leftApproaching,
+            (position) => this.getQueueTargetPosition(position, 'left'),
+            { x: frontLeftX, y: frontY },
+            this.obstacles  // Pass obstacles for pathfinding
+        );
         
-        // Update right queue - update every frame
-        this.rightQueue.forEach((fan, index) => {
-            fan.queuePosition = index; // Track position
-            const targetPos = this.getQueueTargetPosition(index, 'right');
-            fan.setTarget(targetPos.x, targetPos.y); // Update every frame
-            if (fan.state !== 'in_queue' && !fan.waitStartTime) {
-                fan.state = 'in_queue';
-            }
-        });
+        // Update right queue using QueueManager - pass obstacles for pathfinding
+        QueueManager.updatePositions(
+            this.rightQueue,
+            this.rightApproaching,
+            (position) => this.getQueueTargetPosition(position, 'right'),
+            { x: frontRightX, y: frontY },
+            this.obstacles  // Pass obstacles for pathfinding
+        );
+    }
+    
+    /**
+     * Set obstacles reference for pathfinding
+     * @param {Obstacles} obstacles - Obstacles manager
+     */
+    setObstacles(obstacles) {
+        this.obstacles = obstacles;
     }
 
     /**

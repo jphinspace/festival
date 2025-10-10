@@ -207,6 +207,16 @@ npm run test:coverage    # With coverage report
 - Don't break frame independence
 - Don't remove or modify tests without good reason
 - Don't add features that degrade performance
+- **Don't leave duplicate code** - Always refactor shared logic into reusable modules
+- **Don't leave broken features** - If waypoint pathfinding is implemented, ensure it actually works
+- **Don't accept "mostly working"** - Queue positioning must be accurate, not approximate
+- **Always verify fixes visually** - Code that looks correct may still have bugs
+
+## Critical Implementation Rules
+1. **Shared Logic Must Be Truly Shared**: When told to refactor duplicate code, move ALL shared logic to the shared module, not just sorting
+2. **Pathfinding Must Actually Path-find**: Waypoint systems must calculate paths that avoid obstacles, not just move toward targets
+3. **Queue Positions Must Match Reality**: Queue position numbers must reflect actual physical proximity, updated every frame
+4. **Complete the Work**: When instructed to fix something, fix it completely - don't leave it "partially working"
 
 ## Resources
 - Main docs: `README.md`
