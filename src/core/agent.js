@@ -99,8 +99,8 @@ export class Agent {
                 this.y = this.targetY;
                 this.targetX = null;
                 this.targetY = null;
-                // Only set to idle if not in special states
-                if (this.state === 'moving') {
+                // Transition to idle when reaching target
+                if (this.state === 'moving' || this.state === 'passed_security') {
                     this.state = 'idle';
                 }
             } else {
