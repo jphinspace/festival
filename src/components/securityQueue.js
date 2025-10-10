@@ -40,11 +40,12 @@ export class SecurityQueue {
     }
 
     /**
-     * Add a fan to one of the queues (choose closest queue based on position)
+     * Add a fan to one of the queues (fan chooses closest queue)
      * @param {Fan} fan - Fan to add to queue
      */
     addToQueue(fan) {
-        // Choose the queue closest to the fan's current position (not shortest)
+        // Fan chooses the queue closest to their current position
+        // This is a fan decision, not a queue property
         const leftQueueX = this.width * this.config.QUEUE_LEFT_X;
         const rightQueueX = this.width * this.config.QUEUE_RIGHT_X;
         const distToLeft = Math.abs(fan.x - leftQueueX);
@@ -64,6 +65,7 @@ export class SecurityQueue {
         const enhancedSecurity = Math.random() < this.config.ENHANCED_SECURITY_PERCENTAGE;
         
         // Use QueueManager common method to add fan
+        // Security queues now use same inQueue behavior as food stalls
         const position = QueueManager.addFanToQueue(fan, {
             queue: queue,
             approachingList: approachingList,
@@ -74,10 +76,9 @@ export class SecurityQueue {
             }),
             fanProperties: {
                 queueIndex: queueIndex,
-                enhancedSecurity: enhancedSecurity,
-                inQueue: false // Security queues: not in actual queue until they reach entry point
-            },
-            setInQueue: false // Don't set inQueue in QueueManager for security queues
+                enhancedSecurity: enhancedSecurity
+            }
+            // setInQueue defaults to true - same behavior as food stalls
         });
         
         return position;
@@ -139,7 +140,7 @@ export class SecurityQueue {
                     entering.splice(i, 1);
                     queue.push(fan);
                     fan.state = 'in_queue';
-                    fan.inQueue = true; // Now in actual queue
+                    // inQueue is already true from addToQueue - consistent with food queues
                     // Update all queue positions and sort since someone joined
                     this.updateQueuePositions(queueIndex, true);
                 }

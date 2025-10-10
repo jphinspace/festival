@@ -361,8 +361,8 @@ describe('SecurityQueue', () => {
         securityQueue.addToQueue(fan);
         const queueIndex = fan.queueIndex;
         
-        // Still not in actual queue (approaching)
-        expect(fan.inQueue).toBe(false);
+        // inQueue is set to true immediately (consistent with food queues)
+        expect(fan.inQueue).toBe(true);
         
         // Move to target
         fan.x = fan.targetX;
@@ -371,7 +371,7 @@ describe('SecurityQueue', () => {
         // First update - positions updated, then fan joins queue
         securityQueue.update(1000);
         
-        // Now should be in actual queue
+        // Should still be in queue
         expect(fan.inQueue).toBe(true);
         expect(securityQueue.queues[queueIndex]).toContain(fan);
         
