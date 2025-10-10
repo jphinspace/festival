@@ -39,7 +39,7 @@ export class EventManager {
         
         for (let i = 0; i < stallCount; i++) {
             const stallY = startY + spacing * (i + 1);
-            const stall = new FoodStall(stallX, stallY, this.config);
+            const stall = new FoodStall(stallX, stallY, this.config, i + 1); // Pass ID (1-4)
             stall.setObstacles(this.obstacles); // Pass obstacles for pathfinding
             this.foodStalls.push(stall);
         }
@@ -219,8 +219,36 @@ export class EventManager {
                     }
                     
                     agent.justPassedSecurity = false; // Clear flag when getting food
-                    const stall = this.getShortestQueue();
-                    stall.addToQueue(agent);
+                    
+                    // Choose a specific food stall based on fan preference (not just shortest queue)
+                    // If fan doesn't have a preferred stall yet, pick one based on their position
+                    if (!agent.preferredFoodStall) {
+                        // Pick the closest stall to the fan's current position
+                        let closestStall = this.foodStalls[0];
+                        let closestDist = Math.sqrt(
+                            Math.pow(agent.x - closestStall.x, 2) + 
+                            Math.pow(agent.y - closestStall.y, 2)
+                        );
+                        
+                        for (let i = 1; i < this.foodStalls.length; i++) {
+                            const stall = this.foodStalls[i];
+                            const dist = Math.sqrt(
+                                Math.pow(agent.x - stall.x, 2) + 
+                                Math.pow(agent.y - stall.y, 2)
+                            );
+                            if (dist < closestDist) {
+                                closestStall = stall;
+                                closestDist = dist;
+                            }
+                        }
+                        agent.preferredFoodStall = closestStall.id;
+                    }
+                    
+                    // Find the stall with this ID
+                    const stall = this.foodStalls.find(s => s.id === agent.preferredFoodStall);
+                    if (stall) {
+                        stall.addToQueue(agent);
+                    }
                 }
             }
         });
