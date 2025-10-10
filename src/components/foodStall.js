@@ -153,6 +153,9 @@ export class FoodStall {
      * @param {number} simulationTime - Current simulation time in milliseconds
      */
     processQueue(width, height, simulationTime) {
+        // Update positions every frame for responsive movement
+        this.updateQueuePositions(width, height, false);
+        
         // First, process fans approaching each queue
         [
             { queue: this.leftQueue, approaching: this.leftApproaching, side: 'left' },
@@ -180,7 +183,8 @@ export class FoodStall {
                     // Start waiting if not already
                     if (!frontFan.waitStartTime) {
                         frontFan.waitStartTime = simulationTime;
-                        frontFan.state = 'idle';
+                        // Keep state as 'in_queue' NOT 'idle' - idle state breaks queue processing
+                        frontFan.state = 'in_queue';
                     }
                     
                     // Check if wait time is complete
@@ -246,63 +250,45 @@ export class FoodStall {
             });
         }
         
-        // Update left approaching fans
+        // Update left approaching fans - update every frame for responsiveness
         this.leftApproaching.forEach((fan, approachIndex) => {
             const position = this.leftQueue.length + approachIndex;
+            fan.queuePosition = position; // Track queue position
             const targetPos = this.getQueueTargetPosition(position, 'left');
-            // Only update if changed significantly (avoid jitter)
-            if (Math.abs(fan.targetX - targetPos.x) > 5 || 
-                Math.abs(fan.targetY - targetPos.y) > 5) {
-                fan.setTarget(targetPos.x, targetPos.y);
-            }
+            fan.setTarget(targetPos.x, targetPos.y); // Update every frame
             if (fan.state !== 'approaching_queue') {
                 fan.state = 'approaching_queue';
             }
         });
         
-        // Update left queue
+        // Update left queue - update every frame
         this.leftQueue.forEach((fan, index) => {
+            fan.queuePosition = index; // Track position
             const targetPos = this.getQueueTargetPosition(index, 'left');
-            
-            // Only update if not at front waiting, or if position changed significantly
-            if (index > 0 || !fan.waitStartTime) {
-                if (Math.abs(fan.targetX - targetPos.x) > 5 || 
-                    Math.abs(fan.targetY - targetPos.y) > 5) {
-                    fan.setTarget(targetPos.x, targetPos.y);
-                }
-                if (fan.state !== 'in_queue' && !fan.waitStartTime) {
-                    fan.state = 'in_queue';
-                }
+            fan.setTarget(targetPos.x, targetPos.y); // Update every frame
+            if (fan.state !== 'in_queue' && !fan.waitStartTime) {
+                fan.state = 'in_queue';
             }
         });
         
-        // Update right approaching fans
+        // Update right approaching fans - update every frame
         this.rightApproaching.forEach((fan, approachIndex) => {
             const position = this.rightQueue.length + approachIndex;
+            fan.queuePosition = position; // Track queue position
             const targetPos = this.getQueueTargetPosition(position, 'right');
-            // Only update if changed significantly
-            if (Math.abs(fan.targetX - targetPos.x) > 5 || 
-                Math.abs(fan.targetY - targetPos.y) > 5) {
-                fan.setTarget(targetPos.x, targetPos.y);
-            }
+            fan.setTarget(targetPos.x, targetPos.y); // Update every frame
             if (fan.state !== 'approaching_queue') {
                 fan.state = 'approaching_queue';
             }
         });
         
-        // Update right queue
+        // Update right queue - update every frame
         this.rightQueue.forEach((fan, index) => {
+            fan.queuePosition = index; // Track position
             const targetPos = this.getQueueTargetPosition(index, 'right');
-            
-            // Only update if not at front waiting, or if position changed significantly
-            if (index > 0 || !fan.waitStartTime) {
-                if (Math.abs(fan.targetX - targetPos.x) > 5 || 
-                    Math.abs(fan.targetY - targetPos.y) > 5) {
-                    fan.setTarget(targetPos.x, targetPos.y);
-                }
-                if (fan.state !== 'in_queue' && !fan.waitStartTime) {
-                    fan.state = 'in_queue';
-                }
+            fan.setTarget(targetPos.x, targetPos.y); // Update every frame
+            if (fan.state !== 'in_queue' && !fan.waitStartTime) {
+                fan.state = 'in_queue';
             }
         });
     }

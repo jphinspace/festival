@@ -53,34 +53,21 @@ export class SecurityQueue {
         fan.queueIndex = queueIndex;
         fan.enhancedSecurity = Math.random() < this.config.ENHANCED_SECURITY_PERCENTAGE;
         fan.inQueue = false; // Not in actual queue yet (consistent with food queues)
+        fan.queuePosition = this.queues[queueIndex].length + this.entering[queueIndex].length;
         
         // Add to entering list first
         this.entering[queueIndex].push(fan);
         
-        // CRITICAL FIX: Two-stage movement to prevent diagonal lines
-        // Stage 1: Move straight UP to the queue level (Y position) while maintaining current X
-        // Stage 2: Once at queue level, move laterally to the queue X position
-        // This creates vertical movement first, then lateral, instead of diagonal
-        
+        // Direct fans to the BACK/END of their assigned queue
+        // Calculate where the end of the queue is
+        const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X);
         const startY = this.height * this.config.QUEUE_START_Y;
         const spacing = this.config.QUEUE_SPACING;
-        const position = this.queues[queueIndex].length + this.entering[queueIndex].length - 1;
+        const position = fan.queuePosition;
+        const entryY = startY + (position * spacing);
         
-        // Check if fan is below the queue level
-        if (fan.y > startY + 20) {
-            // Stage 1: Move straight up to queue level at current X position
-            // Go to a position slightly past the back of the queue
-            const entryY = startY + (position * spacing) + spacing;
-            fan.setTarget(fan.x, entryY); // Use fan's current X, not queue X
-            fan.securityStage = 'moving_to_queue_level';
-        } else {
-            // Fan is already at queue level, move directly to queue X position
-            const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X);
-            const entryY = startY + (position * spacing);
-            fan.setTarget(queueX, entryY);
-            fan.securityStage = 'approaching_queue';
-        }
-        
+        // Set target directly to the back of the queue (no two-stage movement needed)
+        fan.setTarget(queueX, entryY);
         fan.state = 'approaching_queue';
     }
 
@@ -109,29 +96,24 @@ export class SecurityQueue {
             });
         }
         
-        // Update fans in the actual queue
+        // Update fans in the actual queue - update positions every frame for responsiveness
         queue.forEach((fan, index) => {
             const targetY = startY + (index * spacing);
-            // Only update if changed significantly (avoid jitter)
-            if (Math.abs(fan.targetX - queueX) > 1 || Math.abs(fan.targetY - targetY) > 1) {
-                fan.setTarget(queueX, targetY);
-            }
+            fan.queuePosition = index; // Track position in queue
+            fan.setTarget(queueX, targetY); // Update every frame for smooth movement
             fan.inQueue = true;
             if (fan.state !== 'being_checked') {
                 fan.state = 'in_queue';
             }
         });
         
-        // Update fans approaching/entering the queue
+        // Update fans approaching/entering the queue - update every frame
         entering.forEach((fan, index) => {
             const position = queue.length + index;
             const adjustedPosition = (queue.length === 0 && index === 0) ? Math.max(1, position) : position;
             const targetY = startY + (adjustedPosition * spacing);
-            
-            // Only update if changed significantly
-            if (Math.abs(fan.targetX - queueX) > 1 || Math.abs(fan.targetY - targetY) > 1) {
-                fan.setTarget(queueX, targetY);
-            }
+            fan.queuePosition = position; // Track position
+            fan.setTarget(queueX, targetY); // Update every frame
             fan.inQueue = false;
             if (fan.state !== 'approaching_queue') {
                 fan.state = 'approaching_queue';
@@ -148,37 +130,24 @@ export class SecurityQueue {
             const queue = this.queues[queueIndex];
             const entering = this.entering[queueIndex];
             
-            // Process fans entering the queue
+            // Process fans entering the queue FIRST (before updating positions)
             for (let i = entering.length - 1; i >= 0; i--) {
                 const fan = entering[i];
                 
-                // Handle two-stage movement for fans approaching from below
-                if (fan.securityStage === 'moving_to_queue_level') {
-                    // Check if fan has reached the queue level (Y position)
-                    if (fan.isNearTarget(8)) {
-                        // Stage 1 complete, now move laterally to queue X position
-                        const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X);
-                        const startY = this.height * this.config.QUEUE_START_Y;
-                        const spacing = this.config.QUEUE_SPACING;
-                        const position = queue.length + entering.indexOf(fan);
-                        const entryY = startY + (position * spacing);
-                        fan.setTarget(queueX, entryY);
-                        fan.securityStage = 'approaching_queue';
-                    }
-                } else {
-                    // Check if fan has reached the entry point
-                    if (fan.isNearTarget(5)) {
-                        // Move from entering to actual queue
-                        entering.splice(i, 1);
-                        queue.push(fan);
-                        fan.state = 'in_queue';
-                        fan.inQueue = true; // Now in actual queue
-                        fan.securityStage = null; // Clear stage
-                        // Update all queue positions and sort since someone joined
-                        this.updateQueuePositions(queueIndex, true);
-                    }
+                // Check if fan has reached the entry point
+                if (fan.isNearTarget(5)) {
+                    // Move from entering to actual queue
+                    entering.splice(i, 1);
+                    queue.push(fan);
+                    fan.state = 'in_queue';
+                    fan.inQueue = true; // Now in actual queue
+                    // Update all queue positions and sort since someone joined
+                    this.updateQueuePositions(queueIndex, true);
                 }
             }
+            
+            // Update positions for all fans after processing enters
+            this.updateQueuePositions(queueIndex, false);
             
             // If no one is being processed and queue has people, start processing
             if (this.processing[queueIndex] === null && queue.length > 0) {

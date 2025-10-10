@@ -3,6 +3,43 @@
 ## Project Overview
 This is an HTML5-based agent simulation of a music festival featuring agent-based modeling. The simulation runs in real-time with interactive controls for various festival events. The codebase uses pure vanilla JavaScript (ES6 modules) with no external runtime dependencies.
 
+## Debugging Philosophy
+
+### Finding Mechanical/System Issues
+When debugging movement or collision issues in agent simulations:
+
+1. **Check State-Based Permissions First**: Before investigating complex behavior logic, verify that agents in different states have the correct permissions to pass through obstacles or interact with systems
+   - Example: If agents are being pushed sideways after passing through an area, check if their state allows them to pass through that area's obstacles
+   - Check BOTH collision detection (`checkCollision()`) AND collision resolution (`resolveCollision()`)
+
+2. **Trace the Full Data Flow**: Issues often stem from state management inconsistencies
+   - Check what state an agent is in at each stage of a process
+   - Verify state transitions happen at the right time
+   - Look for missing state values in conditional logic
+
+3. **Test Isolated Systems**: When multiple systems interact (collision + movement + queuing), test each in isolation
+   - Does collision detection work correctly for each state?
+   - Does movement logic set correct targets?
+   - Do queue systems update positions frequently enough?
+
+4. **Visual Debugging is Critical**: In spatial/movement bugs, visual inspection often reveals the issue faster than code review
+   - Take screenshots showing the problem
+   - Compare expected vs actual positions
+   - Look for patterns (e.g., "always moves right" = check perpendicular collision avoidance)
+
+### Postmortem: Security Queue Rightward Drift Issue
+**Problem**: Fans drifted to the right after passing through security, despite fixes to wandering behavior, state transitions, and target positioning.
+
+**Root Cause**: The `passed_security` state was not included in the list of allowed states to pass through security obstacles in `obstacles.js`. When fans moved toward the center, they collided with security obstacles and the collision avoidance code pushed them perpendicular (to the right).
+
+**Why Previous Attempts Failed**:
+1. Initially focused on behavioral issues (wandering, state transitions)
+2. Checked target positioning logic
+3. Did not systematically check obstacle permissions for the specific state
+4. Did not check BOTH `checkCollision()` AND `resolveCollision()` methods
+
+**Lesson Learned**: For movement/collision issues, always check state-based permissions in ALL collision-related methods before investigating complex behavior logic.
+
 ## Architecture
 
 ### Core Principles

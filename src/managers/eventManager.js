@@ -250,7 +250,7 @@ export class EventManager {
             const offsetY = -Math.random() * 15; // 0 to -15, always above the bus
             const fan = new Fan(busX + offsetX, busY + offsetY, this.config);
             
-            // Add fan to security queue instead of directly to festival
+            // Add fan to security queue - this will direct them toward the queue ends
             this.securityQueue.addToQueue(fan);
             
             newAgents.push(fan);
