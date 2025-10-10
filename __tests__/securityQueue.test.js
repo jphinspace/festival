@@ -128,6 +128,8 @@ describe('SecurityQueue', () => {
         securityQueue.update(processTime);
         expect(fan.state).toBe('passed_security');
         expect(securityQueue.processing[queueIndex]).toBeNull();
+        // Fan should have new target at center of festival (0.5 * width)
+        expect(fan.targetX).toBe(400); // 0.5 * 800
     });
 
     test('should send enhanced security fan to back of queue', () => {
@@ -374,7 +376,6 @@ describe('SecurityQueue', () => {
         securityQueue.addToQueue(fan);
         
         const queueIndex = fan.queueIndex;
-        const queueX = 800 * (queueIndex === 0 ? mockConfig.QUEUE_LEFT_X : mockConfig.QUEUE_RIGHT_X);
         
         // Move through queue
         fan.x = fan.targetX;
@@ -388,8 +389,8 @@ describe('SecurityQueue', () => {
         // Process through security
         securityQueue.update(1000 + mockConfig.REGULAR_SECURITY_TIME + 100);
         
-        // Fan should go straight up (same X as queue)
-        expect(fan.targetX).toBe(queueX);
+        // Fan should go to center of festival (0.5 * width)
+        expect(fan.targetX).toBe(400); // 0.5 * 800
         // Target Y should be towards festival (0.3 * height = 0.3 * 600 = 180)
         expect(fan.targetY).toBe(180);
         expect(fan.state).toBe('passed_security');

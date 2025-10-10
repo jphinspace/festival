@@ -219,10 +219,11 @@ export class SecurityQueue {
                         fan.state = 'approaching_queue';
                         fan.inQueue = false; // Not in actual queue yet
                     } else {
-                        // Allow into festival - move straight ahead (up towards festival)
-                        const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X);
+                        // Allow into festival - move straight ahead to CENTER of festival
+                        // All fans should converge to center regardless of which queue they came from
+                        const targetX = this.width * 0.5; // Center of festival
                         const targetY = this.height * 0.3; // Move to festival area (30% down from top)
-                        fan.setTarget(queueX, targetY);
+                        fan.setTarget(targetX, targetY);
                         fan.state = 'passed_security'; // Set state after setTarget
                         fan.inQueue = false; // Clear queue status
                         fan.justPassedSecurity = true; // Mark to prevent immediate wandering
