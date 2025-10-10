@@ -34,8 +34,9 @@ export class QueueManager {
      * @param {Function} getTargetPosition - Function(index) that returns {x, y} for a position
      * @param {Object} frontPosition - {x, y} position of queue front for sorting
      * @param {Obstacles} obstacles - Obstacles for pathfinding (pass to setTarget)
+     * @param {boolean} useProximityLock - If true, use locked positions (for food stalls). If false, recalculate based on distance (for security)
      */
-    static updatePositions(queue, approaching, getTargetPosition, frontPosition, obstacles = null) {
+    static updatePositions(queue, approaching, getTargetPosition, frontPosition, obstacles = null, useProximityLock = false) {
         // Sort main queue by distance to front
         queue.sort((a, b) => {
             const distA = Math.sqrt(Math.pow(a.x - frontPosition.x, 2) + Math.pow(a.y - frontPosition.y, 2));
@@ -54,30 +55,145 @@ export class QueueManager {
             }
         });
         
-        // For approaching fans, find their natural insertion point based on distance
-        // This prevents them from always going to the back
+        // For approaching fans, update their targets
         approaching.forEach((fan) => {
-            const fanDist = Math.sqrt(Math.pow(fan.x - frontPosition.x, 2) + Math.pow(fan.y - frontPosition.y, 2));
-            
-            // Find where this fan would fit in the queue based on distance
-            let insertPosition = queue.length; // Default to end
-            for (let i = 0; i < queue.length; i++) {
-                const queueFanDist = Math.sqrt(Math.pow(queue[i].x - frontPosition.x, 2) + Math.pow(queue[i].y - frontPosition.y, 2));
-                if (fanDist < queueFanDist) {
-                    insertPosition = i;
-                    break;
+            if (useProximityLock) {
+                // Food stalls: use locked position (assigned once in addToQueue)
+                if (fan.queuePosition === null || fan.queuePosition === undefined) {
+                    // Fallback: assign position at end of queue
+                    fan.queuePosition = queue.length + approaching.indexOf(fan);
                 }
+            } else {
+                // Security queues: recalculate based on distance (original behavior)
+                const fanDist = Math.sqrt(Math.pow(fan.x - frontPosition.x, 2) + Math.pow(fan.y - frontPosition.y, 2));
+                
+                // Find where this fan fits based on distance
+                let insertPosition = queue.length; // Default to end
+                for (let i = 0; i < queue.length; i++) {
+                    const queueFanDist = Math.sqrt(Math.pow(queue[i].x - frontPosition.x, 2) + Math.pow(queue[i].y - frontPosition.y, 2));
+                    if (fanDist < queueFanDist) {
+                        insertPosition = i;
+                        break;
+                    }
+                }
+                fan.queuePosition = insertPosition;
             }
             
-            // Set fan's position and target based on where they naturally fit
-            fan.queuePosition = insertPosition;
-            const targetPos = getTargetPosition(insertPosition);
+            const targetPos = getTargetPosition(fan.queuePosition);
             fan.setTarget(targetPos.x, targetPos.y, obstacles);
             fan.inQueue = false;
             if (fan.state !== 'approaching_queue') {
                 fan.state = 'approaching_queue';
             }
         });
+    }
+    
+    /**
+     * Find the best position for a fan joining the approaching queue
+     * This is called ONCE when a fan first joins, not every frame
+     * @param {Fan} fan - Fan joining the queue
+     * @param {Array} queue - Main queue array
+     * @param {Array} approaching - Fans already approaching
+     * @param {Object} frontPosition - {x, y} position of queue front
+     * @returns {number} The position this fan should target
+     */
+    static findApproachingPosition(fan, queue, approaching, frontPosition) {
+        // Calculate distance to front for this fan
+        const fanDistToFront = Math.sqrt(
+            Math.pow(fan.x - frontPosition.x, 2) + 
+            Math.pow(fan.y - frontPosition.y, 2)
+        );
+        
+        // Combine all fans in the queue (both in_queue and approaching_queue)
+        const allFansInQueue = [...queue, ...approaching.filter(f => f !== fan)];
+        
+        // Find nearby fans within a reasonable proximity
+        const proximityThreshold = 60; // pixels - reduced from 80 to be more conservative
+        const nearbyFans = [];
+        
+        allFansInQueue.forEach((otherFan) => {
+            const otherDistToFront = Math.sqrt(
+                Math.pow(otherFan.x - frontPosition.x, 2) + 
+                Math.pow(otherFan.y - frontPosition.y, 2)
+            );
+            const distToOther = Math.sqrt(
+                Math.pow(fan.x - otherFan.x, 2) + 
+                Math.pow(fan.y - otherFan.y, 2)
+            );
+            
+            if (distToOther <= proximityThreshold) {
+                nearbyFans.push({
+                    fan: otherFan,
+                    distToFront: otherDistToFront,
+                    distToSelf: distToOther
+                });
+            }
+        });
+        
+        // If we have nearby fans, try to position based on them
+        if (nearbyFans.length > 0) {
+            // Sort by distance to front
+            nearbyFans.sort((a, b) => a.distToFront - b.distToFront);
+            
+            // Find the closest fan who is ahead of us (closer to front)
+            const fansAhead = nearbyFans.filter(f => f.distToFront < fanDistToFront);
+            
+            if (fansAhead.length > 0) {
+                // Position after the closest fan ahead
+                const closestAhead = fansAhead[fansAhead.length - 1].fan;
+                if (closestAhead.queuePosition !== null && closestAhead.queuePosition !== undefined) {
+                    return closestAhead.queuePosition + 1;
+                }
+            }
+        }
+        
+        // Default: go to the back of the queue (no nearby fans or too far)
+        return queue.length + approaching.filter(f => f !== fan).length;
+    }
+    
+    /**
+     * Common logic for adding a fan to a queue with proximity-based positioning
+     * @param {Fan} fan - Fan to add to queue
+     * @param {Object} options - Configuration options
+     * @param {Array} options.queue - Main queue array
+     * @param {Array} options.approachingList - Approaching fans array
+     * @param {Object} options.frontPosition - {x, y} position of queue front
+     * @param {Function} options.getTargetPosition - Function to get target position from queue position
+     * @param {Object} options.fanProperties - Properties to set on the fan
+     * @param {boolean} options.setInQueue - Whether to set fan.inQueue to true (default: true)
+     * @returns {number} The assigned position
+     */
+    static addFanToQueue(fan, options) {
+        const { queue, approachingList, frontPosition, getTargetPosition, fanProperties = {}, setInQueue = true } = options;
+        
+        // Use proximity-based positioning
+        const position = this.findApproachingPosition(
+            fan,
+            queue,
+            approachingList,
+            frontPosition
+        );
+        
+        // Add to approaching list
+        approachingList.push(fan);
+        
+        // Set common fan properties
+        if (setInQueue) {
+            fan.inQueue = true; // Mark as in queue process
+        }
+        fan.queuePosition = position; // Assign the calculated position
+        
+        // Set any additional properties passed in
+        Object.assign(fan, fanProperties);
+        
+        // Set target based on calculated position
+        const targetPos = getTargetPosition(position);
+        fan.setTarget(targetPos.x, targetPos.y);
+        
+        // Set state AFTER setTarget (which sets it to 'moving')
+        fan.state = 'approaching_queue';
+        
+        return position;
     }
 
     /**

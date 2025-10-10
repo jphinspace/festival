@@ -19,6 +19,8 @@ export class Agent {
         this.config = config;
         this.color = config.COLORS.AGENT_ACTIVE;
         this.radius = config.AGENT_RADIUS;
+        this.lastWaypointUpdate = 0; // Track when waypoints were last recalculated
+        this.waypointUpdateInterval = 500; // ms between waypoint updates
     }
 
     /**
@@ -244,14 +246,32 @@ export class Agent {
     /**
      * Check if this agent overlaps with another agent (considering personal space)
      * @param {Agent} other - Another agent to check collision with
+     * @param {boolean} allowMovingOverlap - Allow temporary overlap if both are moving
      * @returns {boolean} True if agents are too close
      */
-    overlapsWith(other) {
+    overlapsWith(other, allowMovingOverlap = false) {
         const dx = this.x - other.x;
         const dy = this.y - other.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         const personalSpace = this.getPersonalSpace(other);
+        
+        // Allow temporary personal space overlap while moving (but not complete body overlap)
+        if (allowMovingOverlap && this.isMoving() && other.isMoving()) {
+            // Allow overlap of personal space circles but not bodies
+            const minDistance = this.radius + other.radius;
+            return distance < minDistance;
+        }
+        
         return distance < personalSpace;
+    }
+    
+    /**
+     * Check if agent is currently moving
+     * @returns {boolean} True if agent is in a moving state
+     */
+    isMoving() {
+        return this.state === 'moving' || this.state === 'approaching_queue' || 
+               this.state === 'in_queue' || this.state === 'passed_security';
     }
 
     /**
@@ -263,11 +283,13 @@ export class Agent {
         const dx = this.x - other.x;
         const dy = this.y - other.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        const personalSpace = this.getPersonalSpace(other);
         
-        if (distance < personalSpace && distance > 0) {
+        // Use stricter distance for pushing (only push if bodies actually overlap)
+        const minDistance = this.radius + other.radius;
+        
+        if (distance < minDistance && distance > 0) {
             // Calculate push direction
-            const pushDistance = (personalSpace - distance) / 2;
+            const pushDistance = (minDistance - distance) / 2;
             const pushX = (dx / distance) * pushDistance;
             const pushY = (dy / distance) * pushDistance;
             
@@ -335,6 +357,79 @@ export class Agent {
     }
 
     /**
+     * Calculate avoidance waypoints around other fans
+     * @param {Agent[]} otherAgents - Array of other agents to avoid
+     * @param {number} targetX - Final target X
+     * @param {number} targetY - Final target Y
+     * @returns {Array} Array of waypoint objects {x, y}
+     */
+    calculateFanAvoidanceWaypoints(otherAgents, targetX, targetY) {
+        const MAX_DETECTION_DISTANCE = 100; // Local knowledge limit
+        const AVOIDANCE_ANGLE = Math.PI / 6; // 30 degrees - small angle for mostly straight paths
+        const MIN_AVOIDANCE_DISTANCE = 20; // Minimum distance to create waypoint
+        
+        // Direction to target
+        const toTargetDx = targetX - this.x;
+        const toTargetDy = targetY - this.y;
+        const distToTarget = Math.sqrt(toTargetDx * toTargetDx + toTargetDy * toTargetDy);
+        
+        if (distToTarget < 5) return []; // Already at target
+        
+        const targetDirX = toTargetDx / distToTarget;
+        const targetDirY = toTargetDy / distToTarget;
+        
+        // Find fans in the way
+        let needsAvoidance = false;
+        let avoidRight = false;
+        
+        for (const other of otherAgents) {
+            if (other === this || !other.isMoving()) continue;
+            
+            const dx = other.x - this.x;
+            const dy = other.y - this.y;
+            const distToOther = Math.sqrt(dx * dx + dy * dy);
+            
+            // Only consider nearby fans (local knowledge)
+            if (distToOther > MAX_DETECTION_DISTANCE) continue;
+            
+            // Check if other fan is roughly in our path to target
+            const dotProduct = (dx * targetDirX + dy * targetDirY) / distToOther;
+            
+            // Fan is in our way if they're ahead of us (dotProduct > 0.5 means within ~60 degrees)
+            if (dotProduct > 0.5 && distToOther < this.config.PERSONAL_SPACE * 3) {
+                needsAvoidance = true;
+                
+                // Determine if we should avoid right or left
+                // Cross product tells us if other fan is to our left or right
+                const crossProduct = targetDirX * dy - targetDirY * dx;
+                
+                // Both fans avoid to their right (positive cross = fan on left, avoid right)
+                // This creates consistent behavior when fans are on collision course
+                avoidRight = crossProduct > 0;
+                break;
+            }
+        }
+        
+        if (!needsAvoidance) return [];
+        
+        // Create a waypoint to the side
+        const avoidDistance = MIN_AVOIDANCE_DISTANCE;
+        const angle = avoidRight ? -AVOIDANCE_ANGLE : AVOIDANCE_ANGLE;
+        
+        // Rotate direction vector by avoidance angle
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const avoidDirX = targetDirX * cos - targetDirY * sin;
+        const avoidDirY = targetDirX * sin + targetDirY * cos;
+        
+        // Create waypoint
+        const waypointX = this.x + avoidDirX * avoidDistance;
+        const waypointY = this.y + avoidDirY * avoidDistance;
+        
+        return [{ x: waypointX, y: waypointY }];
+    }
+
+    /**
      * Update agent state for current frame
      * @param {number} deltaTime - Time since last frame in seconds
      * @param {number} simulationSpeed - Speed multiplier for simulation
@@ -344,6 +439,24 @@ export class Agent {
     update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null) {
         // Allow movement for moving, in_queue, passed_security, and approaching_queue states
         if ((this.state === 'moving' || this.state === 'in_queue' || this.state === 'passed_security' || this.state === 'approaching_queue') && this.targetX !== null) {
+            // Periodically update waypoints to account for moving obstacles (other fans)
+            const currentTime = Date.now();
+            const shouldUpdateWaypoints = (currentTime - this.lastWaypointUpdate) > this.waypointUpdateInterval;
+            
+            if (shouldUpdateWaypoints && this.targetX !== null && this.targetY !== null) {
+                this.lastWaypointUpdate = currentTime;
+                
+                // Calculate waypoints around other fans
+                const fanWaypoints = this.calculateFanAvoidanceWaypoints(otherAgents, this.targetX, this.targetY);
+                
+                // If fan avoidance waypoints exist, use them (but keep existing obstacle waypoints too)
+                if (fanWaypoints.length > 0) {
+                    // Combine fan avoidance with any existing obstacle waypoints
+                    // Priority: fan avoidance first, then obstacle avoidance, then target
+                    this.waypoints = fanWaypoints;
+                }
+            }
+            
             // Check if we have waypoints to follow
             let currentTargetX, currentTargetY;
             
@@ -426,8 +539,9 @@ export class Agent {
         }
 
         // Check and resolve collisions with other agents
+        // Use allowMovingOverlap=true to allow temporary personal space overlap while moving
         for (const other of otherAgents) {
-            if (other !== this && this.overlapsWith(other)) {
+            if (other !== this && this.overlapsWith(other, true)) {
                 this.resolveOverlap(other);
             }
         }

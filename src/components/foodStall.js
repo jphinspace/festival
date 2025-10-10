@@ -9,11 +9,13 @@ export class FoodStall {
      * @param {number} x - X position
      * @param {number} y - Y position
      * @param {Object} config - Configuration object
+     * @param {number} id - Unique identifier for this stall (1, 2, 3, 4)
      */
-    constructor(x, y, config) {
+    constructor(x, y, config, id = 0) {
         this.x = x;
         this.y = y;
         this.config = config;
+        this.id = id; // Unique identifier for this stall
         this.width = 20;  // Narrower for vertical orientation
         this.height = 30; // Taller for vertical orientation
         this.leftQueue = [];  // Queue on left side
@@ -38,21 +40,27 @@ export class FoodStall {
         const rightTotal = this.rightQueue.length + this.rightApproaching.length;
         const side = leftTotal <= rightTotal ? 'left' : 'right';
         
-        // Add to approaching list first
-        const approachingList = side === 'left' ? this.leftApproaching : this.rightApproaching;
-        approachingList.push(fan);
-        
-        fan.inQueue = true; // Mark as in queue process
-        fan.queuedAt = null; // Not used for timing anymore
-        fan.targetFoodStall = this;
-        fan.queueSide = side; // Track which side of the stall
-        
-        // Set target to END of current queue (not reserving a spot)
+        // Get queue and approaching list for chosen side
         const queue = side === 'left' ? this.leftQueue : this.rightQueue;
-        const position = queue.length + approachingList.length - 1;
-        const targetPos = this.getQueueTargetPosition(position, side);
-        fan.setTarget(targetPos.x, targetPos.y);
-        fan.state = 'approaching_queue';
+        const approachingList = side === 'left' ? this.leftApproaching : this.rightApproaching;
+        
+        // Calculate front position for this side
+        const spacing = 8;
+        const frontY = this.y + this.height / 2;
+        const frontX = side === 'left' ? this.x - spacing : this.x + this.width + spacing;
+        
+        // Use QueueManager common method to add fan
+        const position = QueueManager.addFanToQueue(fan, {
+            queue: queue,
+            approachingList: approachingList,
+            frontPosition: { x: frontX, y: frontY },
+            getTargetPosition: (pos) => this.getQueueTargetPosition(pos, side),
+            fanProperties: {
+                queuedAt: null, // Not used for timing anymore
+                targetFoodStall: this,
+                queueSide: side
+            }
+        });
         
         return position;
     }
@@ -246,7 +254,8 @@ export class FoodStall {
             this.leftApproaching,
             (position) => this.getQueueTargetPosition(position, 'left'),
             { x: frontLeftX, y: frontY },
-            this.obstacles  // Pass obstacles for pathfinding
+            this.obstacles,  // Pass obstacles for pathfinding
+            true  // Use proximity lock for food stalls
         );
         
         // Update right queue using QueueManager - pass obstacles for pathfinding
@@ -255,7 +264,8 @@ export class FoodStall {
             this.rightApproaching,
             (position) => this.getQueueTargetPosition(position, 'right'),
             { x: frontRightX, y: frontY },
-            this.obstacles  // Pass obstacles for pathfinding
+            this.obstacles,  // Pass obstacles for pathfinding
+            true  // Use proximity lock for food stalls
         );
     }
     
