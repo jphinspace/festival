@@ -52,7 +52,8 @@ describe('Agent', () => {
     });
 
     test('should resolve overlaps by pushing agents apart', () => {
-        const otherAgent = new Agent(108, 100, mockConfig); // 8 pixels away (within 12 pixel personal space)
+        // Place agents so their bodies overlap (radius + radius = 6 pixels)
+        const otherAgent = new Agent(105, 100, mockConfig); // 5 pixels away (bodies overlap since radius=3 each)
         const initialDistance = Math.sqrt((agent.x - otherAgent.x) ** 2 + (agent.y - otherAgent.y) ** 2);
         
         agent.resolveOverlap(otherAgent);
