@@ -118,7 +118,7 @@ export class EventManager {
                         // Wander to random position
                         const targetX = Math.random() * this.width;
                         const targetY = Math.random() * this.height * 0.7;
-                        agent.setTarget(targetX, targetY);
+                        agent.setTarget(targetX, targetY, this.obstacles);
                     }
                 });
             }
@@ -142,7 +142,7 @@ export class EventManager {
                         // Wander to random position
                         const targetX = Math.random() * this.width;
                         const targetY = Math.random() * this.height * 0.7;
-                        agent.setTarget(targetX, targetY);
+                        agent.setTarget(targetX, targetY, this.obstacles);
                     }
                 });
             }
@@ -185,12 +185,12 @@ export class EventManager {
                 if (Math.random() < 0.2) {
                     agent.isUpFront = true;
                     const targetY = this.height * 0.20 + Math.random() * this.height * 0.15;
-                    agent.setTarget(targetX + (Math.random() - 0.5) * 40, targetY);
+                    agent.setTarget(targetX + (Math.random() - 0.5) * 40, targetY, this.obstacles);
                 } else {
                     // Others watch from farther away, more spaced
                     agent.isUpFront = false;
                     const targetY = this.height * 0.25 + Math.random() * this.height * 0.3;
-                    agent.setTarget(targetX + (Math.random() - 0.5) * 150, targetY);
+                    agent.setTarget(targetX + (Math.random() - 0.5) * 150, targetY, this.obstacles);
                 }
             }
         });
@@ -273,7 +273,7 @@ export class EventManager {
                 agent.markAsLeaving();
                 const busX = this.width * this.config.BUS_X;
                 const busY = this.height * this.config.BUS_Y;
-                agent.setTarget(busX + (Math.random() - 0.5) * 40, busY);
+                agent.setTarget(busX + (Math.random() - 0.5) * 40, busY, this.obstacles);
                 leavingAgents.push(agent);
             }
         }

@@ -94,7 +94,7 @@ export class Fan extends Agent {
                 
                 // Only set target if we found a valid position
                 if (!obstacles || obstacles.isValidPosition(targetX, targetY)) {
-                    this.setTarget(targetX, targetY);
+                    this.setTarget(targetX, targetY, obstacles);
                 }
             }
         }
