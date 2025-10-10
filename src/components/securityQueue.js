@@ -225,6 +225,7 @@ export class SecurityQueue {
                         fan.setTarget(queueX, targetY);
                         fan.state = 'passed_security'; // Set state after setTarget
                         fan.inQueue = false; // Clear queue status
+                        fan.justPassedSecurity = true; // Mark to prevent immediate wandering
                     }
                     
                     // Clear processing
