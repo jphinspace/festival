@@ -28,8 +28,9 @@ export class Agent {
      * @param {number} x - Target X position
      * @param {number} y - Target Y position
      * @param {Obstacles} obstacles - Optional obstacles manager for pathfinding
+     * @param {boolean} forceRecalculate - Force waypoint recalculation even if target hasn't changed much
      */
-    setTarget(x, y, obstacles = null) {
+    setTarget(x, y, obstacles = null, forceRecalculate = false) {
         // Check if target has changed significantly (more than 5 pixels)
         const targetChanged = this.targetX === null || this.targetY === null ||
             Math.abs(this.targetX - x) > 5 || Math.abs(this.targetY - y) > 5;
@@ -38,9 +39,10 @@ export class Agent {
         this.targetY = y;
         this.state = 'moving';
         
-        // Only recalculate waypoints if target changed significantly
+        // Only recalculate waypoints if target changed significantly OR if forced
         // This prevents waypoints from being wiped out every frame when setTarget is called with same/similar coordinates
-        if (targetChanged) {
+        // But allows queue systems to force updates when needed (e.g., security queues)
+        if (targetChanged || forceRecalculate) {
             // Calculate waypoints if obstacles provided and target requires routing around them
             if (obstacles && (this.state === 'moving' || this.state === 'approaching_queue')) {
                 this.waypoints = this.calculateWaypoints(x, y, obstacles);
@@ -110,12 +112,20 @@ export class Agent {
             const distFromCorner = Math.sqrt(Math.pow(targetX - corner.x, 2) + Math.pow(targetY - corner.y, 2));
             const score = distToCorner + distFromCorner;
             
-            // Also check if corner is actually accessible
-            if (!obstacles.checkCollision(corner.x, corner.y, this.radius, this.state, personalSpaceBuffer) &&
+            // Check if corner is actually accessible
+            // Use a stricter check with double the buffer to ensure waypoint is truly clear
+            const strictBuffer = (this.radius + personalSpaceBuffer) * 2;
+            if (!obstacles.checkCollision(corner.x, corner.y, strictBuffer, this.state, 0) &&
                 score < bestScore) {
                 bestScore = score;
                 bestCorner = corner;
             }
+        }
+        
+        // Final validation: ensure the chosen waypoint is actually accessible
+        // If not, don't add any waypoints - the fan will try direct movement
+        if (obstacles.checkCollision(bestCorner.x, bestCorner.y, this.radius, this.state, personalSpaceBuffer)) {
+            return [];
         }
         
         waypoints.push(bestCorner);

@@ -48,7 +48,9 @@ export class QueueManager {
         queue.forEach((fan, index) => {
             fan.queuePosition = index;
             const targetPos = getTargetPosition(index);
-            fan.setTarget(targetPos.x, targetPos.y, obstacles);
+            // Security queues (!useProximityLock) need frequent updates for smooth progression
+            // Food queues (useProximityLock) can skip updates if target hasn't changed
+            fan.setTarget(targetPos.x, targetPos.y, obstacles, !useProximityLock);
             fan.inQueue = true;
             if (fan.state !== 'being_checked' && !fan.waitStartTime) {
                 fan.state = 'in_queue';
@@ -80,7 +82,8 @@ export class QueueManager {
             }
             
             const targetPos = getTargetPosition(fan.queuePosition);
-            fan.setTarget(targetPos.x, targetPos.y, obstacles);
+            // Security queues need frequent updates, food queues don't
+            fan.setTarget(targetPos.x, targetPos.y, obstacles, !useProximityLock);
             fan.inQueue = false;
             if (fan.state !== 'approaching_queue') {
                 fan.state = 'approaching_queue';
