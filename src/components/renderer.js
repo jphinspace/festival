@@ -204,6 +204,14 @@ export class Renderer {
                     prevX = waypoint.x;
                     prevY = waypoint.y;
                 }
+                
+                // Draw line from last waypoint to final destination
+                this.ctx.strokeStyle = '#4444ff';
+                this.ctx.setLineDash([3, 3]);
+                this.ctx.beginPath();
+                this.ctx.moveTo(prevX, prevY);
+                this.ctx.lineTo(fan.targetX, fan.targetY);
+                this.ctx.stroke();
             }
             
             // Draw dynamic fan avoidance waypoint (red, solid line)

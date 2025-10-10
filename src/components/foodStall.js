@@ -205,24 +205,25 @@ export class FoodStall {
                         
                         // Move to the side after eating (perpendicular to stall)
                         // Determine which side based on queue side
-                        const moveDistance = 50 + Math.random() * 30; // Move 50-80 pixels to the side
+                        // Increase distance to better respect personal space of queued fans
+                        const moveDistance = 80 + Math.random() * 50; // Move 80-130 pixels to the side
                         let targetX, targetY;
                         
                         if (side === 'left') {
                             // If on left queue, move further left
                             targetX = this.x - moveDistance;
-                            targetY = this.y + (Math.random() - 0.5) * 40; // Some vertical randomness
+                            targetY = this.y + (Math.random() - 0.5) * 60; // More vertical randomness
                         } else {
                             // If on right queue, move further right
                             targetX = this.x + this.width + moveDistance;
-                            targetY = this.y + (Math.random() - 0.5) * 40; // Some vertical randomness
+                            targetY = this.y + (Math.random() - 0.5) * 60; // More vertical randomness
                         }
                         
                         // Clamp to canvas bounds
                         targetX = Math.max(20, Math.min(width - 20, targetX));
                         targetY = Math.max(20, Math.min(height * 0.7, targetY));
                         
-                        frontFan.setTarget(targetX, targetY);
+                        frontFan.setTarget(targetX, targetY, this.obstacles); // Pass obstacles for routing
                         frontFan.state = 'moving'; // Set state to moving so they leave
                     }
                 }

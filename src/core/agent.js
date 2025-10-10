@@ -506,7 +506,13 @@ export class Agent {
             const currentTime = Date.now();
             const shouldUpdateStaticWaypoints = (currentTime - this.lastStaticWaypointUpdate) > this.staticWaypointUpdateInterval;
             
-            if (shouldUpdateStaticWaypoints && this.targetX !== null && this.targetY !== null && obstacles) {
+            // Also update if we have no waypoints and path to target is blocked
+            const needsWaypointsNow = this.staticWaypoints.length === 0 && 
+                obstacles && 
+                !this.isPathClear(this.x, this.y, this.targetX, this.targetY, obstacles, 
+                    (this.state === 'approaching_queue' || this.state === 'moving') ? this.config.PERSONAL_SPACE : 0);
+            
+            if ((shouldUpdateStaticWaypoints || needsWaypointsNow) && this.targetX !== null && this.targetY !== null && obstacles) {
                 this.lastStaticWaypointUpdate = currentTime;
                 
                 // Recalculate static waypoints with randomness for path variety
