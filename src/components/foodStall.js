@@ -228,34 +228,44 @@ export class FoodStall {
      * @param {boolean} sortNeeded - Whether to sort queues (only on join/leave events)
      */
     updateQueuePositions(width, height, sortNeeded = false) {
-        // Sort every frame for responsive queue management - this fixes fans going backwards
-        // Only sort when needed (someone joined/left), not every frame
-        if (sortNeeded) {
-            // Sort queues by distance to stall (X position)
-            // Left queue: higher X = closer to stall
-            this.leftQueue.sort((a, b) => b.x - a.x);
-            // Right queue: lower X = closer to stall  
-            this.rightQueue.sort((a, b) => a.x - b.x);
-            
-            // Sort approaching fans by distance to target
-            this.leftApproaching.sort((a, b) => {
-                const distA = Math.sqrt(Math.pow(a.x - a.targetX, 2) + Math.pow(a.y - a.targetY, 2));
-                const distB = Math.sqrt(Math.pow(b.x - b.targetX, 2) + Math.pow(b.y - b.targetY, 2));
-                return distA - distB;
-            });
-            
-            this.rightApproaching.sort((a, b) => {
-                const distA = Math.sqrt(Math.pow(a.x - a.targetX, 2) + Math.pow(a.y - a.targetY, 2));
-                const distB = Math.sqrt(Math.pow(b.x - b.targetX, 2) + Math.pow(b.y - b.targetY, 2));
-                return distA - distB;
-            });
-        }
+        // Sort every frame for accurate queue positions
+        // Sort queues by actual distance to the front of the stall
+        const frontLeftX = this.x;
+        const frontRightX = this.x + this.width;
+        const frontY = this.y + this.height / 2;
+        
+        // Sort left queue by distance to front-left of stall
+        this.leftQueue.sort((a, b) => {
+            const distA = Math.sqrt(Math.pow(a.x - frontLeftX, 2) + Math.pow(a.y - frontY, 2));
+            const distB = Math.sqrt(Math.pow(b.x - frontLeftX, 2) + Math.pow(b.y - frontY, 2));
+            return distA - distB;
+        });
+        
+        // Sort right queue by distance to front-right of stall
+        this.rightQueue.sort((a, b) => {
+            const distA = Math.sqrt(Math.pow(a.x - frontRightX, 2) + Math.pow(a.y - frontY, 2));
+            const distB = Math.sqrt(Math.pow(b.x - frontRightX, 2) + Math.pow(b.y - frontY, 2));
+            return distA - distB;
+        });
+        
+        // Sort approaching fans by distance to their target queue position
+        this.leftApproaching.sort((a, b) => {
+            const distA = Math.sqrt(Math.pow(a.x - frontLeftX, 2) + Math.pow(a.y - frontY, 2));
+            const distB = Math.sqrt(Math.pow(b.x - frontLeftX, 2) + Math.pow(b.y - frontY, 2));
+            return distA - distB;
+        });
+        
+        this.rightApproaching.sort((a, b) => {
+            const distA = Math.sqrt(Math.pow(a.x - frontRightX, 2) + Math.pow(a.y - frontY, 2));
+            const distB = Math.sqrt(Math.pow(b.x - frontRightX, 2) + Math.pow(b.y - frontY, 2));
+            return distA - distB;
+        });
         
         // Update left queue - update every frame
         this.leftQueue.forEach((fan, index) => {
             fan.queuePosition = index; // Track position
             const targetPos = this.getQueueTargetPosition(index, 'left');
-            fan.setTarget(targetPos.x, targetPos.y); // Update every frame
+            fan.setTarget(targetPos.x, targetPos.y, fan.targetFoodStall ? null : undefined); // Don't recalculate waypoints for queue movement
             if (fan.state !== 'in_queue' && !fan.waitStartTime) {
                 fan.state = 'in_queue';
             }
@@ -266,7 +276,7 @@ export class FoodStall {
             const position = this.leftQueue.length + approachIndex;
             fan.queuePosition = position; // Track queue position
             const targetPos = this.getQueueTargetPosition(position, 'left');
-            fan.setTarget(targetPos.x, targetPos.y); // Update every frame
+            fan.setTarget(targetPos.x, targetPos.y, fan.targetFoodStall ? null : undefined); // Don't recalculate waypoints for queue movement
             if (fan.state !== 'approaching_queue') {
                 fan.state = 'approaching_queue';
             }
@@ -276,7 +286,7 @@ export class FoodStall {
         this.rightQueue.forEach((fan, index) => {
             fan.queuePosition = index; // Track position
             const targetPos = this.getQueueTargetPosition(index, 'right');
-            fan.setTarget(targetPos.x, targetPos.y); // Update every frame
+            fan.setTarget(targetPos.x, targetPos.y, fan.targetFoodStall ? null : undefined); // Don't recalculate waypoints for queue movement
             if (fan.state !== 'in_queue' && !fan.waitStartTime) {
                 fan.state = 'in_queue';
             }
@@ -287,7 +297,7 @@ export class FoodStall {
             const position = this.rightQueue.length + approachIndex;
             fan.queuePosition = position; // Track queue position
             const targetPos = this.getQueueTargetPosition(position, 'right');
-            fan.setTarget(targetPos.x, targetPos.y); // Update every frame
+            fan.setTarget(targetPos.x, targetPos.y, fan.targetFoodStall ? null : undefined); // Don't recalculate waypoints for queue movement
             if (fan.state !== 'approaching_queue') {
                 fan.state = 'approaching_queue';
             }
