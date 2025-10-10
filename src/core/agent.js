@@ -99,8 +99,8 @@ export class Agent {
                 this.y = this.targetY;
                 this.targetX = null;
                 this.targetY = null;
-                // Only set to idle if not in special states
-                if (this.state === 'moving') {
+                // Transition to idle when reaching target
+                if (this.state === 'moving' || this.state === 'passed_security') {
                     this.state = 'idle';
                 }
             } else {
@@ -149,9 +149,34 @@ export class Agent {
                                     nextX = altX;
                                     nextY = altY;
                                 } else {
-                                    // Can't move, stay in place
-                                    nextX = this.x;
-                                    nextY = this.y;
+                                    // Try just moving in one axis to slide along obstacles
+                                    // Try X movement only
+                                    altX = this.x + (dx / distance) * moveDistance;
+                                    altY = this.y;
+                                    if (!obstacles.checkCollision(altX, altY, this.radius, this.state)) {
+                                        nextX = altX;
+                                        nextY = altY;
+                                    } else {
+                                        // Try Y movement only  
+                                        altX = this.x;
+                                        altY = this.y + (dy / distance) * moveDistance;
+                                        if (!obstacles.checkCollision(altX, altY, this.radius, this.state)) {
+                                            nextX = altX;
+                                            nextY = altY;
+                                        } else {
+                                            // Last resort: try small random jitter to unstuck
+                                            const jitterX = (Math.random() - 0.5) * moveDistance * 0.5;
+                                            const jitterY = (Math.random() - 0.5) * moveDistance * 0.5;
+                                            altX = this.x + jitterX;
+                                            altY = this.y + jitterY;
+                                            if (!obstacles.checkCollision(altX, altY, this.radius, this.state)) {
+                                                nextX = altX;
+                                                nextY = altY;
+                                            }
+                                            // If even jitter doesn't work, stay in place but don't permanently block
+                                            // The resolveCollision after movement will push away from obstacles
+                                        }
+                                    }
                                 }
                             }
                         }

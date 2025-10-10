@@ -66,7 +66,7 @@ export const CONFIG = {
     STAGE_WIDTH: 0.1,    // Stage width (after rotation)
     STAGE_HEIGHT: 0.3,   // Stage height (after rotation)
     BUS_X: 0.5,
-    BUS_Y: 0.9,
+    BUS_Y: 0.95,         // Moved further down to give fans more space
     BUS_WIDTH: 0.2,
     BUS_HEIGHT: 0.05,
     GROUND_HEIGHT: 0.7,

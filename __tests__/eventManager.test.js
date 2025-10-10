@@ -1,6 +1,6 @@
 // Unit tests for EventManager class
-import { EventManager } from '../eventManager.js';
-import { Fan } from '../fan.js';
+import { EventManager } from '../src/managers/eventManager.js';
+import { Fan } from '../src/core/fan.js';
 
 const mockConfig = {
     BUS_ATTENDEE_COUNT: 50,

@@ -53,6 +53,7 @@ export class Fan extends Agent {
         
         // Spread out behavior
         this.wanderTargetUpdateTime = 0; // Last time wander target was updated
+        this.justPassedSecurity = false; // Track if fan just passed security to prevent immediate wandering
     }
     
     /**
@@ -74,7 +75,8 @@ export class Fan extends Agent {
         }
         
         // Spread-out behavior: wander if idle and not watching a show
-        if (this.state === 'idle' && !this.currentShow && !this.inQueue && this.state !== 'leaving') {
+        // Don't wander if fan just passed security - let them be picked up by events (concerts, hunger)
+        if (this.state === 'idle' && !this.currentShow && !this.inQueue && this.state !== 'leaving' && !this.justPassedSecurity) {
             const now = Date.now();
             // Update wander target every 5-10 seconds
             if (now - this.wanderTargetUpdateTime > 5000 + Math.random() * 5000) {

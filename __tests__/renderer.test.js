@@ -1,5 +1,5 @@
 // Unit tests for Renderer class
-import { Renderer } from '../renderer.js';
+import { Renderer } from '../src/components/renderer.js';
 
 const mockConfig = {
     COLORS: {

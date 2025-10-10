@@ -1,6 +1,6 @@
 // Unit tests for SecurityQueue class
-import { SecurityQueue } from '../securityQueue.js';
-import { Fan } from '../fan.js';
+import { SecurityQueue } from '../src/components/securityQueue.js';
+import { Fan } from '../src/core/fan.js';
 
 const mockConfig = {
     REGULAR_SECURITY_TIME: 1000,
@@ -112,22 +112,31 @@ describe('SecurityQueue', () => {
         fan.x = fan.targetX;
         fan.y = fan.targetY;
         
-        // Second update - should move fan from entering to queue AND start processing
-        // (since they're the first in line and already at the front position)
+        // Second update - should move fan from entering to queue
         securityQueue.update(startTime + 10);
-        expect(fan.state).toBe('being_checked');
+        expect(fan.state).toBe('in_queue');
         expect(securityQueue.queues[queueIndex]).toContain(fan);
+        
+        // Keep fan at target
+        fan.x = fan.targetX;
+        fan.y = fan.targetY;
+        
+        // Third update - should start processing
+        securityQueue.update(startTime + 20);
+        expect(fan.state).toBe('being_checked');
         expect(securityQueue.processing[queueIndex]).toBe(fan);
         
         // Keep fan at target during processing
         fan.x = fan.targetX;
         fan.y = fan.targetY;
         
-        // Third update after regular security time - should pass
-        const processTime = startTime + 10 + mockConfig.REGULAR_SECURITY_TIME + 10;
+        // Fourth update after regular security time - should pass
+        const processTime = startTime + 20 + mockConfig.REGULAR_SECURITY_TIME + 10;
         securityQueue.update(processTime);
         expect(fan.state).toBe('passed_security');
         expect(securityQueue.processing[queueIndex]).toBeNull();
+        // Fan should have new target at center of festival (0.5 * width)
+        expect(fan.targetX).toBe(400); // 0.5 * 800
     });
 
     test('should send enhanced security fan to back of queue', () => {
@@ -283,9 +292,15 @@ describe('SecurityQueue', () => {
         expect(securityQueue.entering[queueIndex]).toContain(fan2);
         
         // Simulate fan1 reaching their position and joining queue
+        // Fan needs to complete two-stage movement: vertical then lateral
         fan1.x = fan1.targetX;
         fan1.y = fan1.targetY;
-        securityQueue.update(1000);
+        securityQueue.update(1000); // Complete stage 1
+        
+        // Now move to final target for stage 2
+        fan1.x = fan1.targetX;
+        fan1.y = fan1.targetY;
+        securityQueue.update(1000); // Complete stage 2 and join queue
         
         // Fan1 should now be in actual queue
         expect(securityQueue.queues[queueIndex].length).toBe(1);
@@ -300,5 +315,103 @@ describe('SecurityQueue', () => {
         // Fan2's target should be at position 1 (after fan1 at position 0)
         const fan1Y = securityQueue.queues[queueIndex][0].targetY;
         expect(fan2.targetY).toBeGreaterThan(fan1Y);
+    });
+
+    test('should reorder queue based on physical position - closer fans move forward', () => {
+        const queueIndex = 0;
+        
+        // Create three fans and manually add them to queue
+        const fan1 = new Fan(360, 500, mockConfig);
+        const fan2 = new Fan(360, 480, mockConfig);
+        const fan3 = new Fan(360, 460, mockConfig);
+        
+        fan1.queueIndex = queueIndex;
+        fan2.queueIndex = queueIndex;
+        fan3.queueIndex = queueIndex;
+        
+        // Add in reverse order of position (fan1, then fan2, then fan3)
+        securityQueue.queues[queueIndex].push(fan1, fan2, fan3);
+        
+        // Before update: array order is fan1, fan2, fan3
+        expect(securityQueue.queues[queueIndex][0]).toBe(fan1);
+        expect(securityQueue.queues[queueIndex][1]).toBe(fan2);
+        expect(securityQueue.queues[queueIndex][2]).toBe(fan3);
+        
+        // Update queue positions - should reorder by Y position (lower Y = closer to front)
+        securityQueue.updateQueuePositions(queueIndex, true);
+        
+        // After update: array order should be fan3, fan2, fan1 (sorted by Y)
+        expect(securityQueue.queues[queueIndex][0]).toBe(fan3);
+        expect(securityQueue.queues[queueIndex][1]).toBe(fan2);
+        expect(securityQueue.queues[queueIndex][2]).toBe(fan1);
+    });
+
+    test('should use consistent inQueue property like food queues', () => {
+        const fan = new Fan(360, 420, mockConfig);
+        
+        // Initially not in queue
+        expect(fan.inQueue).toBe(false);
+        
+        securityQueue.addToQueue(fan);
+        const queueIndex = fan.queueIndex;
+        
+        // Still not in actual queue (approaching)
+        expect(fan.inQueue).toBe(false);
+        
+        // Move to target
+        fan.x = fan.targetX;
+        fan.y = fan.targetY;
+        
+        // First update - positions updated, then fan joins queue
+        securityQueue.update(1000);
+        
+        // Now should be in actual queue
+        expect(fan.inQueue).toBe(true);
+        expect(securityQueue.queues[queueIndex]).toContain(fan);
+        
+        // Keep at position (fan might have new target at front of queue)
+        fan.x = fan.targetX;
+        fan.y = fan.targetY;
+        
+        // Process through several updates until fan passes security
+        for (let time = 1010; time < 1010 + mockConfig.REGULAR_SECURITY_TIME + 200; time += 100) {
+            fan.x = fan.targetX;
+            fan.y = fan.targetY;
+            securityQueue.update(time);
+        }
+        
+        // After passing security, should be cleared
+        expect(fan.inQueue).toBe(false);
+    });
+
+    test('should make fans go straight up after passing security, not dart to side', () => {
+        const fan = new Fan(360, 420, mockConfig);
+        fan.enhancedSecurity = false;
+        securityQueue.addToQueue(fan);
+        
+        const queueIndex = fan.queueIndex;
+        
+        // Move through queue
+        fan.x = fan.targetX;
+        fan.y = fan.targetY;
+        securityQueue.update(1000);
+        
+        // Move to queue (fan is now in actual queue)
+        fan.x = fan.targetX;
+        fan.y = fan.targetY;
+        securityQueue.update(1010);
+        
+        // Keep at position during processing
+        fan.x = fan.targetX;
+        fan.y = fan.targetY;
+        
+        // Process through security
+        securityQueue.update(1010 + mockConfig.REGULAR_SECURITY_TIME + 100);
+        
+        // Fan should go to center of festival (0.5 * width)
+        expect(fan.targetX).toBe(400); // 0.5 * 800
+        // Target Y should be towards festival (0.3 * height = 0.3 * 600 = 180)
+        expect(fan.targetY).toBe(180);
+        expect(fan.state).toBe('passed_security');
     });
 });

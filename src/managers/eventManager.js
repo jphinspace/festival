@@ -1,8 +1,8 @@
 // EventManager class for handling festival events
-import { Fan } from './fan.js';
-import { SecurityQueue } from './securityQueue.js';
-import { FoodStall } from './foodStall.js';
-import { Obstacles } from './obstacles.js';
+import { Fan } from '../core/fan.js';
+import { SecurityQueue } from '../components/securityQueue.js';
+import { FoodStall } from '../components/foodStall.js';
+import { Obstacles } from '../components/obstacles.js';
 
 export class EventManager {
     constructor(config, width, height) {
@@ -179,6 +179,7 @@ export class EventManager {
             
             if (shouldAttend) {
                 agent.currentShow = stage;
+                agent.justPassedSecurity = false; // Clear flag when assigned to event
                 
                 // Small percentage go up front (cluster tightly)
                 if (Math.random() < 0.2) {
@@ -214,6 +215,7 @@ export class EventManager {
                         return;
                     }
                     
+                    agent.justPassedSecurity = false; // Clear flag when getting food
                     const stall = this.getShortestQueue();
                     stall.addToQueue(agent);
                 }
@@ -248,7 +250,7 @@ export class EventManager {
             const offsetY = -Math.random() * 15; // 0 to -15, always above the bus
             const fan = new Fan(busX + offsetX, busY + offsetY, this.config);
             
-            // Add fan to security queue instead of directly to festival
+            // Add fan to security queue - this will direct them toward the queue ends
             this.securityQueue.addToQueue(fan);
             
             newAgents.push(fan);

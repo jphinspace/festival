@@ -1,6 +1,6 @@
 // Main application entry point
-import { Simulation } from './simulation.js';
-import { CONFIG } from './config.js';
+import { Simulation } from './core/simulation.js';
+import { CONFIG } from './utils/config.js';
 
 class FestivalApp {
     constructor() {
