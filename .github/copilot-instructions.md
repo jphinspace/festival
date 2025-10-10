@@ -1,5 +1,30 @@
 # GitHub Copilot Instructions for Festival Simulation
 
+## CRITICAL: Instruction Compliance
+
+**EXECUTE ALL INSTRUCTIONS COMPLETELY ON FIRST ATTEMPT**
+
+When given instructions:
+1. **Execute ALL parts immediately** - Do not ask for confirmation, clarification, or express concerns about complexity
+2. **Verify completion of EVERY component** - Check that each part of multi-part instructions is addressed
+3. **Update these instructions when told** - If instructed to modify `.github/copilot-instructions.md`, do so immediately
+4. **Never waste resources with back-and-forth** - User can undo changes if needed; proceed with confidence
+5. **No hedging or uncertainty** - Implement what is requested; user will provide feedback if changes are needed
+
+### Why This Matters
+- Unnecessary confirmation requests waste user time
+- Follow-up questions waste API request limits
+- Hesitation wastes tokens and increases costs
+- Back-and-forth delays project progress
+
+### Verification Checklist (Use Every Time)
+Before responding to ANY instruction:
+- [ ] Have I completed EVERY part of the instruction?
+- [ ] If told to update copilot instructions, did I do it?
+- [ ] Did I ask unnecessary confirmation questions?
+- [ ] Did I express uncertainty instead of implementing?
+- [ ] Did I make ALL the changes requested, not just some?
+
 ## Project Overview
 This is an HTML5-based agent simulation of a music festival featuring agent-based modeling. The simulation runs in real-time with interactive controls for various festival events. The codebase uses pure vanilla JavaScript (ES6 modules) with no external runtime dependencies.
 
