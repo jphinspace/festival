@@ -30,15 +30,23 @@ export class Agent {
      * @param {Obstacles} obstacles - Optional obstacles manager for pathfinding
      */
     setTarget(x, y, obstacles = null) {
+        // Check if target has changed significantly (more than 5 pixels)
+        const targetChanged = this.targetX === null || this.targetY === null ||
+            Math.abs(this.targetX - x) > 5 || Math.abs(this.targetY - y) > 5;
+        
         this.targetX = x;
         this.targetY = y;
         this.state = 'moving';
         
-        // Calculate waypoints if obstacles provided and target requires routing around them
-        if (obstacles && (this.state === 'moving' || this.state === 'approaching_queue')) {
-            this.waypoints = this.calculateWaypoints(x, y, obstacles);
-        } else {
-            this.waypoints = [];
+        // Only recalculate waypoints if target changed significantly
+        // This prevents waypoints from being wiped out every frame when setTarget is called with same/similar coordinates
+        if (targetChanged) {
+            // Calculate waypoints if obstacles provided and target requires routing around them
+            if (obstacles && (this.state === 'moving' || this.state === 'approaching_queue')) {
+                this.waypoints = this.calculateWaypoints(x, y, obstacles);
+            } else {
+                this.waypoints = [];
+            }
         }
     }
 
