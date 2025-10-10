@@ -83,24 +83,26 @@ export class SecurityQueue {
         const startY = this.height * this.config.QUEUE_START_Y;
         const spacing = this.config.QUEUE_SPACING;
         
-        // Only sort when needed (someone joined/left), not every frame
-        if (sortNeeded) {
-            // Sort queue by Y position - fans closer to front (lower Y) go first
-            queue.sort((a, b) => a.y - b.y);
-            
-            // Sort entering by distance to target
-            entering.sort((a, b) => {
-                const distA = Math.abs(a.y - a.targetY);
-                const distB = Math.abs(b.y - b.targetY);
-                return distA - distB;
-            });
-        }
+        // Sort every frame for accurate queue positions based on actual distance
+        // Sort queue by actual distance to the front of the queue (lower Y = closer to entry)
+        queue.sort((a, b) => {
+            const distA = Math.abs(a.y - startY);
+            const distB = Math.abs(b.y - startY);
+            return distA - distB;
+        });
+        
+        // Sort entering fans by actual distance to front
+        entering.sort((a, b) => {
+            const distA = Math.abs(a.y - startY);
+            const distB = Math.abs(b.y - startY);
+            return distA - distB;
+        });
         
         // Update fans in the actual queue - update positions every frame for responsiveness
         queue.forEach((fan, index) => {
             const targetY = startY + (index * spacing);
             fan.queuePosition = index; // Track position in queue
-            fan.setTarget(queueX, targetY); // Update every frame for smooth movement
+            fan.setTarget(queueX, targetY, null); // Update every frame, don't recalculate waypoints for queue movement
             fan.inQueue = true;
             if (fan.state !== 'being_checked') {
                 fan.state = 'in_queue';
@@ -113,7 +115,7 @@ export class SecurityQueue {
             const adjustedPosition = (queue.length === 0 && index === 0) ? Math.max(1, position) : position;
             const targetY = startY + (adjustedPosition * spacing);
             fan.queuePosition = position; // Track position
-            fan.setTarget(queueX, targetY); // Update every frame
+            fan.setTarget(queueX, targetY, null); // Update every frame, don't recalculate waypoints for queue movement
             fan.inQueue = false;
             if (fan.state !== 'approaching_queue') {
                 fan.state = 'approaching_queue';
