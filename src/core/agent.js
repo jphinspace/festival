@@ -407,9 +407,10 @@ export class Agent {
      * @param {Agent[]} otherAgents - Array of other agents to avoid
      * @param {number} nextTargetX - Next waypoint or final target X
      * @param {number} nextTargetY - Next waypoint or final target Y
+     * @param {Obstacles} obstacles - Obstacles manager for validation
      * @returns {Object|null} Single waypoint object {x, y} or null
      */
-    calculateDynamicFanAvoidance(otherAgents, nextTargetX, nextTargetY) {
+    calculateDynamicFanAvoidance(otherAgents, nextTargetX, nextTargetY, obstacles = null) {
         const MAX_DETECTION_DISTANCE = 100; // Local knowledge limit
         const AVOIDANCE_ANGLE = Math.PI / 6; // 30 degrees - small angle for mostly straight paths
         const MIN_AVOIDANCE_DISTANCE = 20; // Minimum distance to create waypoint
@@ -472,6 +473,22 @@ export class Agent {
         const waypointX = this.x + avoidDirX * avoidDistance;
         const waypointY = this.y + avoidDirY * avoidDistance;
         
+        // Validate dynamic waypoint isn't inside an obstacle
+        if (obstacles) {
+            const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? 
+                this.config.PERSONAL_SPACE : 0;
+            
+            // Check if waypoint is inside an obstacle
+            if (obstacles.checkCollision(waypointX, waypointY, this.radius, this.state, personalSpaceBuffer)) {
+                return null; // Waypoint is inside an obstacle, don't use it
+            }
+            
+            // Check if path to waypoint is clear (won't be blocked by obstacle)
+            if (!this.isPathClear(this.x, this.y, waypointX, waypointY, obstacles, personalSpaceBuffer)) {
+                return null; // Can't reach waypoint, don't use it
+            }
+        }
+        
         return { x: waypointX, y: waypointY };
     }
 
@@ -532,7 +549,7 @@ export class Agent {
             }
             
             // Calculate dynamic fan avoidance waypoint (updated every frame)
-            this.dynamicWaypoint = this.calculateDynamicFanAvoidance(otherAgents, nextStaticTargetX, nextStaticTargetY);
+            this.dynamicWaypoint = this.calculateDynamicFanAvoidance(otherAgents, nextStaticTargetX, nextStaticTargetY, obstacles);
             
             // Determine actual movement target
             let currentTargetX, currentTargetY;
