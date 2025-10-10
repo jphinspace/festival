@@ -33,11 +33,20 @@ export class Agent {
     setTarget(x, y, obstacles = null) {
         this.targetX = x;
         this.targetY = y;
-        this.state = 'moving';
         
         // Calculate static waypoints for routing around obstacles (global pathfinding)
-        if (obstacles && (this.state === 'moving' || this.state === 'approaching_queue')) {
+        // Check state BEFORE changing it
+        const needsPathfinding = obstacles && (this.state === 'moving' || this.state === 'approaching_queue' || this.state === 'idle' || this.state === 'passed_security');
+        
+        // Set state to moving (unless already in a queue state)
+        if (this.state !== 'in_queue' && this.state !== 'approaching_queue') {
+            this.state = 'moving';
+        }
+        
+        if (needsPathfinding) {
             this.staticWaypoints = this.calculateStaticWaypoints(x, y, obstacles);
+            // Reset the timer so waypoints are recalculated on schedule
+            this.lastStaticWaypointUpdate = Date.now();
         } else {
             this.staticWaypoints = [];
         }
@@ -507,10 +516,12 @@ export class Agent {
             const shouldUpdateStaticWaypoints = (currentTime - this.lastStaticWaypointUpdate) > this.staticWaypointUpdateInterval;
             
             // Also update if we have no waypoints and path to target is blocked
+            const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? this.config.PERSONAL_SPACE : 0;
             const needsWaypointsNow = this.staticWaypoints.length === 0 && 
                 obstacles && 
-                !this.isPathClear(this.x, this.y, this.targetX, this.targetY, obstacles, 
-                    (this.state === 'approaching_queue' || this.state === 'moving') ? this.config.PERSONAL_SPACE : 0);
+                this.targetX !== null && 
+                this.targetY !== null &&
+                !this.isPathClear(this.x, this.y, this.targetX, this.targetY, obstacles, personalSpaceBuffer);
             
             if ((shouldUpdateStaticWaypoints || needsWaypointsNow) && this.targetX !== null && this.targetY !== null && obstacles) {
                 this.lastStaticWaypointUpdate = currentTime;
