@@ -439,21 +439,33 @@ export class Agent {
     update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null) {
         // Allow movement for moving, in_queue, passed_security, and approaching_queue states
         if ((this.state === 'moving' || this.state === 'in_queue' || this.state === 'passed_security' || this.state === 'approaching_queue') && this.targetX !== null) {
-            // Periodically update waypoints to account for moving obstacles (other fans)
+            // Only recalculate waypoints if we don't have any, or if we're making poor progress
             const currentTime = Date.now();
             const shouldUpdateWaypoints = (currentTime - this.lastWaypointUpdate) > this.waypointUpdateInterval;
             
             if (shouldUpdateWaypoints && this.targetX !== null && this.targetY !== null) {
                 this.lastWaypointUpdate = currentTime;
                 
-                // Calculate waypoints around other fans
-                const fanWaypoints = this.calculateFanAvoidanceWaypoints(otherAgents, this.targetX, this.targetY);
+                // Check if we're making progress toward our target
+                // Calculate distance to final target
+                const distToFinalTarget = Math.sqrt(
+                    Math.pow(this.targetX - this.x, 2) + 
+                    Math.pow(this.targetY - this.y, 2)
+                );
                 
-                // If fan avoidance waypoints exist, use them (but keep existing obstacle waypoints too)
-                if (fanWaypoints.length > 0) {
-                    // Combine fan avoidance with any existing obstacle waypoints
-                    // Priority: fan avoidance first, then obstacle avoidance, then target
-                    this.waypoints = fanWaypoints;
+                // Only recalculate waypoints if:
+                // 1. We don't have waypoints already, OR
+                // 2. We're very close to our target (< 30 pixels) and need precise navigation
+                const needsRecalculation = this.waypoints.length === 0 || distToFinalTarget < 30;
+                
+                if (needsRecalculation) {
+                    // Calculate waypoints around other fans
+                    const fanWaypoints = this.calculateFanAvoidanceWaypoints(otherAgents, this.targetX, this.targetY);
+                    
+                    // Only use fan avoidance waypoints if they would help
+                    if (fanWaypoints.length > 0) {
+                        this.waypoints = fanWaypoints;
+                    }
                 }
             }
             

@@ -164,32 +164,40 @@ export class Renderer {
     drawDebugOverlay(fan, mouseX, mouseY) {
         // Draw line from fan to destination/waypoint FIRST (so it's behind the tooltip)
         if (fan.targetX !== null && fan.targetY !== null) {
-            // Determine the actual target (waypoint or final destination)
-            let targetX, targetY;
-            if (fan.waypoints && fan.waypoints.length > 0) {
-                // Show line to next waypoint
-                targetX = fan.waypoints[0].x;
-                targetY = fan.waypoints[0].y;
-            } else {
-                // Show line to final destination
-                targetX = fan.targetX;
-                targetY = fan.targetY;
-            }
-            
-            // Draw thin red line from fan to target
-            this.ctx.strokeStyle = '#ff0000';
+            // Always draw line to final destination (in green, dashed)
+            this.ctx.strokeStyle = '#00ff00';
             this.ctx.lineWidth = 1;
-            this.ctx.setLineDash([]);  // Solid line
+            this.ctx.setLineDash([5, 5]);  // Dashed line to final destination
             this.ctx.beginPath();
             this.ctx.moveTo(fan.x, fan.y);
-            this.ctx.lineTo(targetX, targetY);
+            this.ctx.lineTo(fan.targetX, fan.targetY);
             this.ctx.stroke();
             
-            // Draw small circle at the target
-            this.ctx.fillStyle = '#ff0000';
+            // Draw circle at final destination
+            this.ctx.fillStyle = '#00ff00';
             this.ctx.beginPath();
-            this.ctx.arc(targetX, targetY, 3, 0, Math.PI * 2);
+            this.ctx.arc(fan.targetX, fan.targetY, 4, 0, Math.PI * 2);
             this.ctx.fill();
+            
+            // If there are waypoints, also draw line to next waypoint (in red, solid)
+            if (fan.waypoints && fan.waypoints.length > 0) {
+                const nextWaypoint = fan.waypoints[0];
+                
+                // Draw solid red line from fan to next waypoint
+                this.ctx.strokeStyle = '#ff0000';
+                this.ctx.lineWidth = 1;
+                this.ctx.setLineDash([]);  // Solid line to waypoint
+                this.ctx.beginPath();
+                this.ctx.moveTo(fan.x, fan.y);
+                this.ctx.lineTo(nextWaypoint.x, nextWaypoint.y);
+                this.ctx.stroke();
+                
+                // Draw small circle at the waypoint
+                this.ctx.fillStyle = '#ff0000';
+                this.ctx.beginPath();
+                this.ctx.arc(nextWaypoint.x, nextWaypoint.y, 3, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
         }
         
         // Draw debug information for a hovered fan
