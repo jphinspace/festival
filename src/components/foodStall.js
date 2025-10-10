@@ -228,6 +228,7 @@ export class FoodStall {
      * @param {boolean} sortNeeded - Whether to sort queues (only on join/leave events)
      */
     updateQueuePositions(width, height, sortNeeded = false) {
+        // Sort every frame for responsive queue management - this fixes fans going backwards
         // Only sort when needed (someone joined/left), not every frame
         if (sortNeeded) {
             // Sort queues by distance to stall (X position)
@@ -250,6 +251,16 @@ export class FoodStall {
             });
         }
         
+        // Update left queue - update every frame
+        this.leftQueue.forEach((fan, index) => {
+            fan.queuePosition = index; // Track position
+            const targetPos = this.getQueueTargetPosition(index, 'left');
+            fan.setTarget(targetPos.x, targetPos.y); // Update every frame
+            if (fan.state !== 'in_queue' && !fan.waitStartTime) {
+                fan.state = 'in_queue';
+            }
+        });
+        
         // Update left approaching fans - update every frame for responsiveness
         this.leftApproaching.forEach((fan, approachIndex) => {
             const position = this.leftQueue.length + approachIndex;
@@ -261,10 +272,10 @@ export class FoodStall {
             }
         });
         
-        // Update left queue - update every frame
-        this.leftQueue.forEach((fan, index) => {
+        // Update right queue - update every frame
+        this.rightQueue.forEach((fan, index) => {
             fan.queuePosition = index; // Track position
-            const targetPos = this.getQueueTargetPosition(index, 'left');
+            const targetPos = this.getQueueTargetPosition(index, 'right');
             fan.setTarget(targetPos.x, targetPos.y); // Update every frame
             if (fan.state !== 'in_queue' && !fan.waitStartTime) {
                 fan.state = 'in_queue';
@@ -279,16 +290,6 @@ export class FoodStall {
             fan.setTarget(targetPos.x, targetPos.y); // Update every frame
             if (fan.state !== 'approaching_queue') {
                 fan.state = 'approaching_queue';
-            }
-        });
-        
-        // Update right queue - update every frame
-        this.rightQueue.forEach((fan, index) => {
-            fan.queuePosition = index; // Track position
-            const targetPos = this.getQueueTargetPosition(index, 'right');
-            fan.setTarget(targetPos.x, targetPos.y); // Update every frame
-            if (fan.state !== 'in_queue' && !fan.waitStartTime) {
-                fan.state = 'in_queue';
             }
         });
     }

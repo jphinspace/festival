@@ -125,6 +125,10 @@ export class Agent {
         const perpX = -dirY;
         const perpY = dirX;
         
+        // Use personal space buffer for food stalls when approaching_queue or moving
+        const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? 
+            this.config.PERSONAL_SPACE : 0;
+        
         // Try multiple avoidance strategies in order of preference
         const strategies = [
             // 1. Try moving at an angle (30 degrees) to the right
@@ -149,7 +153,7 @@ export class Agent {
         
         // Try each strategy
         for (const pos of strategies) {
-            if (!obstacles.checkCollision(pos.x, pos.y, this.radius, this.state)) {
+            if (!obstacles.checkCollision(pos.x, pos.y, this.radius, this.state, personalSpaceBuffer)) {
                 return pos;
             }
         }
@@ -188,8 +192,12 @@ export class Agent {
                 let nextX = this.x + (dx / distance) * moveDistance;
                 let nextY = this.y + (dy / distance) * moveDistance;
                 
+                // Use personal space buffer for food stalls when approaching_queue or moving
+                const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? 
+                    this.config.PERSONAL_SPACE : 0;
+                
                 // Check if next position collides with obstacle
-                if (obstacles && obstacles.checkCollision(nextX, nextY, this.radius, this.state)) {
+                if (obstacles && obstacles.checkCollision(nextX, nextY, this.radius, this.state, personalSpaceBuffer)) {
                     // Try to find alternative path around obstacle
                     const avoidancePos = this.findAvoidancePosition(dx, dy, moveDistance, obstacles);
                     if (avoidancePos) {
