@@ -164,12 +164,10 @@ export class FoodStall {
             // Move fans from approaching to queue when they reach their position
             for (let i = approaching.length - 1; i >= 0; i--) {
                 const fan = approaching[i];
-                if (fan.isNearTarget(5)) {
-                    // Fan has reached their position, move to actual queue
-                    approaching.splice(i, 1);
-                    queue.push(fan);
-                    fan.state = 'in_queue';
-                    // Update all queue positions and sort since someone joined
+                if (QueueManager.shouldJoinQueue(fan, 10)) { // Use slightly larger threshold
+                    // Use QueueManager to promote the fan
+                    QueueManager.promoteFanToQueue(fan, approaching, queue);
+                    // Update all queue positions since someone joined
                     this.updateQueuePositions(width, height, true);
                 }
             }
@@ -229,9 +227,15 @@ export class FoodStall {
      */
     updateQueuePositions(width, height, sortNeeded = false) {
         // Use shared QueueManager for consistent behavior
-        const frontLeftX = this.x;
-        const frontRightX = this.x + this.width;
+        // The "front" position should match where position 0 fans actually stand
+        const spacing = 8;
         const frontY = this.y + this.height / 2;
+        
+        // For left queue, position 0 is at: this.x - spacing * 1
+        const frontLeftX = this.x - spacing;
+        
+        // For right queue, position 0 is at: this.x + this.width + spacing * 1
+        const frontRightX = this.x + this.width + spacing;
         
         // Update left queue using QueueManager
         QueueManager.updatePositions(
