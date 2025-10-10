@@ -50,6 +50,7 @@ export class SecurityQueue {
         // Mark fan as entering and determine if enhanced security
         fan.queueIndex = queueIndex;
         fan.enhancedSecurity = Math.random() < this.config.ENHANCED_SECURITY_PERCENTAGE;
+        fan.inQueue = false; // Not in actual queue yet (consistent with food queues)
         
         // Add to entering list first
         this.entering[queueIndex].push(fan);
@@ -76,15 +77,28 @@ export class SecurityQueue {
         const startY = this.height * this.config.QUEUE_START_Y;
         const spacing = this.config.QUEUE_SPACING;
         
+        // CRITICAL: Sort queue by distance to front position (y-coordinate)
+        // Fans closer to the front (lower Y) should be at the front of the array
+        // This prevents fans from waiting for others who are behind them
+        queue.sort((a, b) => a.y - b.y);
+        
         // Update fans in the actual queue
         queue.forEach((fan, index) => {
             const targetY = startY + (index * spacing); // Queue extends downward from front
             fan.setTarget(queueX, targetY);
-            fan.queuePosition = index;
+            fan.inQueue = true; // Mark as in queue (consistent with food queues)
             // All fans in queue should have in_queue state (unless being checked)
             if (fan.state !== 'being_checked') {
                 fan.state = 'in_queue';
             }
+        });
+        
+        // CRITICAL: Sort entering list by distance to their target position
+        // Fans closer to their entry position should join the queue first
+        entering.sort((a, b) => {
+            const distA = Math.abs(a.y - a.targetY);
+            const distB = Math.abs(b.y - b.targetY);
+            return distA - distB;
         });
         
         // Update fans approaching/entering the queue - they should target the end of current queue
@@ -95,7 +109,7 @@ export class SecurityQueue {
             const adjustedPosition = (queue.length === 0 && index === 0) ? Math.max(1, position) : position;
             const targetY = startY + (adjustedPosition * spacing);
             fan.setTarget(queueX, targetY);
-            fan.queuePosition = position; // Keep original position for queue logic
+            fan.inQueue = false; // Not yet in actual queue (consistent with food queues)
             if (fan.state !== 'approaching_queue') {
                 fan.state = 'approaching_queue';
             }
@@ -120,6 +134,7 @@ export class SecurityQueue {
                     entering.splice(i, 1);
                     queue.push(fan);
                     fan.state = 'in_queue';
+                    fan.inQueue = true; // Now in actual queue
                     // Update all queue positions
                     this.updateQueuePositions(queueIndex);
                 }
@@ -162,12 +177,14 @@ export class SecurityQueue {
                         const entryY = startY + (position * spacing);
                         fan.setTarget(queueX, entryY);
                         fan.state = 'approaching_queue';
+                        fan.inQueue = false; // Not in actual queue yet
                     } else {
-                        // Allow into festival - move straight ahead
+                        // Allow into festival - move straight ahead (up towards festival)
                         const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X);
-                        const targetY = Math.random() * this.height * 0.7;
+                        const targetY = this.height * 0.3; // Move to festival area (30% down from top)
                         fan.setTarget(queueX, targetY);
                         fan.state = 'passed_security'; // Set state after setTarget
+                        fan.inQueue = false; // Clear queue status
                     }
                     
                     // Clear processing

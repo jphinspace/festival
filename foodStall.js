@@ -221,6 +221,26 @@ export class FoodStall {
      * @param {number} height - Canvas height for bounds
      */
     updateQueuePositions(width, height) {
+        // CRITICAL: Sort queues by distance to stall
+        // For left queue, fans closer to stall (higher X) should be at front
+        this.leftQueue.sort((a, b) => b.x - a.x);
+        
+        // For right queue, fans closer to stall (lower X) should be at front  
+        this.rightQueue.sort((a, b) => a.x - b.x);
+        
+        // Sort approaching fans by distance to their target
+        this.leftApproaching.sort((a, b) => {
+            const distA = Math.sqrt(Math.pow(a.x - a.targetX, 2) + Math.pow(a.y - a.targetY, 2));
+            const distB = Math.sqrt(Math.pow(b.x - b.targetX, 2) + Math.pow(b.y - b.targetY, 2));
+            return distA - distB;
+        });
+        
+        this.rightApproaching.sort((a, b) => {
+            const distA = Math.sqrt(Math.pow(a.x - a.targetX, 2) + Math.pow(a.y - a.targetY, 2));
+            const distB = Math.sqrt(Math.pow(b.x - b.targetX, 2) + Math.pow(b.y - b.targetY, 2));
+            return distA - distB;
+        });
+        
         // Update left approaching fans - they go to the end of the current queue
         this.leftApproaching.forEach((fan, approachIndex) => {
             const position = this.leftQueue.length + approachIndex;

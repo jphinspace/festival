@@ -217,7 +217,8 @@ describe('FoodStall', () => {
         fan1.queueSide = 'left';
         fan2.queueSide = 'left';
         
-        // Set fan1 as first in queue
+        // Set positions based on geographic location
+        // fan2 is closer to stall (x=60 > x=50), so will be sorted to position 0
         foodStall.updateQueuePositions(800, 600);
         
         // fan1 is far from target, fan2 is also far
@@ -231,15 +232,15 @@ describe('FoodStall', () => {
         expect(fan1.waitStartTime).toBeFalsy();
         expect(fan2.waitStartTime).toBeFalsy();
         
-        // Now move fan1 to their target position
-        fan1.x = fan1.targetX;
-        fan1.y = fan1.targetY;
+        // Now move fan2 (who is geographically closer) to their target position
+        fan2.x = fan2.targetX;
+        fan2.y = fan2.targetY;
         
         foodStall.processQueue(800, 600, simulationTime + 100);
         
-        // fan1 should start waiting
-        expect(fan1.waitStartTime).toBeTruthy();
-        expect(fan2.waitStartTime).toBeFalsy();
+        // fan2 should start waiting (they're at front and at target)
+        expect(fan2.waitStartTime).toBeTruthy();
+        expect(fan1.waitStartTime).toBeFalsy();
     });
 });
 
