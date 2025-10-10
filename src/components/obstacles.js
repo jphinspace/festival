@@ -206,4 +206,29 @@ export class Obstacles {
     getSecurityBoundaries() {
         return this.obstacles.filter(obs => obs.type === 'security' || obs.type === 'boundary');
     }
+
+    /**
+     * Check if a position is valid (not inside food stalls or stages)
+     * Used for setting target positions to avoid routing through obstacles
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
+     * @param {number} buffer - Extra buffer space around obstacles (default: 10)
+     * @returns {boolean} True if position is valid (not in obstacle)
+     */
+    isValidPosition(x, y, buffer = 10) {
+        for (const obs of this.obstacles) {
+            // Only check food stalls and stages - these are solid obstacles
+            // Don't check security or bus areas as fans can pass through
+            if (obs.type !== 'foodStall' && obs.type !== 'stage' && obs.type !== 'boundary') {
+                continue;
+            }
+            
+            // Check if point is inside obstacle (with buffer)
+            if (x >= obs.x - buffer && x <= obs.x + obs.width + buffer &&
+                y >= obs.y - buffer && y <= obs.y + obs.height + buffer) {
+                return false;
+            }
+        }
+        return true;
+    }
 }

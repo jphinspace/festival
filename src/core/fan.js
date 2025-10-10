@@ -82,9 +82,20 @@ export class Fan extends Agent {
             if (now - this.wanderTargetUpdateTime > 5000 + Math.random() * 5000) {
                 this.wanderTargetUpdateTime = now;
                 // Pick a random position to wander to (spread out)
-                const targetX = Math.random() * (obstacles ? obstacles.width : 800);
-                const targetY = Math.random() * (obstacles ? obstacles.height * 0.7 : 400);
-                this.setTarget(targetX, targetY);
+                // Try multiple times to find a valid position (not inside obstacles)
+                let targetX, targetY;
+                let attempts = 0;
+                const maxAttempts = 10;
+                do {
+                    targetX = Math.random() * (obstacles ? obstacles.width : 800);
+                    targetY = Math.random() * (obstacles ? obstacles.height * 0.7 : 400);
+                    attempts++;
+                } while (obstacles && !obstacles.isValidPosition(targetX, targetY) && attempts < maxAttempts);
+                
+                // Only set target if we found a valid position
+                if (!obstacles || obstacles.isValidPosition(targetX, targetY)) {
+                    this.setTarget(targetX, targetY);
+                }
             }
         }
     }
