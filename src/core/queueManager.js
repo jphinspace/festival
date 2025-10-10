@@ -36,14 +36,17 @@ export class QueueManager {
      * @param {Obstacles} obstacles - Obstacles for pathfinding (pass to setTarget)
      */
     static updatePositions(queue, approaching, getTargetPosition, frontPosition, obstacles = null) {
-        // Sort every frame by actual distance to ensure accurate positions
-        this.sortByDistance(queue, approaching, frontPosition);
+        // Sort main queue by distance to front
+        queue.sort((a, b) => {
+            const distA = Math.sqrt(Math.pow(a.x - frontPosition.x, 2) + Math.pow(a.y - frontPosition.y, 2));
+            const distB = Math.sqrt(Math.pow(b.x - frontPosition.x, 2) + Math.pow(b.y - frontPosition.y, 2));
+            return distA - distB;
+        });
         
-        // Update main queue fans
+        // Update main queue fans with consecutive positions starting from 0
         queue.forEach((fan, index) => {
             fan.queuePosition = index;
             const targetPos = getTargetPosition(index);
-            // Pass obstacles for pathfinding - fans should route around obstacles to reach queue position
             fan.setTarget(targetPos.x, targetPos.y, obstacles);
             fan.inQueue = true;
             if (fan.state !== 'being_checked' && !fan.waitStartTime) {
@@ -51,12 +54,24 @@ export class QueueManager {
             }
         });
         
-        // Update approaching fans
-        approaching.forEach((fan, index) => {
-            const position = queue.length + index;
-            fan.queuePosition = position;
-            const targetPos = getTargetPosition(position);
-            // Pass obstacles for pathfinding - fans should route around obstacles to reach queue
+        // For approaching fans, find their natural insertion point based on distance
+        // This prevents them from always going to the back
+        approaching.forEach((fan) => {
+            const fanDist = Math.sqrt(Math.pow(fan.x - frontPosition.x, 2) + Math.pow(fan.y - frontPosition.y, 2));
+            
+            // Find where this fan would fit in the queue based on distance
+            let insertPosition = queue.length; // Default to end
+            for (let i = 0; i < queue.length; i++) {
+                const queueFanDist = Math.sqrt(Math.pow(queue[i].x - frontPosition.x, 2) + Math.pow(queue[i].y - frontPosition.y, 2));
+                if (fanDist < queueFanDist) {
+                    insertPosition = i;
+                    break;
+                }
+            }
+            
+            // Set fan's position and target based on where they naturally fit
+            fan.queuePosition = insertPosition;
+            const targetPos = getTargetPosition(insertPosition);
             fan.setTarget(targetPos.x, targetPos.y, obstacles);
             fan.inQueue = false;
             if (fan.state !== 'approaching_queue') {
