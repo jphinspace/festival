@@ -228,80 +228,28 @@ export class FoodStall {
      * @param {boolean} sortNeeded - Whether to sort queues (only on join/leave events)
      */
     updateQueuePositions(width, height, sortNeeded = false) {
-        // Sort every frame for accurate queue positions
-        // Sort queues by actual distance to the front of the stall
+        // Use shared QueueManager for consistent behavior
         const frontLeftX = this.x;
         const frontRightX = this.x + this.width;
         const frontY = this.y + this.height / 2;
         
-        // Sort left queue by distance to front-left of stall
-        this.leftQueue.sort((a, b) => {
-            const distA = Math.sqrt(Math.pow(a.x - frontLeftX, 2) + Math.pow(a.y - frontY, 2));
-            const distB = Math.sqrt(Math.pow(b.x - frontLeftX, 2) + Math.pow(b.y - frontY, 2));
-            return distA - distB;
-        });
+        // Update left queue using QueueManager
+        QueueManager.updatePositions(
+            this.leftQueue,
+            this.leftApproaching,
+            (position) => this.getQueueTargetPosition(position, 'left'),
+            { x: frontLeftX, y: frontY },
+            { skipWaypoints: true }
+        );
         
-        // Sort right queue by distance to front-right of stall
-        this.rightQueue.sort((a, b) => {
-            const distA = Math.sqrt(Math.pow(a.x - frontRightX, 2) + Math.pow(a.y - frontY, 2));
-            const distB = Math.sqrt(Math.pow(b.x - frontRightX, 2) + Math.pow(b.y - frontY, 2));
-            return distA - distB;
-        });
-        
-        // Sort approaching fans by distance to their target queue position
-        this.leftApproaching.sort((a, b) => {
-            const distA = Math.sqrt(Math.pow(a.x - frontLeftX, 2) + Math.pow(a.y - frontY, 2));
-            const distB = Math.sqrt(Math.pow(b.x - frontLeftX, 2) + Math.pow(b.y - frontY, 2));
-            return distA - distB;
-        });
-        
-        this.rightApproaching.sort((a, b) => {
-            const distA = Math.sqrt(Math.pow(a.x - frontRightX, 2) + Math.pow(a.y - frontY, 2));
-            const distB = Math.sqrt(Math.pow(b.x - frontRightX, 2) + Math.pow(b.y - frontY, 2));
-            return distA - distB;
-        });
-        
-        // Update left queue - update every frame
-        this.leftQueue.forEach((fan, index) => {
-            fan.queuePosition = index; // Track position
-            const targetPos = this.getQueueTargetPosition(index, 'left');
-            fan.setTarget(targetPos.x, targetPos.y, fan.targetFoodStall ? null : undefined); // Don't recalculate waypoints for queue movement
-            if (fan.state !== 'in_queue' && !fan.waitStartTime) {
-                fan.state = 'in_queue';
-            }
-        });
-        
-        // Update left approaching fans - update every frame for responsiveness
-        this.leftApproaching.forEach((fan, approachIndex) => {
-            const position = this.leftQueue.length + approachIndex;
-            fan.queuePosition = position; // Track queue position
-            const targetPos = this.getQueueTargetPosition(position, 'left');
-            fan.setTarget(targetPos.x, targetPos.y, fan.targetFoodStall ? null : undefined); // Don't recalculate waypoints for queue movement
-            if (fan.state !== 'approaching_queue') {
-                fan.state = 'approaching_queue';
-            }
-        });
-        
-        // Update right queue - update every frame
-        this.rightQueue.forEach((fan, index) => {
-            fan.queuePosition = index; // Track position
-            const targetPos = this.getQueueTargetPosition(index, 'right');
-            fan.setTarget(targetPos.x, targetPos.y, fan.targetFoodStall ? null : undefined); // Don't recalculate waypoints for queue movement
-            if (fan.state !== 'in_queue' && !fan.waitStartTime) {
-                fan.state = 'in_queue';
-            }
-        });
-        
-        // Update right approaching fans - update every frame
-        this.rightApproaching.forEach((fan, approachIndex) => {
-            const position = this.rightQueue.length + approachIndex;
-            fan.queuePosition = position; // Track queue position
-            const targetPos = this.getQueueTargetPosition(position, 'right');
-            fan.setTarget(targetPos.x, targetPos.y, fan.targetFoodStall ? null : undefined); // Don't recalculate waypoints for queue movement
-            if (fan.state !== 'approaching_queue') {
-                fan.state = 'approaching_queue';
-            }
-        });
+        // Update right queue using QueueManager
+        QueueManager.updatePositions(
+            this.rightQueue,
+            this.rightApproaching,
+            (position) => this.getQueueTargetPosition(position, 'right'),
+            { x: frontRightX, y: frontY },
+            { skipWaypoints: true }
+        );
     }
 
     /**

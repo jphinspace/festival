@@ -4,67 +4,63 @@
  */
 export class QueueManager {
     /**
-     * Sort a queue by physical position relative to target
-     * @param {Array} queue - Array of fans to sort
-     * @param {Function} distanceFunc - Function that returns distance to target for a fan
+     * Sort queues and approaching arrays by actual distance to target
+     * @param {Array} queue - Main queue array
+     * @param {Array} approaching - Fans approaching the queue  
+     * @param {Object} frontPosition - {x, y} position of queue front
      */
-    static sortByPosition(queue, distanceFunc) {
-        queue.sort((a, b) => distanceFunc(a) - distanceFunc(b));
+    static sortByDistance(queue, approaching, frontPosition) {
+        const { x: frontX, y: frontY } = frontPosition;
+        
+        // Sort main queue by distance to front
+        queue.sort((a, b) => {
+            const distA = Math.sqrt(Math.pow(a.x - frontX, 2) + Math.pow(a.y - frontY, 2));
+            const distB = Math.sqrt(Math.pow(b.x - frontX, 2) + Math.pow(b.y - frontY, 2));
+            return distA - distB;
+        });
+        
+        // Sort approaching fans by distance to front
+        approaching.sort((a, b) => {
+            const distA = Math.sqrt(Math.pow(a.x - frontX, 2) + Math.pow(a.y - frontY, 2));
+            const distB = Math.sqrt(Math.pow(b.x - frontX, 2) + Math.pow(b.y - frontY, 2));
+            return distA - distB;
+        });
     }
 
     /**
-     * Update queue positions with proper movement logic
-     * Fans move in two stages:
-     * 1. Move to the Y position of the queue (vertical movement)
-     * 2. Move to the X position in the queue (lateral movement)
-     * This prevents diagonal movement from the bus
-     * 
+     * Update queue positions - call every frame for responsive movement
      * @param {Array} queue - Main queue array
      * @param {Array} approaching - Fans approaching the queue
-     * @param {Function} getTargetPosition - Function that returns {x, y} for a position index
-     * @param {Function} shouldSort - Function that determines if sorting is needed (optional)
+     * @param {Function} getTargetPosition - Function(index) that returns {x, y} for a position
+     * @param {Object} frontPosition - {x, y} position of queue front for sorting
+     * @param {Object} options - Optional settings {skipWaypoints: boolean}
      */
-    static updatePositions(queue, approaching, getTargetPosition, shouldSort = null) {
-        // Only sort if explicitly requested (e.g., when someone joins/leaves)
-        // Don't sort every frame to avoid jittering
-        if (shouldSort && shouldSort()) {
-            // Sort approaching by distance to their current target
-            approaching.sort((a, b) => {
-                const distA = Math.sqrt(Math.pow(a.x - a.targetX, 2) + Math.pow(a.y - a.targetY, 2));
-                const distB = Math.sqrt(Math.pow(b.x - b.targetX, 2) + Math.pow(b.y - b.targetY, 2));
-                return distA - distB;
-            });
-        }
-
+    static updatePositions(queue, approaching, getTargetPosition, frontPosition, options = {}) {
+        // Sort every frame by actual distance to ensure accurate positions
+        this.sortByDistance(queue, approaching, frontPosition);
+        
+        // Update main queue fans
+        queue.forEach((fan, index) => {
+            fan.queuePosition = index;
+            const targetPos = getTargetPosition(index);
+            // Pass null to skip waypoint recalculation for queue movement
+            fan.setTarget(targetPos.x, targetPos.y, options.skipWaypoints ? null : undefined);
+            fan.inQueue = true;
+            if (fan.state !== 'being_checked' && !fan.waitStartTime) {
+                fan.state = 'in_queue';
+            }
+        });
+        
         // Update approaching fans
         approaching.forEach((fan, index) => {
             const position = queue.length + index;
+            fan.queuePosition = position;
             const targetPos = getTargetPosition(position);
-            
-            // Only update if position changed significantly (>5 pixels)
-            if (Math.abs(fan.targetX - targetPos.x) > 5 || 
-                Math.abs(fan.targetY - targetPos.y) > 5) {
-                fan.setTarget(targetPos.x, targetPos.y);
-            }
-            
+            // Pass null to skip waypoint recalculation for queue movement
+            fan.setTarget(targetPos.x, targetPos.y, options.skipWaypoints ? null : undefined);
+            fan.inQueue = false;
             if (fan.state !== 'approaching_queue') {
                 fan.state = 'approaching_queue';
-            }
-        });
-
-        // Update queue fans
-        queue.forEach((fan, index) => {
-            const targetPos = getTargetPosition(index);
-            
-            // Only update if position changed significantly
-            if (Math.abs(fan.targetX - targetPos.x) > 5 || 
-                Math.abs(fan.targetY - targetPos.y) > 5) {
-                fan.setTarget(targetPos.x, targetPos.y);
-            }
-            
-            // Ensure proper state (unless being checked/waiting)
-            if (fan.state !== 'being_checked' && !fan.waitStartTime) {
-                fan.state = 'in_queue';
             }
         });
     }
