@@ -242,6 +242,66 @@ describe('FoodStall', () => {
         expect(fan2.waitStartTime).toBeTruthy();
         expect(fan1.waitStartTime).toBeFalsy();
     });
+
+    test('should reorder left queue based on physical position - closer fans move forward', () => {
+        // Create three fans at different X positions
+        const fan1 = new Fan(70, 115, mockConfig); // Furthest from stall
+        const fan2 = new Fan(80, 115, mockConfig); // Middle
+        const fan3 = new Fan(90, 115, mockConfig); // Closest to stall
+        
+        // Add to left queue in arbitrary order
+        foodStall.leftQueue.push(fan1, fan2, fan3);
+        fan1.inQueue = true;
+        fan2.inQueue = true;
+        fan3.inQueue = true;
+        fan1.targetFoodStall = foodStall;
+        fan2.targetFoodStall = foodStall;
+        fan3.targetFoodStall = foodStall;
+        fan1.queueSide = 'left';
+        fan2.queueSide = 'left';
+        fan3.queueSide = 'left';
+        
+        // Before update: array order is fan1, fan2, fan3
+        expect(foodStall.leftQueue[0]).toBe(fan1);
+        
+        // Update queue positions - should reorder by X (higher X = closer for left queue)
+        foodStall.updateQueuePositions(800, 600);
+        
+        // After update: fan3 should be at front (highest X = closest)
+        expect(foodStall.leftQueue[0]).toBe(fan3);
+        expect(foodStall.leftQueue[1]).toBe(fan2);
+        expect(foodStall.leftQueue[2]).toBe(fan1);
+    });
+
+    test('should reorder right queue based on physical position - closer fans move forward', () => {
+        // Create three fans at different X positions
+        const fan1 = new Fan(150, 115, mockConfig); // Furthest from stall
+        const fan2 = new Fan(140, 115, mockConfig); // Middle
+        const fan3 = new Fan(130, 115, mockConfig); // Closest to stall
+        
+        // Add to right queue in arbitrary order
+        foodStall.rightQueue.push(fan1, fan2, fan3);
+        fan1.inQueue = true;
+        fan2.inQueue = true;
+        fan3.inQueue = true;
+        fan1.targetFoodStall = foodStall;
+        fan2.targetFoodStall = foodStall;
+        fan3.targetFoodStall = foodStall;
+        fan1.queueSide = 'right';
+        fan2.queueSide = 'right';
+        fan3.queueSide = 'right';
+        
+        // Before update: array order is fan1, fan2, fan3
+        expect(foodStall.rightQueue[0]).toBe(fan1);
+        
+        // Update queue positions - should reorder by X (lower X = closer for right queue)
+        foodStall.updateQueuePositions(800, 600);
+        
+        // After update: fan3 should be at front (lowest X = closest)
+        expect(foodStall.rightQueue[0]).toBe(fan3);
+        expect(foodStall.rightQueue[1]).toBe(fan2);
+        expect(foodStall.rightQueue[2]).toBe(fan1);
+    });
 });
 
 describe('Fan hunger', () => {
