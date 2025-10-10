@@ -40,35 +40,47 @@ export class SecurityQueue {
     }
 
     /**
-     * Add a fan to one of the queues (choose shorter queue)
+     * Add a fan to one of the queues (choose closest queue based on position)
      * @param {Fan} fan - Fan to add to queue
      */
     addToQueue(fan) {
-        // Choose the shorter queue (including those entering)
-        const totalLeft = this.queues[0].length + this.entering[0].length;
-        const totalRight = this.queues[1].length + this.entering[1].length;
-        const queueIndex = totalLeft <= totalRight ? 0 : 1;
+        // Choose the queue closest to the fan's current position (not shortest)
+        const leftQueueX = this.width * this.config.QUEUE_LEFT_X;
+        const rightQueueX = this.width * this.config.QUEUE_RIGHT_X;
+        const distToLeft = Math.abs(fan.x - leftQueueX);
+        const distToRight = Math.abs(fan.x - rightQueueX);
+        const queueIndex = distToLeft <= distToRight ? 0 : 1;
         
-        // Mark fan as entering and determine if enhanced security
-        fan.queueIndex = queueIndex;
-        fan.enhancedSecurity = Math.random() < this.config.ENHANCED_SECURITY_PERCENTAGE;
-        fan.inQueue = false; // Not in actual queue yet (consistent with food queues)
-        fan.queuePosition = this.queues[queueIndex].length + this.entering[queueIndex].length;
+        // Get queue and approaching list for chosen side
+        const queue = this.queues[queueIndex];
+        const approachingList = this.entering[queueIndex];
         
-        // Add to entering list first
-        this.entering[queueIndex].push(fan);
-        
-        // Direct fans to the BACK/END of their assigned queue
-        // Calculate where the end of the queue is
+        // Calculate front position for this queue
         const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X);
         const startY = this.height * this.config.QUEUE_START_Y;
         const spacing = this.config.QUEUE_SPACING;
-        const position = fan.queuePosition;
-        const entryY = startY + (position * spacing);
         
-        // Set target directly to the back of the queue (no two-stage movement needed)
-        fan.setTarget(queueX, entryY);
-        fan.state = 'approaching_queue';
+        // Determine if enhanced security
+        const enhancedSecurity = Math.random() < this.config.ENHANCED_SECURITY_PERCENTAGE;
+        
+        // Use QueueManager common method to add fan
+        const position = QueueManager.addFanToQueue(fan, {
+            queue: queue,
+            approachingList: approachingList,
+            frontPosition: { x: queueX, y: startY },
+            getTargetPosition: (pos) => ({
+                x: queueX,
+                y: startY + (pos * spacing)
+            }),
+            fanProperties: {
+                queueIndex: queueIndex,
+                enhancedSecurity: enhancedSecurity,
+                inQueue: false // Security queues: not in actual queue until they reach entry point
+            },
+            setInQueue: false // Don't set inQueue in QueueManager for security queues
+        });
+        
+        return position;
     }
 
     /**

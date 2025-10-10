@@ -51,21 +51,27 @@ describe('SecurityQueue', () => {
         expect(fan.enhancedSecurity).toBeDefined();
     });
 
-    test('should distribute fans to shorter queue', () => {
-        // Add 3 fans
-        const fan1 = new Fan(400, 540, mockConfig);
-        const fan2 = new Fan(400, 540, mockConfig);
-        const fan3 = new Fan(400, 540, mockConfig);
+    test('should distribute fans to closest queue based on position', () => {
+        // Add fans at different positions - fan on left should go to left queue, fan on right should go to right queue
+        const leftQueueX = 800 * mockConfig.QUEUE_LEFT_X; // 800 * 0.3 = 240
+        const rightQueueX = 800 * mockConfig.QUEUE_RIGHT_X; // 800 * 0.7 = 560
         
-        securityQueue.addToQueue(fan1);
-        securityQueue.addToQueue(fan2);
-        securityQueue.addToQueue(fan3);
+        const fanLeft = new Fan(200, 540, mockConfig); // Closer to left queue
+        const fanRight = new Fan(600, 540, mockConfig); // Closer to right queue
+        const fanCenter = new Fan(400, 540, mockConfig); // Equidistant
         
-        // With load balancing, total fans (entering + in queue) should be relatively balanced
-        const queue0Count = securityQueue.queues[0].length + securityQueue.entering[0].length;
-        const queue1Count = securityQueue.queues[1].length + securityQueue.entering[1].length;
+        securityQueue.addToQueue(fanLeft);
+        securityQueue.addToQueue(fanRight);
+        securityQueue.addToQueue(fanCenter);
         
-        expect(Math.abs(queue0Count - queue1Count)).toBeLessThanOrEqual(1);
+        // fanLeft should be in queue 0 (left)
+        expect(fanLeft.queueIndex).toBe(0);
+        
+        // fanRight should be in queue 1 (right)
+        expect(fanRight.queueIndex).toBe(1);
+        
+        // fanCenter can be in either queue (equidistant)
+        expect([0, 1]).toContain(fanCenter.queueIndex);
     });
 
     test('should set target positions for fans approaching queue', () => {

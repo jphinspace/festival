@@ -150,6 +150,51 @@ export class QueueManager {
         // Default: go to the back of the queue (no nearby fans or too far)
         return queue.length + approaching.filter(f => f !== fan).length;
     }
+    
+    /**
+     * Common logic for adding a fan to a queue with proximity-based positioning
+     * @param {Fan} fan - Fan to add to queue
+     * @param {Object} options - Configuration options
+     * @param {Array} options.queue - Main queue array
+     * @param {Array} options.approachingList - Approaching fans array
+     * @param {Object} options.frontPosition - {x, y} position of queue front
+     * @param {Function} options.getTargetPosition - Function to get target position from queue position
+     * @param {Object} options.fanProperties - Properties to set on the fan
+     * @param {boolean} options.setInQueue - Whether to set fan.inQueue to true (default: true)
+     * @returns {number} The assigned position
+     */
+    static addFanToQueue(fan, options) {
+        const { queue, approachingList, frontPosition, getTargetPosition, fanProperties = {}, setInQueue = true } = options;
+        
+        // Use proximity-based positioning
+        const position = this.findApproachingPosition(
+            fan,
+            queue,
+            approachingList,
+            frontPosition
+        );
+        
+        // Add to approaching list
+        approachingList.push(fan);
+        
+        // Set common fan properties
+        if (setInQueue) {
+            fan.inQueue = true; // Mark as in queue process
+        }
+        fan.queuePosition = position; // Assign the calculated position
+        
+        // Set any additional properties passed in
+        Object.assign(fan, fanProperties);
+        
+        // Set target based on calculated position
+        const targetPos = getTargetPosition(position);
+        fan.setTarget(targetPos.x, targetPos.y);
+        
+        // Set state AFTER setTarget (which sets it to 'moving')
+        fan.state = 'approaching_queue';
+        
+        return position;
+    }
 
     /**
      * Process fans transitioning from approaching to queue

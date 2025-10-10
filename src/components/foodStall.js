@@ -49,27 +49,18 @@ export class FoodStall {
         const frontY = this.y + this.height / 2;
         const frontX = side === 'left' ? this.x - spacing : this.x + this.width + spacing;
         
-        // Use QueueManager to find the best position based on proximity to nearby fans
-        const position = QueueManager.findApproachingPosition(
-            fan,
-            queue,
-            approachingList,
-            { x: frontX, y: frontY }
-        );
-        
-        // Add to approaching list
-        approachingList.push(fan);
-        
-        fan.inQueue = true; // Mark as in queue process
-        fan.queuedAt = null; // Not used for timing anymore
-        fan.targetFoodStall = this;
-        fan.queueSide = side; // Track which side of the stall
-        fan.queuePosition = position; // Assign the calculated position
-        
-        // Set target based on calculated position
-        const targetPos = this.getQueueTargetPosition(position, side);
-        fan.setTarget(targetPos.x, targetPos.y);
-        fan.state = 'approaching_queue';
+        // Use QueueManager common method to add fan
+        const position = QueueManager.addFanToQueue(fan, {
+            queue: queue,
+            approachingList: approachingList,
+            frontPosition: { x: frontX, y: frontY },
+            getTargetPosition: (pos) => this.getQueueTargetPosition(pos, side),
+            fanProperties: {
+                queuedAt: null, // Not used for timing anymore
+                targetFoodStall: this,
+                queueSide: side
+            }
+        });
         
         return position;
     }
