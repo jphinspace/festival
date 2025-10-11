@@ -38,6 +38,7 @@ export class Agent {
         }
         
         // Check if target has changed significantly (more than 5 pixels)
+        // IMPORTANT: Check BEFORE updating targetX/targetY
         const targetChanged = !this.targetX || !this.targetY || 
             Math.abs(x - this.targetX) > 5 || Math.abs(y - this.targetY) > 5;
         
@@ -46,9 +47,6 @@ export class Agent {
             console.log(`[setTarget] Target changed: ${targetChanged} (distance: ${this.targetX && this.targetY ? Math.sqrt(Math.pow(x - this.targetX, 2) + Math.pow(y - this.targetY, 2)).toFixed(1) : 'N/A'}px)`);
         }
         
-        this.targetX = x;
-        this.targetY = y;
-        
         // Only recalculate waypoints if target changed significantly
         if (!targetChanged) {
             if (this.debugWaypoints) {
@@ -56,6 +54,10 @@ export class Agent {
             }
             return; // Target hasn't moved enough, keep existing waypoints
         }
+        
+        // Update target AFTER checking if it changed
+        this.targetX = x;
+        this.targetY = y;
         
         // Calculate static waypoints for routing around obstacles (global pathfinding)
         // Check state BEFORE potentially changing it
@@ -135,7 +137,9 @@ export class Agent {
             
             // Route around the first blocking obstacle
             const obstacle = blockingObstacles[0];
-            const buffer = this.radius + personalSpaceBuffer + 5; // Extra 5px buffer
+            // Use agent radius + personal space buffer (no extra buffer)
+            // The personalSpaceBuffer already accounts for comfortable spacing
+            const buffer = this.radius + personalSpaceBuffer;
             
             // Calculate the four corners of the obstacle (with buffer)
             const corners = [
@@ -273,7 +277,9 @@ export class Agent {
             
             // Route around the first blocking obstacle
             const obstacle = blockingObstacles[0];
-            const buffer = this.radius + personalSpaceBuffer + 5; // Extra 5px buffer
+            // Use agent radius + personal space buffer (no extra buffer)
+            // The personalSpaceBuffer already accounts for comfortable spacing
+            const buffer = this.radius + personalSpaceBuffer;
             
             // Calculate the four corners of the obstacle (with buffer)
             const corners = [
