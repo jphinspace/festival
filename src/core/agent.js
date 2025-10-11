@@ -260,8 +260,45 @@ export class Agent {
             const targetNearObstacle = targetX >= obsLeft && targetX <= obsRight && 
                                       targetY >= obsTop && targetY <= obsBottom;
             
+            // Also check if start position is within buffer zone
+            const startNearObstacle = startX >= obsLeft && startX <= obsRight && 
+                                     startY >= obsTop && startY <= obsBottom;
+            
+            // Only skip this obstacle if BOTH start and target are near it, OR if target is near it and start can see target directly
+            // This prevents skipping obstacles that are between the fan and their destination
+            if (targetNearObstacle && startNearObstacle) {
+                continue; // Both near the same obstacle - not blocking
+            }
+            
             if (targetNearObstacle) {
-                continue; // Skip this obstacle - target is supposed to be near it
+                // Target is near obstacle but start isn't - check if obstacle is actually between them
+                // Get the center of the obstacle
+                const obsCenterX = (obsLeft + obsRight) / 2;
+                const obsCenterY = (obsTop + obsBottom) / 2;
+                
+                // Calculate if obstacle center is roughly between start and target
+                // Use dot product to check if obstacle is in the direction of travel
+                const toTargetX = targetX - startX;
+                const toTargetY = targetY - startY;
+                const toObsX = obsCenterX - startX;
+                const toObsY = obsCenterY - startY;
+                
+                const distToTarget = Math.sqrt(toTargetX * toTargetX + toTargetY * toTargetY);
+                const distToObs = Math.sqrt(toObsX * toObsX + toObsY * toObsY);
+                
+                // If we're very close to target (within 1 fan diameter), allow it
+                if (distToTarget < this.radius * 2) {
+                    continue; // Very close to target, don't worry about obstacles
+                }
+                
+                // If obstacle is not in the path (behind us or to the side), skip it
+                if (distToTarget > 0 && distToObs > 0) {
+                    const dotProduct = (toObsX * toTargetX + toObsY * toTargetY) / (distToObs * distToTarget);
+                    // If dotProduct < 0.5, obstacle is not in our path forward
+                    if (dotProduct < 0.5) {
+                        continue; // Obstacle is not between us and target
+                    }
+                }
             }
             
             // Check if line from start to target intersects this rectangle
