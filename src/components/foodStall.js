@@ -256,8 +256,7 @@ export class FoodStall {
             this.leftApproaching,
             (position) => this.getQueueTargetPosition(position, 'left'),
             { x: frontLeftX, y: frontY },
-            this.obstacles,  // Pass obstacles for pathfinding
-            false  // Don't use proximity lock - update positions dynamically like security queues
+            this.obstacles
         );
         
         // Update right queue using QueueManager - pass obstacles for pathfinding
@@ -266,8 +265,7 @@ export class FoodStall {
             this.rightApproaching,
             (position) => this.getQueueTargetPosition(position, 'right'),
             { x: frontRightX, y: frontY },
-            this.obstacles,  // Pass obstacles for pathfinding
-            false  // Don't use proximity lock - update positions dynamically like security queues
+            this.obstacles
         );
     }
     

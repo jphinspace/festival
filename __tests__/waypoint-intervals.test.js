@@ -12,7 +12,7 @@ const mockConfig = {
     }
 };
 
-describe('Waypoint Progressive Intervals', () => {
+describe('Waypoint Update Intervals', () => {
     let agent;
 
     beforeEach(() => {
@@ -72,7 +72,7 @@ describe('Waypoint Progressive Intervals', () => {
         }
     });
 
-    test('should check waypoints with progressive intervals', () => {
+    test('should update all waypoints when waypoint[0] exceeds 125ms interval', () => {
         // Create mock obstacles
         const obstacles = {
             checkCollision: () => false,
@@ -92,9 +92,8 @@ describe('Waypoint Progressive Intervals', () => {
             { x: 400, y: 400 }
         ];
         
-        // First waypoint updated 200ms ago (should trigger at 125ms)
-        // Second waypoint updated 300ms ago (should trigger at 250ms)
-        // Third waypoint updated 600ms ago (should trigger at 500ms)
+        // First waypoint updated 200ms ago (exceeds 125ms threshold)
+        // Other waypoint times don't matter - only waypoint[0] is checked
         agent.waypointUpdateTimes = [now - 200, now - 300, now - 600];
         agent.state = 'moving';
         agent.targetX = 500;
@@ -106,7 +105,7 @@ describe('Waypoint Progressive Intervals', () => {
         // Update - should trigger recalculation because first waypoint is old enough
         agent.update(0.016, 1.0, [], obstacles);
         
-        // The waypoint update times should have been refreshed
+        // All waypoint update times should have been refreshed
         // (all times should be close to current time now)
         const currentTime = Date.now();
         agent.waypointUpdateTimes.forEach(time => {
@@ -114,7 +113,7 @@ describe('Waypoint Progressive Intervals', () => {
         });
     });
 
-    test('should update only later waypoints when first waypoint is recent', () => {
+    test('should update all waypoints when waypoint[0] is old enough', () => {
         // Create mock obstacles
         const obstacles = {
             checkCollision: () => false,
@@ -134,8 +133,7 @@ describe('Waypoint Progressive Intervals', () => {
         ];
         
         // First waypoint updated recently (100ms ago - not due yet at 125ms)
-        // Second waypoint updated 300ms ago (should trigger at 250ms)
-        // Third waypoint updated 600ms ago (should trigger at 500ms)
+        // Other waypoints don't matter - only waypoint[0] is checked
         agent.waypointUpdateTimes = [now - 100, now - 300, now - 600];
         agent.state = 'moving';
         agent.targetX = 500;
@@ -144,38 +142,24 @@ describe('Waypoint Progressive Intervals', () => {
         // Store first waypoint time
         const firstWaypointTime = agent.waypointUpdateTimes[0];
         
-        // Update - should trigger partial recalculation
+        // Update - should NOT trigger recalculation because waypoint[0] is not old enough
         agent.update(0.016, 1.0, [], obstacles);
         
         // First waypoint time should remain relatively unchanged (within 50ms)
         // because it wasn't due for update
         expect(Math.abs(agent.waypointUpdateTimes[0] - firstWaypointTime)).toBeLessThan(50);
         
-        // Later waypoint times should be updated
-        const currentTime = Date.now();
-        if (agent.waypointUpdateTimes.length > 1) {
-            for (let i = 1; i < agent.waypointUpdateTimes.length; i++) {
-                expect(currentTime - agent.waypointUpdateTimes[i]).toBeLessThan(100);
-            }
-        }
+        // Other waypoint times should also remain unchanged (no partial updates anymore)
+        expect(Math.abs(agent.waypointUpdateTimes[1] - (now - 300))).toBeLessThan(50);
+        expect(Math.abs(agent.waypointUpdateTimes[2] - (now - 600))).toBeLessThan(50);
     });
 
-    test('should calculate correct progressive intervals', () => {
-        // Waypoint 0: 125ms (most frequent - immediate destination)
-        // Waypoint 1: 250ms (125 * 2^1)
-        // Waypoint 2: 500ms (125 * 2^2)
-        // Waypoint 3: 1000ms (125 * 2^3)
+    test('should use fixed 125ms interval for waypoint[0]', () => {
+        // Waypoint 0: 125ms (only waypoint that is checked)
+        // Other waypoints are not checked individually anymore
         
-        const intervals = [
-            125 * Math.pow(2, 0),  // 125
-            125 * Math.pow(2, 1),  // 250
-            125 * Math.pow(2, 2),  // 500
-            125 * Math.pow(2, 3),  // 1000
-        ];
+        const interval = 125;
         
-        expect(intervals[0]).toBe(125);
-        expect(intervals[1]).toBe(250);
-        expect(intervals[2]).toBe(500);
-        expect(intervals[3]).toBe(1000);
+        expect(interval).toBe(125);
     });
 });

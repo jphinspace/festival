@@ -34,9 +34,9 @@ export class QueueManager {
      * @param {Function} getTargetPosition - Function(index) that returns {x, y} for a position
      * @param {Object} frontPosition - {x, y} position of queue front for sorting
      * @param {Obstacles} obstacles - Obstacles for pathfinding (pass to setTarget)
-     * @param {boolean} useProximityLock - If true, use locked positions (for food stalls). If false, recalculate based on distance (for security)
+     * @param {boolean} forceUpdate - If true, bypass throttling and update all targets immediately
      */
-    static updatePositions(queue, approaching, getTargetPosition, frontPosition, obstacles = null, useProximityLock = false) {
+    static updatePositions(queue, approaching, getTargetPosition, frontPosition, obstacles = null, forceUpdate = false) {
         // Sort main queue by distance to front
         queue.sort((a, b) => {
             const distA = Math.sqrt(Math.pow(a.x - frontPosition.x, 2) + Math.pow(a.y - frontPosition.y, 2));
@@ -45,42 +45,48 @@ export class QueueManager {
         });
         
         // Update main queue fans with consecutive positions starting from 0
+        const currentTime = Date.now();
         queue.forEach((fan, index) => {
             fan.queuePosition = index;
             const targetPos = getTargetPosition(index);
-            fan.setTarget(targetPos.x, targetPos.y, obstacles);
+            
+            // Throttle setTarget calls to once every 125ms per fan (unless forceUpdate is true)
+            const timeSinceLastUpdate = currentTime - (fan.queueTargetUpdateTime || 0);
+            if (forceUpdate || timeSinceLastUpdate >= 125) {
+                fan.setTarget(targetPos.x, targetPos.y, obstacles);
+                fan.queueTargetUpdateTime = currentTime;
+            }
+            
             fan.inQueue = true;
             if (fan.state !== 'being_checked' && !fan.waitStartTime) {
                 fan.state = 'in_queue';
             }
         });
         
-        // For approaching fans, update their targets
+        // For approaching fans, always use distance-based ordering (same as security queues)
         approaching.forEach((fan) => {
-            if (useProximityLock) {
-                // Food stalls: use locked position (assigned once in addToQueue)
-                if (fan.queuePosition === null || fan.queuePosition === undefined) {
-                    // Fallback: assign position at end of queue
-                    fan.queuePosition = queue.length + approaching.indexOf(fan);
+            const fanDist = Math.sqrt(Math.pow(fan.x - frontPosition.x, 2) + Math.pow(fan.y - frontPosition.y, 2));
+            
+            // Find where this fan fits based on distance
+            let insertPosition = queue.length; // Default to end
+            for (let i = 0; i < queue.length; i++) {
+                const queueFanDist = Math.sqrt(Math.pow(queue[i].x - frontPosition.x, 2) + Math.pow(queue[i].y - frontPosition.y, 2));
+                if (fanDist < queueFanDist) {
+                    insertPosition = i;
+                    break;
                 }
-            } else {
-                // Security queues: recalculate based on distance (original behavior)
-                const fanDist = Math.sqrt(Math.pow(fan.x - frontPosition.x, 2) + Math.pow(fan.y - frontPosition.y, 2));
-                
-                // Find where this fan fits based on distance
-                let insertPosition = queue.length; // Default to end
-                for (let i = 0; i < queue.length; i++) {
-                    const queueFanDist = Math.sqrt(Math.pow(queue[i].x - frontPosition.x, 2) + Math.pow(queue[i].y - frontPosition.y, 2));
-                    if (fanDist < queueFanDist) {
-                        insertPosition = i;
-                        break;
-                    }
-                }
-                fan.queuePosition = insertPosition;
             }
+            fan.queuePosition = insertPosition;
             
             const targetPos = getTargetPosition(fan.queuePosition);
-            fan.setTarget(targetPos.x, targetPos.y, obstacles);
+            
+            // Throttle setTarget calls to once every 125ms per fan (unless forceUpdate is true)
+            const timeSinceLastUpdate = currentTime - (fan.queueTargetUpdateTime || 0);
+            if (forceUpdate || timeSinceLastUpdate >= 125) {
+                fan.setTarget(targetPos.x, targetPos.y, obstacles);
+                fan.queueTargetUpdateTime = currentTime;
+            }
+            
             fan.inQueue = false;
             if (fan.state !== 'approaching_queue') {
                 fan.state = 'approaching_queue';
@@ -194,6 +200,9 @@ export class QueueManager {
         // Set target based on calculated position WITH obstacles for pathfinding
         const targetPos = getTargetPosition(position);
         fan.setTarget(targetPos.x, targetPos.y, obstacles);
+        
+        // Initialize queue target update time so subsequent throttled updates know this was just set
+        fan.queueTargetUpdateTime = Date.now();
         
         return position;
     }

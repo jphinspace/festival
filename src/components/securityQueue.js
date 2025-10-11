@@ -70,10 +70,15 @@ export class SecurityQueue {
             queue: queue,
             approachingList: approachingList,
             frontPosition: { x: queueX, y: startY },
-            getTargetPosition: (pos) => ({
-                x: queueX,
-                y: startY + (pos * spacing)
-            }),
+            getTargetPosition: (pos) => {
+                // For entering fans, ensure they don't get position 0 when queue is empty
+                const adjustedPos = (queue.length === 0 && pos === 0) ? 
+                    Math.max(1, pos) : pos;
+                return {
+                    x: queueX,
+                    y: startY + (adjustedPos * spacing)
+                };
+            },
             fanProperties: {
                 queueIndex: queueIndex,
                 enhancedSecurity: enhancedSecurity
@@ -110,7 +115,8 @@ export class SecurityQueue {
                 };
             },
             { x: queueX, y: startY },
-            this.obstacles  // Pass obstacles for pathfinding
+            this.obstacles,  // Pass obstacles for pathfinding
+            sortNeeded       // Force update when sort is needed (fan joined/left)
         );
     }
     
