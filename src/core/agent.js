@@ -830,19 +830,14 @@ export class Agent {
                         this.staticWaypoints = this.calculateStaticWaypoints(this.targetX, this.targetY, obstacles);
                         
                         // Assign staggered timestamps to maintain progressive intervals
-                        // Each waypoint gets a timestamp offset so it becomes due at the right time
+                        // ALL waypoints are NEW after recalculation, so ALL get staggered timestamps
+                        // The staggering ensures each waypoint updates at its designed rate
                         this.waypointUpdateTimes = this.staticWaypoints.map((wp, index) => {
                             const baseInterval = 125 * Math.pow(2, index);
                             const interval = baseInterval / (simulationSpeed || 1);
-                            
-                            // If this waypoint index was in waypointsToUpdate, it should update now
-                            // Otherwise, set it to be ~10% through its interval (like setTarget does)
-                            if (waypointsToUpdate.includes(index)) {
-                                return currentTime; // Was due for update, so timestamp = now
-                            } else {
-                                // Not due yet - give it a timestamp as if it's 10% through its interval
-                                return currentTime - (interval * 0.1);
-                            }
+                            // Set timestamp so waypoint is 10% through its interval
+                            // This matches setTarget() behavior
+                            return currentTime - (interval * 0.1);
                         });
                     } else {
                         // Recalculate from the waypoint position, preserving earlier waypoints
@@ -864,18 +859,13 @@ export class Agent {
                         ];
                         
                         // Assign staggered timestamps to maintain progressive intervals
+                        // ALL new waypoints get staggered timestamps based on their position
                         const newTimestamps = newWaypoints.map((wp, i) => {
                             const actualIndex = earliestIndex + i;
                             const baseInterval = 125 * Math.pow(2, actualIndex);
                             const interval = baseInterval / (simulationSpeed || 1);
-                            
-                            // If this waypoint index was in waypointsToUpdate, it should update now
-                            if (waypointsToUpdate.includes(actualIndex)) {
-                                return currentTime; // Was due for update
-                            } else {
-                                // Not due yet - set timestamp as if 10% through interval
-                                return currentTime - (interval * 0.1);
-                            }
+                            // Set timestamp so waypoint is 10% through its interval
+                            return currentTime - (interval * 0.1);
                         });
                         
                         this.waypointUpdateTimes = [
