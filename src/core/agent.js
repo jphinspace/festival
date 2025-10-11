@@ -35,20 +35,22 @@ export class Agent {
         this.targetY = y;
         
         // Calculate static waypoints for routing around obstacles (global pathfinding)
-        // Check state BEFORE changing it
+        // Check state BEFORE potentially changing it
         const needsPathfinding = obstacles && (this.state === 'moving' || this.state === 'approaching_queue' || this.state === 'idle' || this.state === 'passed_security');
         
-        // Set state to moving (unless already in a queue state)
-        if (this.state !== 'in_queue' && this.state !== 'approaching_queue') {
-            this.state = 'moving';
-        }
-        
+        // Generate waypoints BEFORE changing state
         if (needsPathfinding) {
             this.staticWaypoints = this.calculateStaticWaypoints(x, y, obstacles);
             // Reset the timer so waypoints are recalculated on schedule
             this.lastStaticWaypointUpdate = Date.now();
         } else {
             this.staticWaypoints = [];
+        }
+        
+        // Set state to moving (unless already in a queue state)
+        // Do this AFTER pathfinding so the state check works correctly
+        if (this.state !== 'in_queue' && this.state !== 'approaching_queue') {
+            this.state = 'moving';
         }
         
         // Clear dynamic waypoint when target changes

@@ -187,12 +187,13 @@ export class QueueManager {
         // Set any additional properties passed in
         Object.assign(fan, fanProperties);
         
+        // CRITICAL: Set state to approaching_queue BEFORE setTarget
+        // so that setTarget() knows to generate waypoints
+        fan.state = 'approaching_queue';
+        
         // Set target based on calculated position WITH obstacles for pathfinding
         const targetPos = getTargetPosition(position);
         fan.setTarget(targetPos.x, targetPos.y, obstacles);
-        
-        // Set state AFTER setTarget (which sets it to 'moving')
-        fan.state = 'approaching_queue';
         
         return position;
     }
