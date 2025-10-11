@@ -58,86 +58,99 @@ export class Agent {
     /**
      * Calculate static waypoints to route around obstacles
      * Uses global knowledge of all static obstacles (stages, food stalls)
-     * Can make sharp turns and multiple waypoints as needed
+     * Can make sharp turns and multiple waypoints as needed (up to 5)
      * @param {number} targetX - Final target X position
      * @param {number} targetY - Final target Y position
      * @param {Obstacles} obstacles - Obstacles manager
-     * @returns {Array} Array of {x, y} waypoints
+     * @returns {Array} Array of {x, y} waypoints (minimum 0, maximum 5)
      */
     calculateStaticWaypoints(targetX, targetY, obstacles) {
         const waypoints = [];
+        const MAX_WAYPOINTS = 5;
+        const MIN_WAYPOINTS = 0; // Can be 0 if direct path is clear
         const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? 
             this.config.PERSONAL_SPACE : 0;
         
-        // Check if straight line to target is clear
-        if (this.isPathClear(this.x, this.y, targetX, targetY, obstacles, personalSpaceBuffer)) {
-            return []; // Direct path is clear
-        }
+        // Start from current position
+        let currentX = this.x;
+        let currentY = this.y;
         
-        // Find obstacles that block the path
-        const blockingObstacles = this.findBlockingObstacles(targetX, targetY, obstacles, personalSpaceBuffer);
-        
-        if (blockingObstacles.length === 0) {
-            return []; // No obstacles blocking
-        }
-        
-        // Route around obstacles - can use multiple waypoints for complex paths
-        // For now, route around the first blocking obstacle
-        const obstacle = blockingObstacles[0];
-        const buffer = this.radius + personalSpaceBuffer + 5; // Extra 5px buffer
-        
-        // Calculate the four corners of the obstacle (with buffer)
-        const corners = [
-            { x: obstacle.x - buffer, y: obstacle.y - buffer }, // Top-left
-            { x: obstacle.x + obstacle.width + buffer, y: obstacle.y - buffer }, // Top-right
-            { x: obstacle.x - buffer, y: obstacle.y + obstacle.height + buffer }, // Bottom-left
-            { x: obstacle.x + obstacle.width + buffer, y: obstacle.y + obstacle.height + buffer } // Bottom-right
-        ];
-        
-        // Add slight randomness to corner positions to avoid all fans taking identical routes
-        const randomness = 5; // +/- 5 pixels of randomness
-        corners.forEach(corner => {
-            corner.x += (Math.random() - 0.5) * randomness * 2;
-            corner.y += (Math.random() - 0.5) * randomness * 2;
-        });
-        
-        // Choose the best corner that has clear paths both TO and FROM it
-        let bestCorner = null;
-        let bestScore = Infinity;
-        
-        for (const corner of corners) {
-            // First check if corner itself is accessible (not inside an obstacle)
-            if (obstacles.checkCollision(corner.x, corner.y, this.radius, this.state, personalSpaceBuffer)) {
-                continue; // Skip this corner, it's inside an obstacle
+        // Iteratively build path around obstacles
+        for (let iteration = 0; iteration < MAX_WAYPOINTS; iteration++) {
+            // Check if straight line from current position to target is clear
+            if (this.isPathClear(currentX, currentY, targetX, targetY, obstacles, personalSpaceBuffer)) {
+                // Path is clear! We're done
+                break;
             }
             
-            // Check if path from agent to corner is clear
-            if (!this.isPathClear(this.x, this.y, corner.x, corner.y, obstacles, personalSpaceBuffer)) {
-                continue; // Can't reach this corner
+            // Find obstacles that block the path from current position to target
+            const blockingObstacles = this.findBlockingObstacles(targetX, targetY, obstacles, personalSpaceBuffer, currentX, currentY);
+            
+            if (blockingObstacles.length === 0) {
+                break; // No obstacles blocking, we're done
             }
             
-            // Check if path from corner to target is clear
-            if (!this.isPathClear(corner.x, corner.y, targetX, targetY, obstacles, personalSpaceBuffer)) {
-                continue; // Can't reach target from this corner
+            // Route around the first blocking obstacle
+            const obstacle = blockingObstacles[0];
+            const buffer = this.radius + personalSpaceBuffer + 5; // Extra 5px buffer
+            
+            // Calculate the four corners of the obstacle (with buffer)
+            const corners = [
+                { x: obstacle.x - buffer, y: obstacle.y - buffer }, // Top-left
+                { x: obstacle.x + obstacle.width + buffer, y: obstacle.y - buffer }, // Top-right
+                { x: obstacle.x - buffer, y: obstacle.y + obstacle.height + buffer }, // Bottom-left
+                { x: obstacle.x + obstacle.width + buffer, y: obstacle.y + obstacle.height + buffer } // Bottom-right
+            ];
+            
+            // Add slight randomness to corner positions to avoid all fans taking identical routes
+            const randomness = 5; // +/- 5 pixels of randomness
+            corners.forEach(corner => {
+                corner.x += (Math.random() - 0.5) * randomness * 2;
+                corner.y += (Math.random() - 0.5) * randomness * 2;
+            });
+            
+            // Choose the best corner that has clear paths both TO and FROM it
+            let bestCorner = null;
+            let bestScore = Infinity;
+            
+            for (const corner of corners) {
+                // First check if corner itself is accessible (not inside an obstacle)
+                if (obstacles.checkCollision(corner.x, corner.y, this.radius, this.state, personalSpaceBuffer)) {
+                    continue; // Skip this corner, it's inside an obstacle
+                }
+                
+                // Check if path from current position to corner is clear
+                if (!this.isPathClear(currentX, currentY, corner.x, corner.y, obstacles, personalSpaceBuffer)) {
+                    continue; // Can't reach this corner
+                }
+                
+                // Check if path from corner to target is clear
+                if (!this.isPathClear(corner.x, corner.y, targetX, targetY, obstacles, personalSpaceBuffer)) {
+                    continue; // Can't reach target from this corner
+                }
+                
+                // Calculate score = total distance through this corner (with some randomness)
+                const distToCorner = Math.sqrt(Math.pow(corner.x - currentX, 2) + Math.pow(corner.y - currentY, 2));
+                const distFromCorner = Math.sqrt(Math.pow(targetX - corner.x, 2) + Math.pow(targetY - corner.y, 2));
+                const randomFactor = 0.9 + Math.random() * 0.2; // 0.9 to 1.1 multiplier for variety
+                const score = (distToCorner + distFromCorner) * randomFactor;
+                
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestCorner = corner;
+                }
             }
             
-            // Calculate score = total distance through this corner (with some randomness)
-            const distToCorner = Math.sqrt(Math.pow(corner.x - this.x, 2) + Math.pow(corner.y - this.y, 2));
-            const distFromCorner = Math.sqrt(Math.pow(targetX - corner.x, 2) + Math.pow(targetY - corner.y, 2));
-            const randomFactor = 0.9 + Math.random() * 0.2; // 0.9 to 1.1 multiplier for variety
-            const score = (distToCorner + distFromCorner) * randomFactor;
-            
-            if (score < bestScore) {
-                bestScore = score;
-                bestCorner = corner;
+            // If we found a valid corner, add it as a waypoint and continue from there
+            if (bestCorner) {
+                waypoints.push(bestCorner);
+                currentX = bestCorner.x;
+                currentY = bestCorner.y;
+            } else {
+                // No valid corner found, give up on this iteration
+                break;
             }
         }
-        
-        // If we found a valid corner, use it as a waypoint
-        if (bestCorner) {
-            waypoints.push(bestCorner);
-        }
-        // Otherwise return empty array - no valid waypoint found, fan will try direct movement
         
         return waypoints;
     }
@@ -173,12 +186,16 @@ export class Agent {
      * @param {number} targetY - Target Y position
      * @param {Obstacles} obstacles - Obstacles manager
      * @param {number} personalSpaceBuffer - Personal space buffer
+     * @param {number} fromX - Start X position (defaults to this.x)
+     * @param {number} fromY - Start Y position (defaults to this.y)
      * @returns {Array} Array of blocking obstacles
      */
-    findBlockingObstacles(targetX, targetY, obstacles, personalSpaceBuffer) {
+    findBlockingObstacles(targetX, targetY, obstacles, personalSpaceBuffer, fromX = null, fromY = null) {
         const blocking = [];
+        const startX = fromX !== null ? fromX : this.x;
+        const startY = fromY !== null ? fromY : this.y;
         
-        // Check line from agent to target against each obstacle
+        // Check line from start position to target against each obstacle
         for (const obs of obstacles.obstacles) {
             // Skip security and bus obstacles as usual
             if (obs.type === 'security' || obs.type === 'bus') continue;
@@ -195,8 +212,8 @@ export class Agent {
             const obsTop = obs.y - effectiveBuffer;
             const obsBottom = obs.y + obs.height + effectiveBuffer;
             
-            // Check if line from agent to target intersects this rectangle
-            if (this.lineIntersectsRectangle(this.x, this.y, targetX, targetY, 
+            // Check if line from start to target intersects this rectangle
+            if (this.lineIntersectsRectangle(startX, startY, targetX, targetY, 
                 obsLeft, obsTop, obsRight, obsBottom)) {
                 blocking.push({
                     ...obs,

@@ -187,11 +187,13 @@ export class EventManager {
                 // Small percentage go up front (cluster tightly)
                 if (Math.random() < 0.2) {
                     agent.isUpFront = true;
+                    agent.goal = `${stage} stage (up front)`;
                     const targetY = this.height * 0.20 + Math.random() * this.height * 0.15;
                     agent.setTarget(targetX + (Math.random() - 0.5) * 40, targetY, this.obstacles);
                 } else {
                     // Others watch from farther away, more spaced
                     agent.isUpFront = false;
+                    agent.goal = `${stage} stage`;
                     const targetY = this.height * 0.25 + Math.random() * this.height * 0.3;
                     agent.setTarget(targetX + (Math.random() - 0.5) * 150, targetY, this.obstacles);
                 }
@@ -220,33 +222,20 @@ export class EventManager {
                     
                     agent.justPassedSecurity = false; // Clear flag when getting food
                     
-                    // Choose a specific food stall based on fan preference (not just shortest queue)
-                    // If fan doesn't have a preferred stall yet, pick one based on their position
+                    // Choose a food stall randomly (d4 roll) - each stall has different food
+                    // Fans should distribute across all 4 stalls rather than all using one
                     if (!agent.preferredFoodStall) {
-                        // Pick the closest stall to the fan's current position
-                        let closestStall = this.foodStalls[0];
-                        let closestDist = Math.sqrt(
-                            Math.pow(agent.x - closestStall.x, 2) + 
-                            Math.pow(agent.y - closestStall.y, 2)
-                        );
-                        
-                        for (let i = 1; i < this.foodStalls.length; i++) {
-                            const stall = this.foodStalls[i];
-                            const dist = Math.sqrt(
-                                Math.pow(agent.x - stall.x, 2) + 
-                                Math.pow(agent.y - stall.y, 2)
-                            );
-                            if (dist < closestDist) {
-                                closestStall = stall;
-                                closestDist = dist;
-                            }
-                        }
-                        agent.preferredFoodStall = closestStall.id;
+                        // Roll d4 (0-3) to pick one of the 4 food stalls
+                        const stallIndex = Math.floor(Math.random() * this.foodStalls.length);
+                        agent.preferredFoodStall = this.foodStalls[stallIndex];
                     }
                     
+                    const targetStall = agent.preferredFoodStall;
+                    
                     // Find the stall with this ID
-                    const stall = this.foodStalls.find(s => s.id === agent.preferredFoodStall);
+                    const stall = this.foodStalls.find(s => s.id === targetStall.id);
                     if (stall) {
+                        agent.goal = `food stall ${stall.id}`;
                         stall.addToQueue(agent);
                     }
                 }

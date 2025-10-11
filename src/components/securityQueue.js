@@ -176,6 +176,7 @@ export class SecurityQueue {
                     if (fan.enhancedSecurity) {
                         // Send to back of the line - add to entering list
                         fan.enhancedSecurity = false; // Only enhanced once
+                        fan.goal = 'security (re-check)';
                         entering.push(fan);
                         
                         // Send to end of current queue (not a fixed position)
@@ -184,7 +185,7 @@ export class SecurityQueue {
                         const spacing = this.config.QUEUE_SPACING;
                         const position = queue.length + entering.length - 1;
                         const entryY = startY + (position * spacing);
-                        fan.setTarget(queueX, entryY);
+                        fan.setTarget(queueX, entryY, this.obstacles); // Pass obstacles for pathfinding
                         fan.state = 'approaching_queue';
                         fan.inQueue = false; // Not in actual queue yet
                     } else {
@@ -192,7 +193,8 @@ export class SecurityQueue {
                         // All fans should converge to center regardless of which queue they came from
                         const targetX = this.width * 0.5; // Center of festival
                         const targetY = this.height * 0.3; // Move to festival area (30% down from top)
-                        fan.setTarget(targetX, targetY);
+                        fan.goal = 'exploring festival';
+                        fan.setTarget(targetX, targetY, this.obstacles); // Pass obstacles for pathfinding
                         fan.state = 'passed_security'; // Set state after setTarget
                         fan.inQueue = false; // Clear queue status
                         fan.justPassedSecurity = true; // Mark to prevent immediate wandering

@@ -237,6 +237,7 @@ export class Renderer {
         const lineHeight = 14;
         const lines = [
             `State: ${fan.state}`,
+            `Goal: ${fan.goal || 'none'}`,
             `Hunger: ${(fan.hunger * 100).toFixed(1)}%`,
             `Target: (${fan.targetX ? fan.targetX.toFixed(0) : 'none'}, ${fan.targetY ? fan.targetY.toFixed(0) : 'none'})`,
             `Position: (${fan.x.toFixed(0)}, ${fan.y.toFixed(0)})`,
