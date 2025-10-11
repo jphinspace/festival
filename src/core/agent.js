@@ -210,6 +210,129 @@ export class Agent {
     }
     
     /**
+     * Calculate static waypoints from a specific starting position
+     * This is similar to calculateStaticWaypoints but starts from an arbitrary position
+     * Used for progressive waypoint updates
+     * @param {number} startX - Starting X position
+     * @param {number} startY - Starting Y position
+     * @param {number} targetX - Final target X position
+     * @param {number} targetY - Final target Y position
+     * @param {Obstacles} obstacles - Obstacles manager
+     * @param {number} personalSpaceBuffer - Personal space buffer
+     * @returns {Array} Array of {x, y} waypoints
+     */
+    calculateStaticWaypointsFromPosition(startX, startY, targetX, targetY, obstacles, personalSpaceBuffer) {
+        const waypoints = [];
+        const MAX_WAYPOINTS = 5;
+        
+        // Start from given position
+        let currentX = startX;
+        let currentY = startY;
+        
+        // Iteratively build path around obstacles
+        for (let iteration = 0; iteration < MAX_WAYPOINTS; iteration++) {
+            // Check if straight line from current position to target is clear
+            if (this.isPathClear(currentX, currentY, targetX, targetY, obstacles, personalSpaceBuffer)) {
+                // Path is clear! We're done
+                break;
+            }
+            
+            // Find obstacles that block the path from current position to target
+            const blockingObstacles = this.findBlockingObstacles(targetX, targetY, obstacles, personalSpaceBuffer, currentX, currentY);
+            
+            if (blockingObstacles.length === 0) {
+                break; // No obstacles blocking, we're done
+            }
+            
+            // Route around the first blocking obstacle
+            const obstacle = blockingObstacles[0];
+            const buffer = this.radius + personalSpaceBuffer + 5; // Extra 5px buffer
+            
+            // Calculate the four corners of the obstacle (with buffer)
+            const corners = [
+                { x: obstacle.x - buffer, y: obstacle.y - buffer }, // Top-left
+                { x: obstacle.x + obstacle.width + buffer, y: obstacle.y - buffer }, // Top-right
+                { x: obstacle.x - buffer, y: obstacle.y + obstacle.height + buffer }, // Bottom-left
+                { x: obstacle.x + obstacle.width + buffer, y: obstacle.y + obstacle.height + buffer } // Bottom-right
+            ];
+            
+            // Add slight randomness to corner positions
+            const randomness = 5;
+            corners.forEach(corner => {
+                corner.x += (Math.random() - 0.5) * randomness * 2;
+                corner.y += (Math.random() - 0.5) * randomness * 2;
+            });
+            
+            // Choose the best corner
+            let bestCorner = null;
+            let bestScore = Infinity;
+            
+            const toTargetDx = targetX - currentX;
+            const toTargetDy = targetY - currentY;
+            const toTargetDist = Math.sqrt(toTargetDx * toTargetDx + toTargetDy * toTargetDy);
+            
+            for (const corner of corners) {
+                if (obstacles.checkCollision(corner.x, corner.y, this.radius, this.state, personalSpaceBuffer)) {
+                    continue;
+                }
+                
+                if (!this.isPathClear(currentX, currentY, corner.x, corner.y, obstacles, personalSpaceBuffer)) {
+                    continue;
+                }
+                
+                const distToCorner = Math.sqrt(Math.pow(corner.x - currentX, 2) + Math.pow(corner.y - currentY, 2));
+                const distFromCorner = Math.sqrt(Math.pow(targetX - corner.x, 2) + Math.pow(targetY - corner.y, 2));
+                
+                let directionBonus = 0;
+                if (toTargetDist > 0) {
+                    const toCornerDx = corner.x - currentX;
+                    const toCornerDy = corner.y - currentY;
+                    const toCornerDist = Math.sqrt(toCornerDx * toCornerDx + toCornerDy * toCornerDy);
+                    if (toCornerDist > 0) {
+                        const alignment = (toCornerDx * toTargetDx + toCornerDy * toTargetDy) / (toCornerDist * toTargetDist);
+                        directionBonus = (1 - alignment) * 100;
+                    }
+                }
+                
+                const randomFactor = 0.95 + Math.random() * 0.1;
+                const score = (distToCorner + distFromCorner + directionBonus) * randomFactor;
+                
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestCorner = corner;
+                }
+            }
+            
+            if (bestCorner) {
+                waypoints.push(bestCorner);
+                currentX = bestCorner.x;
+                currentY = bestCorner.y;
+            } else {
+                // Try intermediate waypoint along edge
+                const midPoints = [
+                    { x: (obstacle.x + obstacle.x + obstacle.width) / 2 - buffer, y: obstacle.y - buffer },
+                    { x: (obstacle.x + obstacle.x + obstacle.width) / 2 + buffer, y: obstacle.y + obstacle.height + buffer },
+                    { x: obstacle.x - buffer, y: (obstacle.y + obstacle.y + obstacle.height) / 2 },
+                    { x: obstacle.x + obstacle.width + buffer, y: (obstacle.y + obstacle.y + obstacle.height) / 2 }
+                ];
+                
+                for (const midPoint of midPoints) {
+                    if (!obstacles.checkCollision(midPoint.x, midPoint.y, this.radius, this.state, personalSpaceBuffer) &&
+                        this.isPathClear(currentX, currentY, midPoint.x, midPoint.y, obstacles, personalSpaceBuffer)) {
+                        waypoints.push(midPoint);
+                        currentX = midPoint.x;
+                        currentY = midPoint.y;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+        
+        return waypoints;
+    }
+    
+    /**
      * Check if a straight path between two points is clear of obstacles
      * @param {number} x1 - Start X position
      * @param {number} y1 - Start Y position
@@ -649,22 +772,25 @@ export class Agent {
             
             // Check if we need to update waypoints
             // Each waypoint has a progressive interval based on its distance from the fan:
-            // - Waypoint[0] (immediate destination): 500ms
+            // - Waypoint[0] (immediate destination): 125ms (most frequent - needs responsive updates)
             // - Waypoint[1]: 250ms
-            // - Waypoint[2]: 125ms
-            // - And so on (progressively half the time)
-            // We ONLY recalculate when the FIRST waypoint needs updating, to avoid
-            // constantly recalculating the immediate path. Later waypoints' timers are
-            // tracked for when waypoints shift (a waypoint at index 1 becoming index 0).
-            let needsWaypointUpdate = false;
+            // - Waypoint[2]: 500ms
+            // - And so on (progressively double the time)
+            // Each waypoint is checked individually and only waypoints that exceed their
+            // interval are recalculated, starting from their respective positions.
+            
+            // Check each waypoint to see if it needs updating based on progressive intervals
+            let waypointsToUpdate = [];
             
             if (this.staticWaypoints.length > 0 && obstacles) {
-                // Only check the first waypoint (index 0) for recalculation trigger
-                const waypointInterval = 500; // First waypoint always uses 500ms
-                const timeSinceUpdate = currentTime - (this.waypointUpdateTimes[0] || currentTime);
-                
-                if (timeSinceUpdate > waypointInterval) {
-                    needsWaypointUpdate = true;
+                for (let i = 0; i < this.staticWaypoints.length; i++) {
+                    // Calculate progressive interval: 125ms for first, then double for each subsequent
+                    const waypointInterval = 125 * Math.pow(2, i);
+                    const timeSinceUpdate = currentTime - (this.waypointUpdateTimes[i] || currentTime);
+                    
+                    if (timeSinceUpdate > waypointInterval) {
+                        waypointsToUpdate.push(i);
+                    }
                 }
             }
             
@@ -674,13 +800,49 @@ export class Agent {
             
             const needsWaypointsNow = this.staticWaypoints.length === 0 && pathBlocked;
             
-            if ((needsWaypointUpdate || needsWaypointsNow) && this.targetX !== null && this.targetY !== null && obstacles) {
-                // Recalculate static waypoints with randomness for path variety
-                this.staticWaypoints = this.calculateStaticWaypoints(this.targetX, this.targetY, obstacles);
-                // Reset all waypoint update times
-                this.waypointUpdateTimes = this.staticWaypoints.map(() => currentTime);
-                // Update legacy timer for compatibility
-                this.lastStaticWaypointUpdate = currentTime;
+            // Update waypoints if needed
+            if ((waypointsToUpdate.length > 0 || needsWaypointsNow) && this.targetX !== null && this.targetY !== null && obstacles) {
+                if (waypointsToUpdate.length > 0) {
+                    // Update waypoints progressively
+                    // We update from the earliest waypoint that needs updating
+                    const earliestIndex = Math.min(...waypointsToUpdate);
+                    
+                    // If updating from waypoint 0, recalculate entire path from current position
+                    if (earliestIndex === 0) {
+                        this.staticWaypoints = this.calculateStaticWaypoints(this.targetX, this.targetY, obstacles);
+                        // Reset all waypoint update times
+                        this.waypointUpdateTimes = this.staticWaypoints.map(() => currentTime);
+                    } else {
+                        // Recalculate from the waypoint position, preserving earlier waypoints
+                        const startWaypoint = this.staticWaypoints[earliestIndex - 1];
+                        const newWaypoints = this.calculateStaticWaypointsFromPosition(
+                            startWaypoint.x, startWaypoint.y, 
+                            this.targetX, this.targetY, 
+                            obstacles, 
+                            personalSpaceBuffer
+                        );
+                        
+                        // Replace waypoints from earliestIndex onwards
+                        this.staticWaypoints = [
+                            ...this.staticWaypoints.slice(0, earliestIndex),
+                            ...newWaypoints
+                        ];
+                        
+                        // Update timestamps for affected waypoints
+                        this.waypointUpdateTimes = [
+                            ...this.waypointUpdateTimes.slice(0, earliestIndex),
+                            ...newWaypoints.map(() => currentTime)
+                        ];
+                    }
+                    
+                    // Update legacy timer for compatibility
+                    this.lastStaticWaypointUpdate = currentTime;
+                } else if (needsWaypointsNow) {
+                    // No existing waypoints, need to create new path
+                    this.staticWaypoints = this.calculateStaticWaypoints(this.targetX, this.targetY, obstacles);
+                    this.waypointUpdateTimes = this.staticWaypoints.map(() => currentTime);
+                    this.lastStaticWaypointUpdate = currentTime;
+                }
             }
             
             // Determine next static waypoint or final target
