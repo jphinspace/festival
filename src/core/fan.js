@@ -35,6 +35,9 @@ export class Fan extends Agent {
         this.targetFoodStall = null;
         this.queueSide = null; // 'left' or 'right' for food stalls
         
+        // Fan goal/intent tracking for debug tooltip
+        this.goal = 'exploring'; // What the fan is trying to accomplish
+        
         // Stage preference: 'left', 'right', or 'none'
         const rand = Math.random();
         if (rand < 0.4) {

@@ -161,10 +161,11 @@ export class QueueManager {
      * @param {Function} options.getTargetPosition - Function to get target position from queue position
      * @param {Object} options.fanProperties - Properties to set on the fan
      * @param {boolean} options.setInQueue - Whether to set fan.inQueue to true (default: true)
+     * @param {Obstacles} options.obstacles - Obstacles manager for pathfinding (optional but recommended)
      * @returns {number} The assigned position
      */
     static addFanToQueue(fan, options) {
-        const { queue, approachingList, frontPosition, getTargetPosition, fanProperties = {}, setInQueue = true } = options;
+        const { queue, approachingList, frontPosition, getTargetPosition, fanProperties = {}, setInQueue = true, obstacles = null } = options;
         
         // Use proximity-based positioning
         const position = this.findApproachingPosition(
@@ -186,12 +187,13 @@ export class QueueManager {
         // Set any additional properties passed in
         Object.assign(fan, fanProperties);
         
-        // Set target based on calculated position
-        const targetPos = getTargetPosition(position);
-        fan.setTarget(targetPos.x, targetPos.y);
-        
-        // Set state AFTER setTarget (which sets it to 'moving')
+        // CRITICAL: Set state to approaching_queue BEFORE setTarget
+        // so that setTarget() knows to generate waypoints
         fan.state = 'approaching_queue';
+        
+        // Set target based on calculated position WITH obstacles for pathfinding
+        const targetPos = getTargetPosition(position);
+        fan.setTarget(targetPos.x, targetPos.y, obstacles);
         
         return position;
     }

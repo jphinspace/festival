@@ -14,13 +14,14 @@ export class Agent {
         this.y = y;
         this.targetX = null;
         this.targetY = null;
-        this.waypoints = []; // Array of {x, y} waypoints to follow
+        this.staticWaypoints = []; // Waypoints for routing around static obstacles (stages, food stalls)
+        this.dynamicWaypoint = null; // Single waypoint for avoiding other fans
         this.state = 'idle'; // idle, moving, leaving
         this.config = config;
         this.color = config.COLORS.AGENT_ACTIVE;
         this.radius = config.AGENT_RADIUS;
-        this.lastWaypointUpdate = 0; // Track when waypoints were last recalculated
-        this.waypointUpdateInterval = 500; // ms between waypoint updates
+        this.lastStaticWaypointUpdate = 0; // Track when static waypoints were last recalculated
+        this.staticWaypointUpdateInterval = 500; // ms between static waypoint updates
     }
 
     /**
@@ -32,86 +33,147 @@ export class Agent {
     setTarget(x, y, obstacles = null) {
         this.targetX = x;
         this.targetY = y;
-        this.state = 'moving';
         
-        // Calculate waypoints if obstacles provided and target requires routing around them
-        if (obstacles && (this.state === 'moving' || this.state === 'approaching_queue')) {
-            this.waypoints = this.calculateWaypoints(x, y, obstacles);
+        // Calculate static waypoints for routing around obstacles (global pathfinding)
+        // Check state BEFORE potentially changing it
+        const needsPathfinding = obstacles && (this.state === 'moving' || this.state === 'approaching_queue' || this.state === 'idle' || this.state === 'passed_security');
+        
+        // Generate waypoints BEFORE changing state
+        if (needsPathfinding) {
+            this.staticWaypoints = this.calculateStaticWaypoints(x, y, obstacles);
+            // Reset the timer so waypoints are recalculated on schedule
+            this.lastStaticWaypointUpdate = Date.now();
         } else {
-            this.waypoints = [];
+            this.staticWaypoints = [];
         }
+        
+        // Set state to moving (unless already in a queue state)
+        // Do this AFTER pathfinding so the state check works correctly
+        if (this.state !== 'in_queue' && this.state !== 'approaching_queue') {
+            this.state = 'moving';
+        }
+        
+        // Clear dynamic waypoint when target changes
+        this.dynamicWaypoint = null;
     }
 
     /**
-     * Calculate waypoints to route around obstacles
+     * Calculate static waypoints to route around obstacles
+     * Uses global knowledge of all static obstacles (stages, food stalls)
+     * Can make sharp turns and multiple waypoints as needed (up to 5)
      * @param {number} targetX - Final target X position
      * @param {number} targetY - Final target Y position
      * @param {Obstacles} obstacles - Obstacles manager
-     * @returns {Array} Array of {x, y} waypoints
+     * @returns {Array} Array of {x, y} waypoints (minimum 0, maximum 5)
      */
-    calculateWaypoints(targetX, targetY, obstacles) {
+    calculateStaticWaypoints(targetX, targetY, obstacles) {
         const waypoints = [];
+        const MAX_WAYPOINTS = 5;
+        const MIN_WAYPOINTS = 0; // Can be 0 if direct path is clear
         const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? 
             this.config.PERSONAL_SPACE : 0;
         
-        // Check if straight line to target is clear
-        const steps = 10; // Check 10 points along the path
-        let needsWaypoint = false;
+        // Start from current position
+        let currentX = this.x;
+        let currentY = this.y;
         
-        for (let i = 1; i <= steps; i++) {
-            const checkX = this.x + (targetX - this.x) * (i / steps);
-            const checkY = this.y + (targetY - this.y) * (i / steps);
+        // Iteratively build path around obstacles
+        for (let iteration = 0; iteration < MAX_WAYPOINTS; iteration++) {
+            // Check if straight line from current position to target is clear
+            if (this.isPathClear(currentX, currentY, targetX, targetY, obstacles, personalSpaceBuffer)) {
+                // Path is clear! We're done
+                break;
+            }
             
-            if (obstacles.checkCollision(checkX, checkY, this.radius, this.state, personalSpaceBuffer)) {
-                needsWaypoint = true;
+            // Find obstacles that block the path from current position to target
+            const blockingObstacles = this.findBlockingObstacles(targetX, targetY, obstacles, personalSpaceBuffer, currentX, currentY);
+            
+            if (blockingObstacles.length === 0) {
+                break; // No obstacles blocking, we're done
+            }
+            
+            // Route around the first blocking obstacle
+            const obstacle = blockingObstacles[0];
+            const buffer = this.radius + personalSpaceBuffer + 5; // Extra 5px buffer
+            
+            // Calculate the four corners of the obstacle (with buffer)
+            const corners = [
+                { x: obstacle.x - buffer, y: obstacle.y - buffer }, // Top-left
+                { x: obstacle.x + obstacle.width + buffer, y: obstacle.y - buffer }, // Top-right
+                { x: obstacle.x - buffer, y: obstacle.y + obstacle.height + buffer }, // Bottom-left
+                { x: obstacle.x + obstacle.width + buffer, y: obstacle.y + obstacle.height + buffer } // Bottom-right
+            ];
+            
+            // Add slight randomness to corner positions to avoid all fans taking identical routes
+            const randomness = 5; // +/- 5 pixels of randomness
+            corners.forEach(corner => {
+                corner.x += (Math.random() - 0.5) * randomness * 2;
+                corner.y += (Math.random() - 0.5) * randomness * 2;
+            });
+            
+            // Choose the best corner that has clear paths both TO and FROM it
+            let bestCorner = null;
+            let bestScore = Infinity;
+            
+            for (const corner of corners) {
+                // First check if corner itself is accessible (not inside an obstacle)
+                if (obstacles.checkCollision(corner.x, corner.y, this.radius, this.state, personalSpaceBuffer)) {
+                    continue; // Skip this corner, it's inside an obstacle
+                }
+                
+                // Check if path from current position to corner is clear
+                if (!this.isPathClear(currentX, currentY, corner.x, corner.y, obstacles, personalSpaceBuffer)) {
+                    continue; // Can't reach this corner
+                }
+                
+                // Check if path from corner to target is clear
+                if (!this.isPathClear(corner.x, corner.y, targetX, targetY, obstacles, personalSpaceBuffer)) {
+                    continue; // Can't reach target from this corner
+                }
+                
+                // Calculate score = total distance through this corner (with some randomness)
+                const distToCorner = Math.sqrt(Math.pow(corner.x - currentX, 2) + Math.pow(corner.y - currentY, 2));
+                const distFromCorner = Math.sqrt(Math.pow(targetX - corner.x, 2) + Math.pow(targetY - corner.y, 2));
+                const randomFactor = 0.9 + Math.random() * 0.2; // 0.9 to 1.1 multiplier for variety
+                const score = (distToCorner + distFromCorner) * randomFactor;
+                
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestCorner = corner;
+                }
+            }
+            
+            // If we found a valid corner, add it as a waypoint and continue from there
+            if (bestCorner) {
+                waypoints.push(bestCorner);
+                currentX = bestCorner.x;
+                currentY = bestCorner.y;
+            } else {
+                // No valid corner found, give up on this iteration
                 break;
             }
         }
         
-        if (!needsWaypoint) {
-            return []; // Direct path is clear
-        }
-        
-        // Find obstacles that block the path and route around them
-        const blockingObstacles = this.findBlockingObstacles(targetX, targetY, obstacles, personalSpaceBuffer);
-        
-        if (blockingObstacles.length === 0) {
-            return []; // No obstacles blocking
-        }
-        
-        // For simplicity, route around the first blocking obstacle
-        // by going to one of its corners
-        const obstacle = blockingObstacles[0];
-        const buffer = this.radius + personalSpaceBuffer + 5; // Extra 5px buffer
-        
-        // Calculate the four corners of the obstacle (with buffer)
-        const corners = [
-            { x: obstacle.x - buffer, y: obstacle.y - buffer }, // Top-left
-            { x: obstacle.x + obstacle.width + buffer, y: obstacle.y - buffer }, // Top-right
-            { x: obstacle.x - buffer, y: obstacle.y + obstacle.height + buffer }, // Bottom-left
-            { x: obstacle.x + obstacle.width + buffer, y: obstacle.y + obstacle.height + buffer } // Bottom-right
-        ];
-        
-        // Choose the corner that's closest to a line from agent to target
-        let bestCorner = corners[0];
-        let bestScore = Infinity;
-        
-        for (const corner of corners) {
-            // Score = distance from agent to corner + distance from corner to target
-            const distToCorner = Math.sqrt(Math.pow(corner.x - this.x, 2) + Math.pow(corner.y - this.y, 2));
-            const distFromCorner = Math.sqrt(Math.pow(targetX - corner.x, 2) + Math.pow(targetY - corner.y, 2));
-            const score = distToCorner + distFromCorner;
-            
-            // Also check if corner is actually accessible
-            if (!obstacles.checkCollision(corner.x, corner.y, this.radius, this.state, personalSpaceBuffer) &&
-                score < bestScore) {
-                bestScore = score;
-                bestCorner = corner;
-            }
-        }
-        
-        waypoints.push(bestCorner);
         return waypoints;
+    }
+    
+    /**
+     * Check if a straight path between two points is clear of obstacles
+     * @param {number} x1 - Start X position
+     * @param {number} y1 - Start Y position
+     * @param {number} x2 - End X position
+     * @param {number} y2 - End Y position
+     * @param {Obstacles} obstacles - Obstacles manager
+     * @param {number} personalSpaceBuffer - Personal space buffer
+     * @returns {boolean} True if path is clear
+     */
+    isPathClear(x1, y1, x2, y2, obstacles, personalSpaceBuffer) {
+        if (!obstacles) return true;
+        
+        // Use proper line-rectangle intersection checking
+        // This catches edges and corners that discrete point sampling might miss
+        const blocking = this.findBlockingObstacles(x2, y2, obstacles, personalSpaceBuffer, x1, y1);
+        return blocking.length === 0;
     }
 
     /**
@@ -120,12 +182,16 @@ export class Agent {
      * @param {number} targetY - Target Y position
      * @param {Obstacles} obstacles - Obstacles manager
      * @param {number} personalSpaceBuffer - Personal space buffer
+     * @param {number} fromX - Start X position (defaults to this.x)
+     * @param {number} fromY - Start Y position (defaults to this.y)
      * @returns {Array} Array of blocking obstacles
      */
-    findBlockingObstacles(targetX, targetY, obstacles, personalSpaceBuffer) {
+    findBlockingObstacles(targetX, targetY, obstacles, personalSpaceBuffer, fromX = null, fromY = null) {
         const blocking = [];
+        const startX = fromX !== null ? fromX : this.x;
+        const startY = fromY !== null ? fromY : this.y;
         
-        // Check line from agent to target against each obstacle
+        // Check line from start position to target against each obstacle
         for (const obs of obstacles.obstacles) {
             // Skip security and bus obstacles as usual
             if (obs.type === 'security' || obs.type === 'bus') continue;
@@ -142,8 +208,8 @@ export class Agent {
             const obsTop = obs.y - effectiveBuffer;
             const obsBottom = obs.y + obs.height + effectiveBuffer;
             
-            // Check if line from agent to target intersects this rectangle
-            if (this.lineIntersectsRectangle(this.x, this.y, targetX, targetY, 
+            // Check if line from start to target intersects this rectangle
+            if (this.lineIntersectsRectangle(startX, startY, targetX, targetY, 
                 obsLeft, obsTop, obsRight, obsBottom)) {
                 blocking.push({
                     ...obs,
@@ -357,23 +423,26 @@ export class Agent {
     }
 
     /**
-     * Calculate avoidance waypoints around other fans
+     * Calculate dynamic waypoint for avoiding other fans
+     * Uses local knowledge (MAX_DETECTION_DISTANCE) and 30-degree avoidance angle
+     * Updated every frame for responsive fan avoidance
      * @param {Agent[]} otherAgents - Array of other agents to avoid
-     * @param {number} targetX - Final target X
-     * @param {number} targetY - Final target Y
-     * @returns {Array} Array of waypoint objects {x, y}
+     * @param {number} nextTargetX - Next waypoint or final target X
+     * @param {number} nextTargetY - Next waypoint or final target Y
+     * @param {Obstacles} obstacles - Obstacles manager for validation
+     * @returns {Object|null} Single waypoint object {x, y} or null
      */
-    calculateFanAvoidanceWaypoints(otherAgents, targetX, targetY) {
+    calculateDynamicFanAvoidance(otherAgents, nextTargetX, nextTargetY, obstacles = null) {
         const MAX_DETECTION_DISTANCE = 100; // Local knowledge limit
         const AVOIDANCE_ANGLE = Math.PI / 6; // 30 degrees - small angle for mostly straight paths
         const MIN_AVOIDANCE_DISTANCE = 20; // Minimum distance to create waypoint
         
-        // Direction to target
-        const toTargetDx = targetX - this.x;
-        const toTargetDy = targetY - this.y;
+        // Direction to next target
+        const toTargetDx = nextTargetX - this.x;
+        const toTargetDy = nextTargetY - this.y;
         const distToTarget = Math.sqrt(toTargetDx * toTargetDx + toTargetDy * toTargetDy);
         
-        if (distToTarget < 5) return []; // Already at target
+        if (distToTarget < 5) return null; // Already at target
         
         const targetDirX = toTargetDx / distToTarget;
         const targetDirY = toTargetDy / distToTarget;
@@ -383,7 +452,8 @@ export class Agent {
         let avoidRight = false;
         
         for (const other of otherAgents) {
-            if (other === this || !other.isMoving()) continue;
+            if (other === this) continue;
+            // Note: Removed !other.isMoving() check - we need to avoid ALL fans, moving or stuck
             
             const dx = other.x - this.x;
             const dy = other.y - this.y;
@@ -410,9 +480,9 @@ export class Agent {
             }
         }
         
-        if (!needsAvoidance) return [];
+        if (!needsAvoidance) return null;
         
-        // Create a waypoint to the side
+        // Create a waypoint to the side using 30-degree angle
         const avoidDistance = MIN_AVOIDANCE_DISTANCE;
         const angle = avoidRight ? -AVOIDANCE_ANGLE : AVOIDANCE_ANGLE;
         
@@ -426,7 +496,23 @@ export class Agent {
         const waypointX = this.x + avoidDirX * avoidDistance;
         const waypointY = this.y + avoidDirY * avoidDistance;
         
-        return [{ x: waypointX, y: waypointY }];
+        // Validate dynamic waypoint isn't inside an obstacle
+        if (obstacles) {
+            const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? 
+                this.config.PERSONAL_SPACE : 0;
+            
+            // Check if waypoint is inside an obstacle
+            if (obstacles.checkCollision(waypointX, waypointY, this.radius, this.state, personalSpaceBuffer)) {
+                return null; // Waypoint is inside an obstacle, don't use it
+            }
+            
+            // Check if path to waypoint is clear (won't be blocked by obstacle)
+            if (!this.isPathClear(this.x, this.y, waypointX, waypointY, obstacles, personalSpaceBuffer)) {
+                return null; // Can't reach waypoint, don't use it
+            }
+        }
+        
+        return { x: waypointX, y: waypointY };
     }
 
     /**
@@ -439,32 +525,34 @@ export class Agent {
     update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null) {
         // Allow movement for moving, in_queue, passed_security, and approaching_queue states
         if ((this.state === 'moving' || this.state === 'in_queue' || this.state === 'passed_security' || this.state === 'approaching_queue') && this.targetX !== null) {
-            // Periodically update waypoints to account for moving obstacles (other fans)
+            // Periodically update static waypoints (every 500ms) with slight randomness
             const currentTime = Date.now();
-            const shouldUpdateWaypoints = (currentTime - this.lastWaypointUpdate) > this.waypointUpdateInterval;
+            const shouldUpdateStaticWaypoints = (currentTime - this.lastStaticWaypointUpdate) > this.staticWaypointUpdateInterval;
             
-            if (shouldUpdateWaypoints && this.targetX !== null && this.targetY !== null) {
-                this.lastWaypointUpdate = currentTime;
+            // Also update if we have no waypoints and path to target is blocked
+            const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? this.config.PERSONAL_SPACE : 0;
+            
+            // Check if path is blocked - ALWAYS check when we have no waypoints
+            const pathBlocked = obstacles && this.targetX !== null && this.targetY !== null &&
+                !this.isPathClear(this.x, this.y, this.targetX, this.targetY, obstacles, personalSpaceBuffer);
+            
+            const needsWaypointsNow = this.staticWaypoints.length === 0 && pathBlocked;
+            
+            if ((shouldUpdateStaticWaypoints || needsWaypointsNow) && this.targetX !== null && this.targetY !== null && obstacles) {
+                this.lastStaticWaypointUpdate = currentTime;
                 
-                // Calculate waypoints around other fans
-                const fanWaypoints = this.calculateFanAvoidanceWaypoints(otherAgents, this.targetX, this.targetY);
-                
-                // If fan avoidance waypoints exist, use them (but keep existing obstacle waypoints too)
-                if (fanWaypoints.length > 0) {
-                    // Combine fan avoidance with any existing obstacle waypoints
-                    // Priority: fan avoidance first, then obstacle avoidance, then target
-                    this.waypoints = fanWaypoints;
-                }
+                // Recalculate static waypoints with randomness for path variety
+                this.staticWaypoints = this.calculateStaticWaypoints(this.targetX, this.targetY, obstacles);
             }
             
-            // Check if we have waypoints to follow
-            let currentTargetX, currentTargetY;
+            // Determine next static waypoint or final target
+            let nextStaticTargetX, nextStaticTargetY;
             
-            if (this.waypoints.length > 0) {
-                // Follow waypoints first
-                const waypoint = this.waypoints[0];
-                currentTargetX = waypoint.x;
-                currentTargetY = waypoint.y;
+            if (this.staticWaypoints.length > 0) {
+                // Follow static waypoints first
+                const waypoint = this.staticWaypoints[0];
+                nextStaticTargetX = waypoint.x;
+                nextStaticTargetY = waypoint.y;
                 
                 // Check if we've reached this waypoint
                 const distToWaypoint = Math.sqrt(
@@ -473,23 +561,38 @@ export class Agent {
                 );
                 
                 if (distToWaypoint < 10) { // Within 10 pixels of waypoint
-                    this.waypoints.shift(); // Remove this waypoint
+                    this.staticWaypoints.shift(); // Remove this waypoint
                     
                     // If no more waypoints, use final target
-                    if (this.waypoints.length === 0) {
-                        currentTargetX = this.targetX;
-                        currentTargetY = this.targetY;
+                    if (this.staticWaypoints.length === 0) {
+                        nextStaticTargetX = this.targetX;
+                        nextStaticTargetY = this.targetY;
                     } else {
                         // Move to next waypoint
-                        const nextWaypoint = this.waypoints[0];
-                        currentTargetX = nextWaypoint.x;
-                        currentTargetY = nextWaypoint.y;
+                        const nextWaypoint = this.staticWaypoints[0];
+                        nextStaticTargetX = nextWaypoint.x;
+                        nextStaticTargetY = nextWaypoint.y;
                     }
                 }
             } else {
-                // No waypoints, use final target
-                currentTargetX = this.targetX;
-                currentTargetY = this.targetY;
+                // No static waypoints, use final target
+                nextStaticTargetX = this.targetX;
+                nextStaticTargetY = this.targetY;
+            }
+            
+            // Calculate dynamic fan avoidance waypoint (updated every frame)
+            this.dynamicWaypoint = this.calculateDynamicFanAvoidance(otherAgents, nextStaticTargetX, nextStaticTargetY, obstacles);
+            
+            // Determine actual movement target
+            let currentTargetX, currentTargetY;
+            if (this.dynamicWaypoint) {
+                // Use dynamic waypoint for immediate fan avoidance
+                currentTargetX = this.dynamicWaypoint.x;
+                currentTargetY = this.dynamicWaypoint.y;
+            } else {
+                // No fans to avoid, head toward next static waypoint or target
+                currentTargetX = nextStaticTargetX;
+                currentTargetY = nextStaticTargetY;
             }
             
             const dx = currentTargetX - this.x;
@@ -504,7 +607,7 @@ export class Agent {
                 this.y = currentTargetY;
                 
                 // Only clear target if we've reached the final target (no waypoints left)
-                if (this.waypoints.length === 0 && currentTargetX === this.targetX && currentTargetY === this.targetY) {
+                if (this.staticWaypoints.length === 0 && currentTargetX === this.targetX && currentTargetY === this.targetY) {
                     this.targetX = null;
                     this.targetY = null;
                     // Transition to idle when reaching target

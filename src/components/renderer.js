@@ -7,6 +7,7 @@ export class Renderer {
         this.width = 0;
         this.height = 0;
         this.hoveredFan = null; // Track which fan is being hovered
+        this.showAllPaths = false; // Toggle to show all fan paths
     }
 
     resize(width, height) {
@@ -154,7 +155,91 @@ export class Renderer {
     }
 
     drawAgents(agents) {
+        // If showAllPaths is enabled, draw all paths first (before agents so paths are behind)
+        if (this.showAllPaths) {
+            agents.forEach(agent => {
+                if (agent.targetX !== null && agent.targetY !== null) {
+                    this.drawFanPaths(agent);
+                }
+            });
+        }
+        
+        // Draw all agents
         agents.forEach(agent => agent.draw(this.ctx));
+    }
+    
+    /**
+     * Draw a fan's paths (static waypoints and dynamic waypoint)
+     * Extracted so it can be called for all fans or just hovered fan
+     * @param {Fan} fan - Fan to draw paths for
+     */
+    drawFanPaths(fan) {
+        // Draw line to final destination (green, dashed)
+        this.ctx.strokeStyle = '#00ff00';
+        this.ctx.lineWidth = 1;
+        this.ctx.setLineDash([5, 5]);
+        this.ctx.beginPath();
+        this.ctx.moveTo(fan.x, fan.y);
+        this.ctx.lineTo(fan.targetX, fan.targetY);
+        this.ctx.stroke();
+        
+        // Draw circle at final destination
+        this.ctx.fillStyle = '#00ff00';
+        this.ctx.beginPath();
+        this.ctx.arc(fan.targetX, fan.targetY, 4, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Draw static waypoints (blue, dotted lines)
+        if (fan.staticWaypoints && fan.staticWaypoints.length > 0) {
+            this.ctx.strokeStyle = '#4444ff';
+            this.ctx.lineWidth = 1;
+            this.ctx.setLineDash([3, 3]);
+            
+            let prevX = fan.x;
+            let prevY = fan.y;
+            
+            for (const waypoint of fan.staticWaypoints) {
+                // Draw line from previous point to this waypoint
+                this.ctx.beginPath();
+                this.ctx.moveTo(prevX, prevY);
+                this.ctx.lineTo(waypoint.x, waypoint.y);
+                this.ctx.stroke();
+                
+                // Draw circle at waypoint
+                this.ctx.fillStyle = '#4444ff';
+                this.ctx.beginPath();
+                this.ctx.arc(waypoint.x, waypoint.y, 3, 0, Math.PI * 2);
+                this.ctx.fill();
+                
+                prevX = waypoint.x;
+                prevY = waypoint.y;
+            }
+            
+            // Draw line from last waypoint to final destination
+            this.ctx.strokeStyle = '#4444ff';
+            this.ctx.setLineDash([3, 3]);
+            this.ctx.beginPath();
+            this.ctx.moveTo(prevX, prevY);
+            this.ctx.lineTo(fan.targetX, fan.targetY);
+            this.ctx.stroke();
+        }
+        
+        // Draw dynamic fan avoidance waypoint (red, solid line)
+        if (fan.dynamicWaypoint) {
+            this.ctx.strokeStyle = '#ff0000';
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([]);
+            this.ctx.beginPath();
+            this.ctx.moveTo(fan.x, fan.y);
+            this.ctx.lineTo(fan.dynamicWaypoint.x, fan.dynamicWaypoint.y);
+            this.ctx.stroke();
+            
+            // Draw circle at dynamic waypoint
+            this.ctx.fillStyle = '#ff0000';
+            this.ctx.beginPath();
+            this.ctx.arc(fan.dynamicWaypoint.x, fan.dynamicWaypoint.y, 4, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
     }
     
     drawFoodStalls(foodStalls) {
@@ -164,32 +249,7 @@ export class Renderer {
     drawDebugOverlay(fan, mouseX, mouseY) {
         // Draw line from fan to destination/waypoint FIRST (so it's behind the tooltip)
         if (fan.targetX !== null && fan.targetY !== null) {
-            // Determine the actual target (waypoint or final destination)
-            let targetX, targetY;
-            if (fan.waypoints && fan.waypoints.length > 0) {
-                // Show line to next waypoint
-                targetX = fan.waypoints[0].x;
-                targetY = fan.waypoints[0].y;
-            } else {
-                // Show line to final destination
-                targetX = fan.targetX;
-                targetY = fan.targetY;
-            }
-            
-            // Draw thin red line from fan to target
-            this.ctx.strokeStyle = '#ff0000';
-            this.ctx.lineWidth = 1;
-            this.ctx.setLineDash([]);  // Solid line
-            this.ctx.beginPath();
-            this.ctx.moveTo(fan.x, fan.y);
-            this.ctx.lineTo(targetX, targetY);
-            this.ctx.stroke();
-            
-            // Draw small circle at the target
-            this.ctx.fillStyle = '#ff0000';
-            this.ctx.beginPath();
-            this.ctx.arc(targetX, targetY, 3, 0, Math.PI * 2);
-            this.ctx.fill();
+            this.drawFanPaths(fan);
         }
         
         // Draw debug information for a hovered fan
@@ -197,12 +257,14 @@ export class Renderer {
         const lineHeight = 14;
         const lines = [
             `State: ${fan.state}`,
+            `Goal: ${fan.goal || 'none'}`,
             `Hunger: ${(fan.hunger * 100).toFixed(1)}%`,
             `Target: (${fan.targetX ? fan.targetX.toFixed(0) : 'none'}, ${fan.targetY ? fan.targetY.toFixed(0) : 'none'})`,
             `Position: (${fan.x.toFixed(0)}, ${fan.y.toFixed(0)})`,
             `In Queue: ${fan.inQueue ? 'Yes' : 'No'}`,
             `Queue Position: ${fan.queuePosition !== null && fan.queuePosition !== undefined ? fan.queuePosition : 'N/A'}`,
-            `Waypoints: ${fan.waypoints ? fan.waypoints.length : 0}`,
+            `Static Waypoints: ${fan.staticWaypoints ? fan.staticWaypoints.length : 0}`,
+            `Dynamic Waypoint: ${fan.dynamicWaypoint ? 'Yes' : 'No'}`,
             `Enhanced Security: ${fan.enhancedSecurity ? 'Yes' : 'No'}`,
             `Wait Start: ${fan.waitStartTime ? 'Yes' : 'No'}`,
             `Stage Pref: ${fan.stagePreference}`,

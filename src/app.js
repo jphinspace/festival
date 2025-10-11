@@ -17,6 +17,7 @@ class FestivalApp {
             rightConcertBtn: document.getElementById('rightConcertBtn'),
             busArriveBtn: document.getElementById('busArriveBtn'),
             busLeaveBtn: document.getElementById('busLeaveBtn'),
+            showPathsBtn: document.getElementById('showPathsBtn'),
             speedSlider: document.getElementById('speedSlider'),
             speedValue: document.getElementById('speedValue'),
             attendeeCount: document.getElementById('attendeeCount'),
@@ -63,6 +64,14 @@ class FestivalApp {
 
         this.elements.busLeaveBtn.addEventListener('click', () => {
             this.simulation.triggerBusDeparture();
+        });
+
+        // Show All Paths toggle button
+        this.elements.showPathsBtn.addEventListener('click', () => {
+            this.simulation.renderer.showAllPaths = !this.simulation.renderer.showAllPaths;
+            const isShowing = this.simulation.renderer.showAllPaths;
+            this.elements.showPathsBtn.textContent = isShowing ? 'Hide All Paths' : 'Show All Paths';
+            this.elements.showPathsBtn.setAttribute('aria-pressed', isShowing);
         });
 
         // Speed slider
