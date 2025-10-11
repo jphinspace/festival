@@ -296,6 +296,12 @@ export class Agent {
                     continue; // Very close to target, don't worry about obstacles
                 }
                 
+                // NEW CHECK: If target is closer than obstacle center, then obstacle is NOT blocking
+                // This handles the case where the queue position is BEFORE the obstacle
+                if (distToTarget < distToObs) {
+                    continue; // Target is closer than obstacle, so obstacle is not between us and target
+                }
+                
                 // If obstacle is not in the path (behind us or to the side), skip it
                 if (distToTarget > 0 && distToObs > 0) {
                     const dotProduct = (toObsX * toTargetX + toObsY * toTargetY) / (distToObs * distToTarget);
