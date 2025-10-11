@@ -450,7 +450,8 @@ export class Agent {
         let avoidRight = false;
         
         for (const other of otherAgents) {
-            if (other === this || !other.isMoving()) continue;
+            if (other === this) continue;
+            // Note: Removed !other.isMoving() check - we need to avoid ALL fans, moving or stuck
             
             const dx = other.x - this.x;
             const dy = other.y - this.y;
@@ -528,11 +529,12 @@ export class Agent {
             
             // Also update if we have no waypoints and path to target is blocked
             const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? this.config.PERSONAL_SPACE : 0;
-            const needsWaypointsNow = this.staticWaypoints.length === 0 && 
-                obstacles && 
-                this.targetX !== null && 
-                this.targetY !== null &&
+            
+            // Check if path is blocked - ALWAYS check when we have no waypoints
+            const pathBlocked = obstacles && this.targetX !== null && this.targetY !== null &&
                 !this.isPathClear(this.x, this.y, this.targetX, this.targetY, obstacles, personalSpaceBuffer);
+            
+            const needsWaypointsNow = this.staticWaypoints.length === 0 && pathBlocked;
             
             if ((shouldUpdateStaticWaypoints || needsWaypointsNow) && this.targetX !== null && this.targetY !== null && obstacles) {
                 this.lastStaticWaypointUpdate = currentTime;
