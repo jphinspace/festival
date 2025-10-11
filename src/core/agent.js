@@ -807,11 +807,21 @@ export class Agent {
                     // We update from the earliest waypoint that needs updating
                     const earliestIndex = Math.min(...waypointsToUpdate);
                     
+                    // Store old timestamps to preserve times for waypoints that weren't due for update
+                    const oldTimestamps = [...this.waypointUpdateTimes];
+                    
                     // If updating from waypoint 0, recalculate entire path from current position
                     if (earliestIndex === 0) {
                         this.staticWaypoints = this.calculateStaticWaypoints(this.targetX, this.targetY, obstacles);
-                        // Reset all waypoint update times
-                        this.waypointUpdateTimes = this.staticWaypoints.map(() => currentTime);
+                        // Assign timestamps: only update waypoints that were actually due for update
+                        this.waypointUpdateTimes = this.staticWaypoints.map((wp, index) => {
+                            // If this waypoint index was in waypointsToUpdate, give it current time
+                            if (waypointsToUpdate.includes(index)) {
+                                return currentTime;
+                            }
+                            // Otherwise, preserve the old timestamp if it exists
+                            return oldTimestamps[index] || currentTime;
+                        });
                     } else {
                         // Recalculate from the waypoint position, preserving earlier waypoints
                         const startWaypoint = this.staticWaypoints[earliestIndex - 1];
@@ -829,9 +839,20 @@ export class Agent {
                         ];
                         
                         // Update timestamps for affected waypoints
+                        // Preserve timestamps for earlier waypoints
+                        const newTimestamps = newWaypoints.map((wp, i) => {
+                            const actualIndex = earliestIndex + i;
+                            // If this waypoint index was in waypointsToUpdate, give it current time
+                            if (waypointsToUpdate.includes(actualIndex)) {
+                                return currentTime;
+                            }
+                            // Otherwise, preserve the old timestamp if it exists
+                            return oldTimestamps[actualIndex] || currentTime;
+                        });
+                        
                         this.waypointUpdateTimes = [
                             ...this.waypointUpdateTimes.slice(0, earliestIndex),
-                            ...newWaypoints.map(() => currentTime)
+                            ...newTimestamps
                         ];
                     }
                     
