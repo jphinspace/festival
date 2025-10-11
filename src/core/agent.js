@@ -772,10 +772,10 @@ export class Agent {
             
             // Check if we need to update waypoints
             // Each waypoint has a progressive interval based on its distance from the fan:
-            // - Waypoint[0] (immediate destination): 500ms
+            // - Waypoint[0] (immediate destination): 125ms (most frequent - needs responsive updates)
             // - Waypoint[1]: 250ms
-            // - Waypoint[2]: 125ms
-            // - And so on (progressively half the time)
+            // - Waypoint[2]: 500ms
+            // - And so on (progressively double the time)
             // Each waypoint is checked individually and only waypoints that exceed their
             // interval are recalculated, starting from their respective positions.
             
@@ -784,8 +784,8 @@ export class Agent {
             
             if (this.staticWaypoints.length > 0 && obstacles) {
                 for (let i = 0; i < this.staticWaypoints.length; i++) {
-                    // Calculate progressive interval: 500ms for first, then half for each subsequent
-                    const waypointInterval = 500 / Math.pow(2, i);
+                    // Calculate progressive interval: 125ms for first, then double for each subsequent
+                    const waypointInterval = 125 * Math.pow(2, i);
                     const timeSinceUpdate = currentTime - (this.waypointUpdateTimes[i] || currentTime);
                     
                     if (timeSinceUpdate > waypointInterval) {

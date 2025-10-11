@@ -92,10 +92,10 @@ describe('Waypoint Progressive Intervals', () => {
             { x: 400, y: 400 }
         ];
         
-        // First waypoint updated 600ms ago (should trigger at 500ms)
+        // First waypoint updated 200ms ago (should trigger at 125ms)
         // Second waypoint updated 300ms ago (should trigger at 250ms)
-        // Third waypoint updated 150ms ago (should trigger at 125ms)
-        agent.waypointUpdateTimes = [now - 600, now - 300, now - 150];
+        // Third waypoint updated 600ms ago (should trigger at 500ms)
+        agent.waypointUpdateTimes = [now - 200, now - 300, now - 600];
         agent.state = 'moving';
         agent.targetX = 500;
         agent.targetY = 500;
@@ -133,10 +133,10 @@ describe('Waypoint Progressive Intervals', () => {
             { x: 400, y: 400 }
         ];
         
-        // First waypoint updated recently (100ms ago - not due yet at 500ms)
+        // First waypoint updated recently (100ms ago - not due yet at 125ms)
         // Second waypoint updated 300ms ago (should trigger at 250ms)
-        // Third waypoint updated 150ms ago (should trigger at 125ms)
-        agent.waypointUpdateTimes = [now - 100, now - 300, now - 150];
+        // Third waypoint updated 600ms ago (should trigger at 500ms)
+        agent.waypointUpdateTimes = [now - 100, now - 300, now - 600];
         agent.state = 'moving';
         agent.targetX = 500;
         agent.targetY = 500;
@@ -161,21 +161,21 @@ describe('Waypoint Progressive Intervals', () => {
     });
 
     test('should calculate correct progressive intervals', () => {
-        // Waypoint 0: 500ms
-        // Waypoint 1: 250ms (500 / 2^1)
-        // Waypoint 2: 125ms (500 / 2^2)
-        // Waypoint 3: 62.5ms (500 / 2^3)
+        // Waypoint 0: 125ms (most frequent - immediate destination)
+        // Waypoint 1: 250ms (125 * 2^1)
+        // Waypoint 2: 500ms (125 * 2^2)
+        // Waypoint 3: 1000ms (125 * 2^3)
         
         const intervals = [
-            500 / Math.pow(2, 0),  // 500
-            500 / Math.pow(2, 1),  // 250
-            500 / Math.pow(2, 2),  // 125
-            500 / Math.pow(2, 3),  // 62.5
+            125 * Math.pow(2, 0),  // 125
+            125 * Math.pow(2, 1),  // 250
+            125 * Math.pow(2, 2),  // 500
+            125 * Math.pow(2, 3),  // 1000
         ];
         
-        expect(intervals[0]).toBe(500);
+        expect(intervals[0]).toBe(125);
         expect(intervals[1]).toBe(250);
-        expect(intervals[2]).toBe(125);
-        expect(intervals[3]).toBe(62.5);
+        expect(intervals[2]).toBe(500);
+        expect(intervals[3]).toBe(1000);
     });
 });
