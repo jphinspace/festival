@@ -48,7 +48,14 @@ export class QueueManager {
         queue.forEach((fan, index) => {
             fan.queuePosition = index;
             const targetPos = getTargetPosition(index);
-            fan.setTarget(targetPos.x, targetPos.y, obstacles);
+            // Only call setTarget if position has changed significantly (more than 5px)
+            // This allows the timestamp-based waypoint system to work
+            const targetChanged = !fan.targetX || !fan.targetY ||
+                Math.abs(targetPos.x - fan.targetX) > 5 || Math.abs(targetPos.y - fan.targetY) > 5;
+            
+            if (targetChanged) {
+                fan.setTarget(targetPos.x, targetPos.y, obstacles);
+            }
             fan.inQueue = true;
             if (fan.state !== 'being_checked' && !fan.waitStartTime) {
                 fan.state = 'in_queue';
@@ -80,7 +87,14 @@ export class QueueManager {
             }
             
             const targetPos = getTargetPosition(fan.queuePosition);
-            fan.setTarget(targetPos.x, targetPos.y, obstacles);
+            // Only call setTarget if position has changed significantly (more than 5px)
+            // This allows the timestamp-based waypoint system to work
+            const targetChanged = !fan.targetX || !fan.targetY ||
+                Math.abs(targetPos.x - fan.targetX) > 5 || Math.abs(targetPos.y - fan.targetY) > 5;
+            
+            if (targetChanged) {
+                fan.setTarget(targetPos.x, targetPos.y, obstacles);
+            }
             fan.inQueue = false;
             if (fan.state !== 'approaching_queue') {
                 fan.state = 'approaching_queue';
