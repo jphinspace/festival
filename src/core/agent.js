@@ -21,7 +21,7 @@ export class Agent {
         this.color = config.COLORS.AGENT_ACTIVE;
         this.radius = config.AGENT_RADIUS;
         this.lastStaticWaypointUpdate = 0; // Track when static waypoints were last recalculated
-        this.staticWaypointUpdateInterval = 500; // ms between static waypoint updates
+        this.staticWaypointUpdateInterval = 250; // ms between static waypoint updates
     }
 
     /**
@@ -94,7 +94,7 @@ export class Agent {
             
             // Route around the first blocking obstacle
             const obstacle = blockingObstacles[0];
-            const buffer = this.radius + personalSpaceBuffer + 5; // Extra 5px buffer
+            const buffer = this.radius + personalSpaceBuffer + 2; // Reduced buffer to allow waypoints closer to obstacles
             
             // Calculate the four corners of the obstacle (with buffer)
             const corners = [
@@ -567,7 +567,7 @@ export class Agent {
     update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null) {
         // Allow movement for moving, in_queue, passed_security, and approaching_queue states
         if ((this.state === 'moving' || this.state === 'in_queue' || this.state === 'passed_security' || this.state === 'approaching_queue') && this.targetX !== null) {
-            // Periodically update static waypoints (every 500ms) with slight randomness
+            // Periodically update static waypoints (every 250ms) with slight randomness
             const currentTime = Date.now();
             const shouldUpdateStaticWaypoints = (currentTime - this.lastStaticWaypointUpdate) > this.staticWaypointUpdateInterval;
             
@@ -596,13 +596,13 @@ export class Agent {
                 nextStaticTargetX = waypoint.x;
                 nextStaticTargetY = waypoint.y;
                 
-                // Check if we've reached this waypoint
+                // Check if we've reached this waypoint (within fan width)
                 const distToWaypoint = Math.sqrt(
                     Math.pow(waypoint.x - this.x, 2) + 
                     Math.pow(waypoint.y - this.y, 2)
                 );
                 
-                if (distToWaypoint < 10) { // Within 10 pixels of waypoint
+                if (distToWaypoint < this.radius * 2) { // Within fan width (diameter) of waypoint
                     this.staticWaypoints.shift(); // Remove this waypoint
                     
                     // If no more waypoints, use final target
