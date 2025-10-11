@@ -825,108 +825,63 @@ export class Agent {
                     
                     // If updating from waypoint 0, recalculate entire path from current position
                     if (earliestIndex === 0) {
-                        // Check if we can preserve some waypoints
-                        if (hasLaterWaypoints && latestIndex < this.staticWaypoints.length - 1) {
-                            // Some waypoints don't need updating - try to preserve them
-                            // Recalculate from current position to the first waypoint that doesn't need updating
-                            const targetWaypoint = this.staticWaypoints[latestIndex + 1];
-                            const partialWaypoints = this.calculateStaticWaypoints(targetWaypoint.x, targetWaypoint.y, obstacles);
+                        // Always recalculate the full path to target
+                        // Partial recalculation is complex because pathfinding can return variable waypoint counts
+                        this.staticWaypoints = this.calculateStaticWaypoints(this.targetX, this.targetY, obstacles);
+                        
+                        // Assign staggered timestamps to maintain progressive intervals
+                        // Each waypoint gets a timestamp offset so it becomes due at the right time
+                        this.waypointUpdateTimes = this.staticWaypoints.map((wp, index) => {
+                            const baseInterval = 125 * Math.pow(2, index);
+                            const interval = baseInterval / (simulationSpeed || 1);
                             
-                            // Combine: new waypoints + preserved waypoints
-                            this.staticWaypoints = [
-                                ...partialWaypoints,
-                                ...this.staticWaypoints.slice(latestIndex + 1)
-                            ];
-                            
-                            // Assign timestamps with awareness of which waypoints were actually due
-                            // Problem: we may have generated MORE waypoints than were due
-                            // Solution: Only give currentTime to waypoints at indices that were in waypointsToUpdate
-                            // Other waypoints get older timestamps so they won't all update together
-                            const newTimestamps = partialWaypoints.map((wp, index) => {
-                                if (waypointsToUpdate.includes(index)) {
-                                    return currentTime; // Was due for update
-                                } else {
-                                    // Not due yet - give it an older timestamp based on its interval
-                                    // Scale interval by simulation speed for consistency
-                                    const baseInterval = 125 * Math.pow(2, index);
-                                    const interval = baseInterval / (simulationSpeed || 1);
-                                    // Subtract most of its interval so it won't be due immediately
-                                    return currentTime - (interval * 0.9); // 90% of interval has "elapsed"
-                                }
-                            });
-                            
-                            this.waypointUpdateTimes = [
-                                ...newTimestamps,
-                                ...this.waypointUpdateTimes.slice(latestIndex + 1)
-                            ];
-                        } else {
-                            // All waypoints need updating, recalculate entire path
-                            this.staticWaypoints = this.calculateStaticWaypoints(this.targetX, this.targetY, obstacles);
-                            this.waypointUpdateTimes = this.staticWaypoints.map(() => currentTime);
-                        }
+                            // If this waypoint index was in waypointsToUpdate, it should update now
+                            // Otherwise, set it to be ~10% through its interval (like setTarget does)
+                            if (waypointsToUpdate.includes(index)) {
+                                return currentTime; // Was due for update, so timestamp = now
+                            } else {
+                                // Not due yet - give it a timestamp as if it's 10% through its interval
+                                return currentTime - (interval * 0.1);
+                            }
+                        });
                     } else {
                         // Recalculate from the waypoint position, preserving earlier waypoints
                         const startWaypoint = this.staticWaypoints[earliestIndex - 1];
                         
-                        // Determine target for recalculation
-                        let targetX, targetY;
-                        if (hasLaterWaypoints) {
-                            // Recalculate to the first waypoint that doesn't need updating
-                            const targetWaypoint = this.staticWaypoints[latestIndex + 1];
-                            targetX = targetWaypoint.x;
-                            targetY = targetWaypoint.y;
-                        } else {
-                            // Recalculate to final target
-                            targetX = this.targetX;
-                            targetY = this.targetY;
-                        }
-                        
+                        // Always recalculate to the final target for simplicity
+                        // Partial preservation is complex due to variable waypoint counts
                         const newWaypoints = this.calculateStaticWaypointsFromPosition(
                             startWaypoint.x, startWaypoint.y, 
-                            targetX, targetY, 
+                            this.targetX, this.targetY, 
                             obstacles, 
                             personalSpaceBuffer
                         );
                         
-                        // Replace waypoints from earliestIndex to latestIndex
-                        if (hasLaterWaypoints) {
-                            this.staticWaypoints = [
-                                ...this.staticWaypoints.slice(0, earliestIndex),
-                                ...newWaypoints,
-                                ...this.staticWaypoints.slice(latestIndex + 1)
-                            ];
+                        // Replace waypoints from earliestIndex onwards
+                        this.staticWaypoints = [
+                            ...this.staticWaypoints.slice(0, earliestIndex),
+                            ...newWaypoints
+                        ];
+                        
+                        // Assign staggered timestamps to maintain progressive intervals
+                        const newTimestamps = newWaypoints.map((wp, i) => {
+                            const actualIndex = earliestIndex + i;
+                            const baseInterval = 125 * Math.pow(2, actualIndex);
+                            const interval = baseInterval / (simulationSpeed || 1);
                             
-                            // Assign timestamps based on which waypoints were actually due
-                            const newTimestamps = newWaypoints.map((wp, i) => {
-                                const actualIndex = earliestIndex + i;
-                                if (waypointsToUpdate.includes(actualIndex)) {
-                                    return currentTime; // Was due for update
-                                } else {
-                                    // Not due yet - give it an older timestamp
-                                    // Scale interval by simulation speed for consistency
-                                    const baseInterval = 125 * Math.pow(2, actualIndex);
-                                    const interval = baseInterval / (simulationSpeed || 1);
-                                    return currentTime - (interval * 0.9);
-                                }
-                            });
-                            
-                            this.waypointUpdateTimes = [
-                                ...this.waypointUpdateTimes.slice(0, earliestIndex),
-                                ...newTimestamps,
-                                ...this.waypointUpdateTimes.slice(latestIndex + 1)
-                            ];
-                        } else {
-                            // No waypoints to preserve
-                            this.staticWaypoints = [
-                                ...this.staticWaypoints.slice(0, earliestIndex),
-                                ...newWaypoints
-                            ];
-                            
-                            this.waypointUpdateTimes = [
-                                ...this.waypointUpdateTimes.slice(0, earliestIndex),
-                                ...newWaypoints.map(() => currentTime)
-                            ];
-                        }
+                            // If this waypoint index was in waypointsToUpdate, it should update now
+                            if (waypointsToUpdate.includes(actualIndex)) {
+                                return currentTime; // Was due for update
+                            } else {
+                                // Not due yet - set timestamp as if 10% through interval
+                                return currentTime - (interval * 0.1);
+                            }
+                        });
+                        
+                        this.waypointUpdateTimes = [
+                            ...this.waypointUpdateTimes.slice(0, earliestIndex),
+                            ...newTimestamps
+                        ];
                     }
                     
                     // Update legacy timer for compatibility
