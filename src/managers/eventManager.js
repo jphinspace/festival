@@ -279,6 +279,25 @@ export class EventManager {
         return newAgents;
     }
 
+    handleCarArrival(agents) {
+        const busX = this.width * this.config.BUS_X;
+        const busY = this.height * this.config.BUS_Y;
+        const newAgents = [];
+        
+        // Spawn single fan
+        const offsetX = (Math.random() - 0.5) * 50;
+        // Only spawn fans in front of or on the bus, never behind it (positive offset only)
+        const offsetY = -Math.random() * 15; // 0 to -15, always above the bus
+        const fan = new Fan(busX + offsetX, busY + offsetY, this.config);
+        
+        // Add fan to security queue - this will direct them toward the queue ends
+        this.securityQueue.addToQueue(fan);
+        
+        newAgents.push(fan);
+        
+        return newAgents;
+    }
+
     handleBusDeparture(agents) {
         // Select fans who have BOTH seen a show AND eaten food
         const leavingAgents = [];

@@ -112,6 +112,11 @@ export class Simulation {
         this.agents.push(...newAgents);
     }
 
+    triggerCarArrival() {
+        const newAgents = this.eventManager.handleCarArrival(this.agents);
+        this.agents.push(...newAgents);
+    }
+
     triggerBusDeparture() {
         this.eventManager.handleBusDeparture(this.agents);
     }

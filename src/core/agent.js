@@ -115,6 +115,11 @@ export class Agent {
             let bestCorner = null;
             let bestScore = Infinity;
             
+            // Calculate direction from current position to target for directional preference
+            const toTargetDx = targetX - currentX;
+            const toTargetDy = targetY - currentY;
+            const toTargetDist = Math.sqrt(toTargetDx * toTargetDx + toTargetDy * toTargetDy);
+            
             for (const corner of corners) {
                 // First check if corner itself is accessible (not inside an obstacle)
                 if (obstacles.checkCollision(corner.x, corner.y, this.radius, this.state, personalSpaceBuffer)) {
@@ -131,11 +136,28 @@ export class Agent {
                     continue; // Can't reach target from this corner
                 }
                 
-                // Calculate score = total distance through this corner (with some randomness)
+                // Calculate score = total distance through this corner
                 const distToCorner = Math.sqrt(Math.pow(corner.x - currentX, 2) + Math.pow(corner.y - currentY, 2));
                 const distFromCorner = Math.sqrt(Math.pow(targetX - corner.x, 2) + Math.pow(targetY - corner.y, 2));
-                const randomFactor = 0.9 + Math.random() * 0.2; // 0.9 to 1.1 multiplier for variety
-                const score = (distToCorner + distFromCorner) * randomFactor;
+                
+                // Add directional preference: favor corners that are generally in the direction of the target
+                // This helps when at midpoint - choose corner that moves us toward target
+                let directionBonus = 0;
+                if (toTargetDist > 0) {
+                    const toCornerDx = corner.x - currentX;
+                    const toCornerDy = corner.y - currentY;
+                    const toCornerDist = Math.sqrt(toCornerDx * toCornerDx + toCornerDy * toCornerDy);
+                    if (toCornerDist > 0) {
+                        // Dot product gives alignment: 1 = same direction, -1 = opposite
+                        const alignment = (toCornerDx * toTargetDx + toCornerDy * toTargetDy) / (toCornerDist * toTargetDist);
+                        // Penalize corners that go backwards (negative alignment)
+                        // alignment ranges from -1 to 1, convert to penalty: 0 to 200 pixels
+                        directionBonus = (1 - alignment) * 100; // 0 penalty for forward, 200 for backward
+                    }
+                }
+                
+                const randomFactor = 0.95 + Math.random() * 0.1; // 0.95 to 1.05 - reduced randomness for more consistency
+                const score = (distToCorner + distFromCorner + directionBonus) * randomFactor;
                 
                 if (score < bestScore) {
                     bestScore = score;
@@ -149,8 +171,25 @@ export class Agent {
                 currentX = bestCorner.x;
                 currentY = bestCorner.y;
             } else {
-                // No valid corner found, give up on this iteration
-                break;
+                // No valid corner found - try intermediate waypoint along edge
+                // This helps when all corners are blocked but we can move along obstacle edge
+                const midPoints = [
+                    { x: (obstacle.x + obstacle.x + obstacle.width) / 2 - buffer, y: obstacle.y - buffer }, // Top middle
+                    { x: (obstacle.x + obstacle.x + obstacle.width) / 2 + buffer, y: obstacle.y + obstacle.height + buffer }, // Bottom middle
+                    { x: obstacle.x - buffer, y: (obstacle.y + obstacle.y + obstacle.height) / 2 }, // Left middle
+                    { x: obstacle.x + obstacle.width + buffer, y: (obstacle.y + obstacle.y + obstacle.height) / 2 } // Right middle
+                ];
+                
+                for (const midPoint of midPoints) {
+                    if (!obstacles.checkCollision(midPoint.x, midPoint.y, this.radius, this.state, personalSpaceBuffer) &&
+                        this.isPathClear(currentX, currentY, midPoint.x, midPoint.y, obstacles, personalSpaceBuffer)) {
+                        waypoints.push(midPoint);
+                        currentX = midPoint.x;
+                        currentY = midPoint.y;
+                        break; // Try this intermediate point, then recalculate on next iteration
+                    }
+                }
+                break; // If still no waypoint, give up on this iteration
             }
         }
         
@@ -466,7 +505,11 @@ export class Agent {
             const dotProduct = (dx * targetDirX + dy * targetDirY) / distToOther;
             
             // Fan is in our way if they're ahead of us (dotProduct > 0.5 means within ~60 degrees)
-            if (dotProduct > 0.5 && distToOther < this.config.PERSONAL_SPACE * 3) {
+            // OR if they're very close (within personal space * 2) at any angle (handles perpendicular collisions)
+            const inOurPath = dotProduct > 0.5 && distToOther < this.config.PERSONAL_SPACE * 3;
+            const veryClose = distToOther < this.config.PERSONAL_SPACE * 2;
+            
+            if (inOurPath || veryClose) {
                 needsAvoidance = true;
                 
                 // Determine if we should avoid right or left
