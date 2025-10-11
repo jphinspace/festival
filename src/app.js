@@ -15,6 +15,7 @@ class FestivalApp {
             pauseBtn: document.getElementById('pauseBtn'),
             leftConcertBtn: document.getElementById('leftConcertBtn'),
             rightConcertBtn: document.getElementById('rightConcertBtn'),
+            carArriveBtn: document.getElementById('carArriveBtn'),
             busArriveBtn: document.getElementById('busArriveBtn'),
             busLeaveBtn: document.getElementById('busLeaveBtn'),
             showPathsBtn: document.getElementById('showPathsBtn'),
@@ -55,6 +56,11 @@ class FestivalApp {
 
         this.elements.rightConcertBtn.addEventListener('click', () => {
             this.simulation.triggerRightConcert();
+        });
+
+        // Car button
+        this.elements.carArriveBtn.addEventListener('click', () => {
+            this.simulation.triggerCarArrival();
         });
 
         // Bus buttons

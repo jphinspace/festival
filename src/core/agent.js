@@ -31,8 +31,17 @@ export class Agent {
      * @param {Obstacles} obstacles - Optional obstacles manager for pathfinding
      */
     setTarget(x, y, obstacles = null) {
+        // Check if target has changed significantly (more than 5 pixels)
+        const targetChanged = !this.targetX || !this.targetY || 
+            Math.abs(x - this.targetX) > 5 || Math.abs(y - this.targetY) > 5;
+        
         this.targetX = x;
         this.targetY = y;
+        
+        // Only recalculate waypoints if target changed significantly
+        if (!targetChanged) {
+            return; // Target hasn't moved enough, keep existing waypoints
+        }
         
         // Calculate static waypoints for routing around obstacles (global pathfinding)
         // Check state BEFORE potentially changing it
@@ -115,6 +124,11 @@ export class Agent {
             let bestCorner = null;
             let bestScore = Infinity;
             
+            // Calculate direction from current position to target for directional preference
+            const toTargetDx = targetX - currentX;
+            const toTargetDy = targetY - currentY;
+            const toTargetDist = Math.sqrt(toTargetDx * toTargetDx + toTargetDy * toTargetDy);
+            
             for (const corner of corners) {
                 // First check if corner itself is accessible (not inside an obstacle)
                 if (obstacles.checkCollision(corner.x, corner.y, this.radius, this.state, personalSpaceBuffer)) {
@@ -126,16 +140,32 @@ export class Agent {
                     continue; // Can't reach this corner
                 }
                 
-                // Check if path from corner to target is clear
-                if (!this.isPathClear(corner.x, corner.y, targetX, targetY, obstacles, personalSpaceBuffer)) {
-                    continue; // Can't reach target from this corner
-                }
+                // NOTE: We DON'T check if path from corner to target is clear
+                // This allows multi-waypoint paths where we route around multiple obstacles
+                // The next iteration will handle any remaining obstacles
                 
-                // Calculate score = total distance through this corner (with some randomness)
+                // Calculate score = total distance through this corner
                 const distToCorner = Math.sqrt(Math.pow(corner.x - currentX, 2) + Math.pow(corner.y - currentY, 2));
                 const distFromCorner = Math.sqrt(Math.pow(targetX - corner.x, 2) + Math.pow(targetY - corner.y, 2));
-                const randomFactor = 0.9 + Math.random() * 0.2; // 0.9 to 1.1 multiplier for variety
-                const score = (distToCorner + distFromCorner) * randomFactor;
+                
+                // Add directional preference: favor corners that are generally in the direction of the target
+                // This helps when at midpoint - choose corner that moves us toward target
+                let directionBonus = 0;
+                if (toTargetDist > 0) {
+                    const toCornerDx = corner.x - currentX;
+                    const toCornerDy = corner.y - currentY;
+                    const toCornerDist = Math.sqrt(toCornerDx * toCornerDx + toCornerDy * toCornerDy);
+                    if (toCornerDist > 0) {
+                        // Dot product gives alignment: 1 = same direction, -1 = opposite
+                        const alignment = (toCornerDx * toTargetDx + toCornerDy * toTargetDy) / (toCornerDist * toTargetDist);
+                        // Penalize corners that go backwards (negative alignment)
+                        // alignment ranges from -1 to 1, convert to penalty: 0 to 200 pixels
+                        directionBonus = (1 - alignment) * 100; // 0 penalty for forward, 200 for backward
+                    }
+                }
+                
+                const randomFactor = 0.95 + Math.random() * 0.1; // 0.95 to 1.05 - reduced randomness for more consistency
+                const score = (distToCorner + distFromCorner + directionBonus) * randomFactor;
                 
                 if (score < bestScore) {
                     bestScore = score;
@@ -149,8 +179,25 @@ export class Agent {
                 currentX = bestCorner.x;
                 currentY = bestCorner.y;
             } else {
-                // No valid corner found, give up on this iteration
-                break;
+                // No valid corner found - try intermediate waypoint along edge
+                // This helps when all corners are blocked but we can move along obstacle edge
+                const midPoints = [
+                    { x: (obstacle.x + obstacle.x + obstacle.width) / 2 - buffer, y: obstacle.y - buffer }, // Top middle
+                    { x: (obstacle.x + obstacle.x + obstacle.width) / 2 + buffer, y: obstacle.y + obstacle.height + buffer }, // Bottom middle
+                    { x: obstacle.x - buffer, y: (obstacle.y + obstacle.y + obstacle.height) / 2 }, // Left middle
+                    { x: obstacle.x + obstacle.width + buffer, y: (obstacle.y + obstacle.y + obstacle.height) / 2 } // Right middle
+                ];
+                
+                for (const midPoint of midPoints) {
+                    if (!obstacles.checkCollision(midPoint.x, midPoint.y, this.radius, this.state, personalSpaceBuffer) &&
+                        this.isPathClear(currentX, currentY, midPoint.x, midPoint.y, obstacles, personalSpaceBuffer)) {
+                        waypoints.push(midPoint);
+                        currentX = midPoint.x;
+                        currentY = midPoint.y;
+                        break; // Try this intermediate point, then recalculate on next iteration
+                    }
+                }
+                break; // If still no waypoint, give up on this iteration
             }
         }
         
@@ -207,6 +254,52 @@ export class Agent {
             const obsRight = obs.x + obs.width + effectiveBuffer;
             const obsTop = obs.y - effectiveBuffer;
             const obsBottom = obs.y + obs.height + effectiveBuffer;
+            
+            // Check if target is within the buffer zone of this obstacle
+            // If so, this obstacle should NOT be considered blocking, because we're trying to get TO it (for queue)
+            const targetNearObstacle = targetX >= obsLeft && targetX <= obsRight && 
+                                      targetY >= obsTop && targetY <= obsBottom;
+            
+            // Also check if start position is within buffer zone
+            const startNearObstacle = startX >= obsLeft && startX <= obsRight && 
+                                     startY >= obsTop && startY <= obsBottom;
+            
+            // Only skip this obstacle if BOTH start and target are near it, OR if target is near it and start can see target directly
+            // This prevents skipping obstacles that are between the fan and their destination
+            if (targetNearObstacle && startNearObstacle) {
+                continue; // Both near the same obstacle - not blocking
+            }
+            
+            if (targetNearObstacle) {
+                // Target is near obstacle but start isn't - check if obstacle is actually between them
+                // Get the center of the obstacle
+                const obsCenterX = (obsLeft + obsRight) / 2;
+                const obsCenterY = (obsTop + obsBottom) / 2;
+                
+                // Calculate if obstacle center is roughly between start and target
+                // Use dot product to check if obstacle is in the direction of travel
+                const toTargetX = targetX - startX;
+                const toTargetY = targetY - startY;
+                const toObsX = obsCenterX - startX;
+                const toObsY = obsCenterY - startY;
+                
+                const distToTarget = Math.sqrt(toTargetX * toTargetX + toTargetY * toTargetY);
+                const distToObs = Math.sqrt(toObsX * toObsX + toObsY * toObsY);
+                
+                // If we're very close to target (within 1 fan diameter), allow it
+                if (distToTarget < this.radius * 2) {
+                    continue; // Very close to target, don't worry about obstacles
+                }
+                
+                // If obstacle is not in the path (behind us or to the side), skip it
+                if (distToTarget > 0 && distToObs > 0) {
+                    const dotProduct = (toObsX * toTargetX + toObsY * toTargetY) / (distToObs * distToTarget);
+                    // If dotProduct < 0.5, obstacle is not in our path forward
+                    if (dotProduct < 0.5) {
+                        continue; // Obstacle is not between us and target
+                    }
+                }
+            }
             
             // Check if line from start to target intersects this rectangle
             if (this.lineIntersectsRectangle(startX, startY, targetX, targetY, 
@@ -466,7 +559,11 @@ export class Agent {
             const dotProduct = (dx * targetDirX + dy * targetDirY) / distToOther;
             
             // Fan is in our way if they're ahead of us (dotProduct > 0.5 means within ~60 degrees)
-            if (dotProduct > 0.5 && distToOther < this.config.PERSONAL_SPACE * 3) {
+            // OR if they're very close (within personal space * 2) at any angle (handles perpendicular collisions)
+            const inOurPath = dotProduct > 0.5 && distToOther < this.config.PERSONAL_SPACE * 3;
+            const veryClose = distToOther < this.config.PERSONAL_SPACE * 2;
+            
+            if (inOurPath || veryClose) {
                 needsAvoidance = true;
                 
                 // Determine if we should avoid right or left
