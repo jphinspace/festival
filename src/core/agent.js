@@ -131,10 +131,9 @@ export class Agent {
                     continue; // Can't reach this corner
                 }
                 
-                // Check if path from corner to target is clear
-                if (!this.isPathClear(corner.x, corner.y, targetX, targetY, obstacles, personalSpaceBuffer)) {
-                    continue; // Can't reach target from this corner
-                }
+                // NOTE: We DON'T check if path from corner to target is clear
+                // This allows multi-waypoint paths where we route around multiple obstacles
+                // The next iteration will handle any remaining obstacles
                 
                 // Calculate score = total distance through this corner
                 const distToCorner = Math.sqrt(Math.pow(corner.x - currentX, 2) + Math.pow(corner.y - currentY, 2));
