@@ -77,7 +77,8 @@ export class SecurityQueue {
             fanProperties: {
                 queueIndex: queueIndex,
                 enhancedSecurity: enhancedSecurity
-            }
+            },
+            obstacles: this.obstacles
             // setInQueue defaults to true - same behavior as food stalls
         });
         

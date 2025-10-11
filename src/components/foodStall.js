@@ -59,7 +59,8 @@ export class FoodStall {
                 queuedAt: null, // Not used for timing anymore
                 targetFoodStall: this,
                 queueSide: side
-            }
+            },
+            obstacles: this.obstacles
         });
         
         return position;

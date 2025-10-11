@@ -7,6 +7,7 @@ export class Renderer {
         this.width = 0;
         this.height = 0;
         this.hoveredFan = null; // Track which fan is being hovered
+        this.showAllPaths = false; // Toggle to show all fan paths
     }
 
     resize(width, height) {
@@ -154,7 +155,91 @@ export class Renderer {
     }
 
     drawAgents(agents) {
+        // If showAllPaths is enabled, draw all paths first (before agents so paths are behind)
+        if (this.showAllPaths) {
+            agents.forEach(agent => {
+                if (agent.targetX !== null && agent.targetY !== null) {
+                    this.drawFanPaths(agent);
+                }
+            });
+        }
+        
+        // Draw all agents
         agents.forEach(agent => agent.draw(this.ctx));
+    }
+    
+    /**
+     * Draw a fan's paths (static waypoints and dynamic waypoint)
+     * Extracted so it can be called for all fans or just hovered fan
+     * @param {Fan} fan - Fan to draw paths for
+     */
+    drawFanPaths(fan) {
+        // Draw line to final destination (green, dashed)
+        this.ctx.strokeStyle = '#00ff00';
+        this.ctx.lineWidth = 1;
+        this.ctx.setLineDash([5, 5]);
+        this.ctx.beginPath();
+        this.ctx.moveTo(fan.x, fan.y);
+        this.ctx.lineTo(fan.targetX, fan.targetY);
+        this.ctx.stroke();
+        
+        // Draw circle at final destination
+        this.ctx.fillStyle = '#00ff00';
+        this.ctx.beginPath();
+        this.ctx.arc(fan.targetX, fan.targetY, 4, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Draw static waypoints (blue, dotted lines)
+        if (fan.staticWaypoints && fan.staticWaypoints.length > 0) {
+            this.ctx.strokeStyle = '#4444ff';
+            this.ctx.lineWidth = 1;
+            this.ctx.setLineDash([3, 3]);
+            
+            let prevX = fan.x;
+            let prevY = fan.y;
+            
+            for (const waypoint of fan.staticWaypoints) {
+                // Draw line from previous point to this waypoint
+                this.ctx.beginPath();
+                this.ctx.moveTo(prevX, prevY);
+                this.ctx.lineTo(waypoint.x, waypoint.y);
+                this.ctx.stroke();
+                
+                // Draw circle at waypoint
+                this.ctx.fillStyle = '#4444ff';
+                this.ctx.beginPath();
+                this.ctx.arc(waypoint.x, waypoint.y, 3, 0, Math.PI * 2);
+                this.ctx.fill();
+                
+                prevX = waypoint.x;
+                prevY = waypoint.y;
+            }
+            
+            // Draw line from last waypoint to final destination
+            this.ctx.strokeStyle = '#4444ff';
+            this.ctx.setLineDash([3, 3]);
+            this.ctx.beginPath();
+            this.ctx.moveTo(prevX, prevY);
+            this.ctx.lineTo(fan.targetX, fan.targetY);
+            this.ctx.stroke();
+        }
+        
+        // Draw dynamic fan avoidance waypoint (red, solid line)
+        if (fan.dynamicWaypoint) {
+            this.ctx.strokeStyle = '#ff0000';
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([]);
+            this.ctx.beginPath();
+            this.ctx.moveTo(fan.x, fan.y);
+            this.ctx.lineTo(fan.dynamicWaypoint.x, fan.dynamicWaypoint.y);
+            this.ctx.stroke();
+            
+            // Draw circle at dynamic waypoint
+            this.ctx.fillStyle = '#ff0000';
+            this.ctx.beginPath();
+            this.ctx.arc(fan.dynamicWaypoint.x, fan.dynamicWaypoint.y, 4, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
     }
     
     drawFoodStalls(foodStalls) {
@@ -164,72 +249,7 @@ export class Renderer {
     drawDebugOverlay(fan, mouseX, mouseY) {
         // Draw line from fan to destination/waypoint FIRST (so it's behind the tooltip)
         if (fan.targetX !== null && fan.targetY !== null) {
-            // Always draw line to final destination (in green, dashed)
-            this.ctx.strokeStyle = '#00ff00';
-            this.ctx.lineWidth = 1;
-            this.ctx.setLineDash([5, 5]);  // Dashed line to final destination
-            this.ctx.beginPath();
-            this.ctx.moveTo(fan.x, fan.y);
-            this.ctx.lineTo(fan.targetX, fan.targetY);
-            this.ctx.stroke();
-            
-            // Draw circle at final destination
-            this.ctx.fillStyle = '#00ff00';
-            this.ctx.beginPath();
-            this.ctx.arc(fan.targetX, fan.targetY, 4, 0, Math.PI * 2);
-            this.ctx.fill();
-            
-            // Draw static waypoints (blue, dotted lines)
-            if (fan.staticWaypoints && fan.staticWaypoints.length > 0) {
-                this.ctx.strokeStyle = '#4444ff';
-                this.ctx.lineWidth = 1;
-                this.ctx.setLineDash([3, 3]);  // Dotted line for static waypoints
-                
-                let prevX = fan.x;
-                let prevY = fan.y;
-                
-                for (const waypoint of fan.staticWaypoints) {
-                    // Draw line from previous point to this waypoint
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(prevX, prevY);
-                    this.ctx.lineTo(waypoint.x, waypoint.y);
-                    this.ctx.stroke();
-                    
-                    // Draw circle at waypoint
-                    this.ctx.fillStyle = '#4444ff';
-                    this.ctx.beginPath();
-                    this.ctx.arc(waypoint.x, waypoint.y, 3, 0, Math.PI * 2);
-                    this.ctx.fill();
-                    
-                    prevX = waypoint.x;
-                    prevY = waypoint.y;
-                }
-                
-                // Draw line from last waypoint to final destination
-                this.ctx.strokeStyle = '#4444ff';
-                this.ctx.setLineDash([3, 3]);
-                this.ctx.beginPath();
-                this.ctx.moveTo(prevX, prevY);
-                this.ctx.lineTo(fan.targetX, fan.targetY);
-                this.ctx.stroke();
-            }
-            
-            // Draw dynamic fan avoidance waypoint (red, solid line)
-            if (fan.dynamicWaypoint) {
-                this.ctx.strokeStyle = '#ff0000';
-                this.ctx.lineWidth = 2;
-                this.ctx.setLineDash([]);  // Solid line for dynamic waypoint
-                this.ctx.beginPath();
-                this.ctx.moveTo(fan.x, fan.y);
-                this.ctx.lineTo(fan.dynamicWaypoint.x, fan.dynamicWaypoint.y);
-                this.ctx.stroke();
-                
-                // Draw circle at dynamic waypoint
-                this.ctx.fillStyle = '#ff0000';
-                this.ctx.beginPath();
-                this.ctx.arc(fan.dynamicWaypoint.x, fan.dynamicWaypoint.y, 4, 0, Math.PI * 2);
-                this.ctx.fill();
-            }
+            this.drawFanPaths(fan);
         }
         
         // Draw debug information for a hovered fan
