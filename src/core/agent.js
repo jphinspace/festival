@@ -828,9 +828,23 @@ export class Agent {
                                 ...this.staticWaypoints.slice(latestIndex + 1)
                             ];
                             
-                            // Update timestamps: new waypoints get currentTime, preserved keep their times
+                            // Assign timestamps with awareness of which waypoints were actually due
+                            // Problem: we may have generated MORE waypoints than were due
+                            // Solution: Only give currentTime to waypoints at indices that were in waypointsToUpdate
+                            // Other waypoints get older timestamps so they won't all update together
+                            const newTimestamps = partialWaypoints.map((wp, index) => {
+                                if (waypointsToUpdate.includes(index)) {
+                                    return currentTime; // Was due for update
+                                } else {
+                                    // Not due yet - give it an older timestamp based on its interval
+                                    // Subtract most of its interval so it won't be due immediately
+                                    const interval = 125 * Math.pow(2, index);
+                                    return currentTime - (interval * 0.9); // 90% of interval has "elapsed"
+                                }
+                            });
+                            
                             this.waypointUpdateTimes = [
-                                ...partialWaypoints.map(() => currentTime),
+                                ...newTimestamps,
                                 ...this.waypointUpdateTimes.slice(latestIndex + 1)
                             ];
                         } else {
@@ -870,9 +884,21 @@ export class Agent {
                                 ...this.staticWaypoints.slice(latestIndex + 1)
                             ];
                             
+                            // Assign timestamps based on which waypoints were actually due
+                            const newTimestamps = newWaypoints.map((wp, i) => {
+                                const actualIndex = earliestIndex + i;
+                                if (waypointsToUpdate.includes(actualIndex)) {
+                                    return currentTime; // Was due for update
+                                } else {
+                                    // Not due yet - give it an older timestamp
+                                    const interval = 125 * Math.pow(2, actualIndex);
+                                    return currentTime - (interval * 0.9);
+                                }
+                            });
+                            
                             this.waypointUpdateTimes = [
                                 ...this.waypointUpdateTimes.slice(0, earliestIndex),
-                                ...newWaypoints.map(() => currentTime),
+                                ...newTimestamps,
                                 ...this.waypointUpdateTimes.slice(latestIndex + 1)
                             ];
                         } else {
