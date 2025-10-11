@@ -224,11 +224,9 @@ export class EventManager {
                     
                     // Choose a food stall randomly (d4 roll) - each stall has different food
                     // Fans should distribute across all 4 stalls rather than all using one
-                    if (!agent.preferredFoodStall) {
-                        // Roll d4 (0-3) to pick one of the 4 food stalls
-                        const stallIndex = Math.floor(Math.random() * this.foodStalls.length);
-                        agent.preferredFoodStall = this.foodStalls[stallIndex];
-                    }
+                    // Roll d4 (0-3) to pick one of the 4 food stalls each time they get hungry
+                    const stallIndex = Math.floor(Math.random() * this.foodStalls.length);
+                    agent.preferredFoodStall = this.foodStalls[stallIndex];
                     
                     const targetStall = agent.preferredFoodStall;
                     

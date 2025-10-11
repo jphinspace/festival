@@ -11,9 +11,14 @@ const mockConfig = {
     BUS_Y: 0.9,
     AGENT_RADIUS: 3,
     AGENT_SPEED: 0.5,
+    FOOD_STALL_COUNT: 4,
+    FOOD_STALL_X: 0.5,
+    HUNGER_MIN_INITIAL: 0.1,
+    HUNGER_MAX_INITIAL: 0.2,
     COLORS: {
         AGENT_ACTIVE: '#4a90e2',
-        AGENT_LEAVING: '#e24a4a'
+        AGENT_LEAVING: '#e24a4a',
+        FOOD_STALL: '#8b4513'
     }
 };
 
@@ -77,5 +82,47 @@ describe('EventManager', () => {
             expect(fan.targetY).not.toBeNull();
             expect(fan.queueIndex).toBeDefined();
         });
+    });
+
+    test('should assign new food stall each time fan gets hungry', () => {
+        // Create a fan that has passed security and is hungry
+        const fan = new Fan(400, 300, mockConfig);
+        fan.state = 'passed_security';
+        fan.hunger = 0.9; // Very hungry (above threshold)
+        fan.hungerThreshold = 0.7;
+        
+        // First call - verify the basic flow works
+        eventManager.handleHungryFans([fan]);
+        const firstStall = fan.preferredFoodStall;
+        expect(firstStall).toBeDefined();
+        expect(firstStall.id).toBeGreaterThanOrEqual(1);
+        expect(firstStall.id).toBeLessThanOrEqual(4);
+        
+        // Track which stalls are assigned over multiple cycles
+        const assignedStalls = new Set([firstStall.id]);
+        
+        // Run more iterations to increase probability of seeing different stalls
+        for (let i = 0; i < 19; i++) {
+            // Remove fan from queue and reset state completely
+            if (fan.targetFoodStall) {
+                fan.targetFoodStall.removeFromQueue(fan);
+            }
+            // Reset to passed_security state (as if they just finished eating and are ready for next event)
+            fan.inQueue = false;
+            fan.hunger = 0.9; // Hungry again
+            fan.targetFoodStall = null;
+            fan.state = 'passed_security'; // Must be in valid state to trigger handleHungryFans
+            fan.currentShow = null;
+            fan.waitStartTime = null;
+            
+            eventManager.handleHungryFans([fan]);
+            if (fan.preferredFoodStall) {
+                assignedStalls.add(fan.preferredFoodStall.id);
+            }
+        }
+        
+        // With 20 total iterations, we should see at least 2 different stalls
+        // (probability of seeing only 1 stall is extremely low: 1/4^19)
+        expect(assignedStalls.size).toBeGreaterThanOrEqual(2);
     });
 });
