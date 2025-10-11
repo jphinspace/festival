@@ -54,6 +54,8 @@ export class Agent {
             // Initialize update times for each waypoint with STAGGERED timestamps
             // to prevent all waypoints from updating together
             const currentTime = Date.now();
+            // Note: We don't have access to simulationSpeed here, so we use base intervals
+            // The update() method will handle simulation speed scaling when checking
             this.waypointUpdateTimes = this.staticWaypoints.map((wp, index) => {
                 // Each waypoint gets an older timestamp based on its interval
                 // This ensures they become due at different times
@@ -802,6 +804,17 @@ export class Agent {
                         waypointsToUpdate.push(i);
                     }
                 }
+                
+                // DEBUG: Log when waypoints are due (enable by setting agent.debugWaypoints = true)
+                if (this.debugWaypoints && waypointsToUpdate.length > 0) {
+                    console.log(`[Agent] Waypoints due: [${waypointsToUpdate.join(', ')}] at ${currentTime}ms`);
+                    this.staticWaypoints.forEach((wp, i) => {
+                        const baseInterval = 125 * Math.pow(2, i);
+                        const waypointInterval = baseInterval / (simulationSpeed || 1);
+                        const age = currentTime - (this.waypointUpdateTimes[i] || currentTime);
+                        console.log(`  wp${i}: age=${age.toFixed(1)}ms, interval=${waypointInterval.toFixed(1)}ms, due=${age > waypointInterval}`);
+                    });
+                }
             }
             
             // Also update if we have no waypoints and path to target is blocked
@@ -825,6 +838,11 @@ export class Agent {
                     
                     // If updating from waypoint 0, recalculate entire path from current position
                     if (earliestIndex === 0) {
+                        // DEBUG: Log recalculation
+                        if (this.debugWaypoints) {
+                            console.log(`[Agent] Recalculating full path (earliestIndex=0)`);
+                        }
+                        
                         // Always recalculate the full path to target
                         // Partial recalculation is complex because pathfinding can return variable waypoint counts
                         this.staticWaypoints = this.calculateStaticWaypoints(this.targetX, this.targetY, obstacles);
@@ -839,6 +857,18 @@ export class Agent {
                             // This matches setTarget() behavior
                             return currentTime - (interval * 0.1);
                         });
+                        
+                        // DEBUG: Log new timestamps
+                        if (this.debugWaypoints) {
+                            console.log(`[Agent] New waypoints: ${this.staticWaypoints.length}, timestamps:`);
+                            this.waypointUpdateTimes.forEach((t, i) => {
+                                const baseInterval = 125 * Math.pow(2, i);
+                                const interval = baseInterval / (simulationSpeed || 1);
+                                const age = currentTime - t;
+                                const dueAt = t + interval;
+                                console.log(`  wp${i}: timestamp=${t}ms, age=${age.toFixed(1)}ms, dueAt=${dueAt}ms (in ${dueAt - currentTime}ms)`);
+                            });
+                        }
                     } else {
                         // Recalculate from the waypoint position, preserving earlier waypoints
                         const startWaypoint = this.staticWaypoints[earliestIndex - 1];
