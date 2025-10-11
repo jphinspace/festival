@@ -51,9 +51,17 @@ export class Agent {
         // Generate waypoints BEFORE changing state
         if (needsPathfinding) {
             this.staticWaypoints = this.calculateStaticWaypoints(x, y, obstacles);
-            // Initialize update times for each waypoint
+            // Initialize update times for each waypoint with STAGGERED timestamps
+            // to prevent all waypoints from updating together
             const currentTime = Date.now();
-            this.waypointUpdateTimes = this.staticWaypoints.map(() => currentTime);
+            this.waypointUpdateTimes = this.staticWaypoints.map((wp, index) => {
+                // Each waypoint gets an older timestamp based on its interval
+                // This ensures they become due at different times
+                const interval = 125 * Math.pow(2, index);
+                // Set timestamp so waypoint is ~10% through its interval
+                // This gives some time before first update while maintaining stagger
+                return currentTime - (interval * 0.1);
+            });
             // Reset the timer so waypoints are recalculated on schedule (kept for compatibility)
             this.lastStaticWaypointUpdate = currentTime;
         } else {
@@ -785,7 +793,9 @@ export class Agent {
             if (this.staticWaypoints.length > 0 && obstacles) {
                 for (let i = 0; i < this.staticWaypoints.length; i++) {
                     // Calculate progressive interval: 125ms for first, then double for each subsequent
-                    const waypointInterval = 125 * Math.pow(2, i);
+                    // Scale interval by simulation speed so faster simulations update more frequently
+                    const baseInterval = 125 * Math.pow(2, i);
+                    const waypointInterval = baseInterval / (simulationSpeed || 1);
                     const timeSinceUpdate = currentTime - (this.waypointUpdateTimes[i] || currentTime);
                     
                     if (timeSinceUpdate > waypointInterval) {
@@ -837,8 +847,10 @@ export class Agent {
                                     return currentTime; // Was due for update
                                 } else {
                                     // Not due yet - give it an older timestamp based on its interval
+                                    // Scale interval by simulation speed for consistency
+                                    const baseInterval = 125 * Math.pow(2, index);
+                                    const interval = baseInterval / (simulationSpeed || 1);
                                     // Subtract most of its interval so it won't be due immediately
-                                    const interval = 125 * Math.pow(2, index);
                                     return currentTime - (interval * 0.9); // 90% of interval has "elapsed"
                                 }
                             });
@@ -891,7 +903,9 @@ export class Agent {
                                     return currentTime; // Was due for update
                                 } else {
                                     // Not due yet - give it an older timestamp
-                                    const interval = 125 * Math.pow(2, actualIndex);
+                                    // Scale interval by simulation speed for consistency
+                                    const baseInterval = 125 * Math.pow(2, actualIndex);
+                                    const interval = baseInterval / (simulationSpeed || 1);
                                     return currentTime - (interval * 0.9);
                                 }
                             });
@@ -920,9 +934,14 @@ export class Agent {
                 } else if (needsWaypointsNow) {
                     // No existing waypoints, need to create new path
                     this.staticWaypoints = this.calculateStaticWaypoints(this.targetX, this.targetY, obstacles);
-                    // All waypoints get the same timestamp
-                    // The progressive intervals naturally cause them to become due at different times
-                    this.waypointUpdateTimes = this.staticWaypoints.map(() => currentTime);
+                    // Assign staggered timestamps to prevent synchronization
+                    // Each waypoint gets a slightly older timestamp based on its interval
+                    this.waypointUpdateTimes = this.staticWaypoints.map((wp, index) => {
+                        const baseInterval = 125 * Math.pow(2, index);
+                        const interval = baseInterval / (simulationSpeed || 1);
+                        // Set timestamp so waypoint is ~10% through its interval
+                        return currentTime - (interval * 0.1);
+                    });
                     this.lastStaticWaypointUpdate = currentTime;
                 }
             }
