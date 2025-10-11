@@ -166,18 +166,12 @@ export class Agent {
      * @returns {boolean} True if path is clear
      */
     isPathClear(x1, y1, x2, y2, obstacles, personalSpaceBuffer) {
-        const steps = 10; // Check 10 points along the path
+        if (!obstacles) return true;
         
-        for (let i = 1; i <= steps; i++) {
-            const checkX = x1 + (x2 - x1) * (i / steps);
-            const checkY = y1 + (y2 - y1) * (i / steps);
-            
-            if (obstacles.checkCollision(checkX, checkY, this.radius, this.state, personalSpaceBuffer)) {
-                return false; // Path is blocked
-            }
-        }
-        
-        return true; // Path is clear
+        // Use proper line-rectangle intersection checking
+        // This catches edges and corners that discrete point sampling might miss
+        const blocking = this.findBlockingObstacles(x2, y2, obstacles, personalSpaceBuffer, x1, y1);
+        return blocking.length === 0;
     }
 
     /**
