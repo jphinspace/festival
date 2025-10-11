@@ -255,6 +255,15 @@ export class Agent {
             const obsTop = obs.y - effectiveBuffer;
             const obsBottom = obs.y + obs.height + effectiveBuffer;
             
+            // Check if target is within the buffer zone of this obstacle
+            // If so, this obstacle should NOT be considered blocking, because we're trying to get TO it (for queue)
+            const targetNearObstacle = targetX >= obsLeft && targetX <= obsRight && 
+                                      targetY >= obsTop && targetY <= obsBottom;
+            
+            if (targetNearObstacle) {
+                continue; // Skip this obstacle - target is supposed to be near it
+            }
+            
             // Check if line from start to target intersects this rectangle
             if (this.lineIntersectsRectangle(startX, startY, targetX, targetY, 
                 obsLeft, obsTop, obsRight, obsBottom)) {
