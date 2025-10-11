@@ -133,4 +133,46 @@ describe('Fan', () => {
         const otherFan = new Fan(108, 100, mockConfig); // Within personal space (8 pixels away)
         expect(fan.overlapsWith(otherFan)).toBe(true);
     });
+    
+    test('should not generate wrong-direction waypoints when target is near obstacle buffer', () => {
+        // Simulate the bug scenario from the issue:
+        // Fan is approaching a food stall queue position
+        // The queue position is within the personal space buffer of the food stall
+        // There should be NO waypoints generated because path is clear
+        
+        // Create a mock Obstacles object with a food stall
+        const mockObstacles = {
+            obstacles: [
+                {
+                    type: 'foodStall',
+                    x: 300,
+                    y: 200,
+                    width: 40,
+                    height: 40
+                }
+            ],
+            width: 800,
+            height: 600,
+            checkCollision: () => false,
+            isValidPosition: () => true
+        };
+        
+        // Fan is to the LEFT of the food stall
+        fan.x = 200;
+        fan.y = 220;
+        fan.state = 'approaching_queue';
+        
+        // Target is the LEFT queue position (within personal space buffer of food stall)
+        // Queue positions are spacing * (position + 1) away from the stall
+        const targetX = 300 - 8; // 8 pixels to the left of stall
+        const targetY = 220;
+        
+        // Calculate waypoints
+        const waypoints = fan.calculateStaticWaypoints(targetX, targetY, mockObstacles);
+        
+        // The path should be clear - no waypoints needed
+        // The bug was: waypoints were generated going around the food stall
+        // even though the target (queue position) is BEFORE the obstacle
+        expect(waypoints.length).toBe(0);
+    });
 });
