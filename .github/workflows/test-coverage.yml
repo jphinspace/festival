@@ -58,7 +58,7 @@ jobs:
             
             **Required Thresholds:**
             - ✅ Lines: 80% minimum
-            - ✅ Branches: 100% required
+            - ✅ Branches: 92% minimum
             - ✅ Functions: 70% minimum
             - ✅ Statements: 80% minimum
             `;
