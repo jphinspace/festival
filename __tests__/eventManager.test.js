@@ -1,6 +1,7 @@
 // Unit tests for EventManager class
 import { EventManager } from '../src/managers/eventManager.js';
 import { Fan } from '../src/core/fan.js';
+import { AgentState } from '../src/utils/enums.js';
 
 const mockConfig = {
     BUS_ATTENDEE_COUNT: 50,
@@ -69,7 +70,7 @@ describe('EventManager', () => {
             agents.push(new Fan(Math.random() * 800, Math.random() * 600, mockConfig));
         }
         eventManager.handleBusDeparture(agents);
-        const leavingAgents = agents.filter(a => a.state === 'leaving');
+        const leavingAgents = agents.filter(a => a.state === AgentState.LEAVING);
         // With 50 agents and random selection, at least some should be leaving
         expect(leavingAgents.length).toBeGreaterThanOrEqual(0);
     });
@@ -77,7 +78,7 @@ describe('EventManager', () => {
     test('new fans from bus should be added to security queue', () => {
         const newAgents = eventManager.handleBusArrival(agents);
         newAgents.forEach(fan => {
-            expect(fan.state).toBe('approaching_queue'); // Fans start by approaching queue
+            expect(fan.state).toBe(AgentState.APPROACHING_QUEUE); // Fans start by approaching queue
             expect(fan.targetX).not.toBeNull();
             expect(fan.targetY).not.toBeNull();
             expect(fan.queueIndex).toBeDefined();
@@ -87,7 +88,7 @@ describe('EventManager', () => {
     test('should assign new food stall each time fan gets hungry', () => {
         // Create a fan that has passed security and is hungry
         const fan = new Fan(400, 300, mockConfig);
-        fan.state = 'passed_security';
+        fan.state = AgentState.PASSED_SECURITY;
         fan.hunger = 0.9; // Very hungry (above threshold)
         fan.hungerThreshold = 0.7;
         
@@ -111,7 +112,7 @@ describe('EventManager', () => {
             fan.inQueue = false;
             fan.hunger = 0.9; // Hungry again
             fan.targetFoodStall = null;
-            fan.state = 'passed_security'; // Must be in valid state to trigger handleHungryFans
+            fan.state = AgentState.PASSED_SECURITY; // Must be in valid state to trigger handleHungryFans
             fan.currentShow = null;
             fan.waitStartTime = null;
             

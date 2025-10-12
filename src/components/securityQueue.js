@@ -205,7 +205,7 @@ export class SecurityQueue extends QueuedProcessor {
                         // Reached end of line, add to entering list
                         delete processingFan.returningToQueue
                         entering.push(processingFan)
-                        processingFan.state = 'approaching_queue'
+                        processingFan.state = AgentState.APPROACHING_QUEUE
                         processingFan.inQueue = true
                         
                         // Clear processing

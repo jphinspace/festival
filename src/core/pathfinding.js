@@ -2,6 +2,7 @@
  * Pathfinding module for calculating and managing static waypoints
  * Handles obstacle avoidance with randomized waypoint placement to reduce crowding
  */
+import { AgentState } from '../utils/enums.js';
 
 /**
  * Calculate static waypoints from current position to target
@@ -537,7 +538,7 @@ export function calculateDynamicFanAvoidance(agent, otherAgents, nextTargetX, ne
     
     // Validate dynamic waypoint isn't inside an obstacle
     if (obstacles) {
-        const personalSpaceBuffer = (agent.state === 'approaching_queue' || agent.state === 'moving') ? 
+        const personalSpaceBuffer = (agent.state === AgentState.APPROACHING_QUEUE || agent.state === AgentState.MOVING) ? 
             config.PERSONAL_SPACE : 0
         
         // Check if waypoint is inside an obstacle
