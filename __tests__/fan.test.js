@@ -61,9 +61,10 @@ describe('Fan Class', () => {
         expect(fan.inQueue).toBe(false)
     })
 
-    test('should initialize with provided hunger level', () => {
-        const hungryFan = new Fan(100, 100, mockConfig, 0.8)
-        expect(hungryFan.hunger).toBe(0.8)
+    test('should initialize hunger to random value within range', () => {
+        const hungryFan = new Fan(100, 100, mockConfig)
+        expect(hungryFan.hunger).toBeGreaterThanOrEqual(mockConfig.HUNGER_MIN_INITIAL)
+        expect(hungryFan.hunger).toBeLessThanOrEqual(mockConfig.HUNGER_MAX_INITIAL)
     })
 
     describe('update', () => {
@@ -79,6 +80,7 @@ describe('Fan Class', () => {
         test('should not increase hunger when at food stall', () => {
             fan.state = 'approaching_queue'
             fan.queueType = 'food'
+            fan.waitStartTime = Date.now() // Set waitStartTime to prevent hunger increase
             const initialHunger = fan.hunger
 
             fan.update(1, 1.0, [], mockObstacles, 0)
@@ -88,6 +90,7 @@ describe('Fan Class', () => {
 
         test('should not increase hunger when in food queue', () => {
             fan.state = 'in_queue_waiting'
+            fan.waitStartTime = Date.now() // Set waitStartTime to prevent hunger increase
             fan.queueType = 'food'
             const initialHunger = fan.hunger
 
@@ -99,6 +102,7 @@ describe('Fan Class', () => {
         test('should not increase hunger when processing at food stall', () => {
             fan.state = 'processing'
             fan.queueType = 'food'
+            fan.waitStartTime = Date.now() // Set waitStartTime to prevent hunger increase
             const initialHunger = fan.hunger
 
             fan.update(1, 1.0, [], mockObstacles, 0)
@@ -126,11 +130,12 @@ describe('Fan Class', () => {
 
         test('should not transition idle to moving before wait time', () => {
             fan.state = 'idle'
-            fan.lastStateChange = 9000
+            fan.wanderTargetUpdateTime = Date.now() // Just updated, so shouldn't transition yet
+            const initialState = fan.state
 
-            fan.update(0.1, 1.0, [], mockObstacles, 10000) // 1 second later
+            fan.update(0.1, 1.0, [], mockObstacles, Date.now() + 1000) // Only 1 second later
 
-            expect(fan.state).toBe('idle')
+            expect(fan.state).toBe(initialState)
         })
     })
 
@@ -138,7 +143,7 @@ describe('Fan Class', () => {
         test('should set random target and transition to moving', () => {
             fan.state = 'idle'
 
-            fan.startWandering(800, 600, mockObstacles, 1000)
+            fan.startWandering(mockObstacles, 1000)
 
             expect(fan.state).toBe('moving')
             expect(fan.targetX).toBeDefined()
@@ -148,7 +153,7 @@ describe('Fan Class', () => {
         test('should call setTarget with obstacles', () => {
             fan.setTarget = jest.fn()
 
-            fan.startWandering(800, 600, mockObstacles, 1000)
+            fan.startWandering(mockObstacles, 1000)
 
             expect(fan.setTarget).toHaveBeenCalledWith(
                 expect.any(Number),
@@ -159,12 +164,12 @@ describe('Fan Class', () => {
         })
 
         test('should generate valid coordinates within bounds', () => {
-            fan.startWandering(800, 600, mockObstacles, 1000)
+            fan.startWandering(mockObstacles, 1000)
 
             expect(fan.targetX).toBeGreaterThanOrEqual(0)
-            expect(fan.targetX).toBeLessThanOrEqual(800)
+            expect(fan.targetX).toBeLessThanOrEqual(mockObstacles.width)
             expect(fan.targetY).toBeGreaterThanOrEqual(0)
-            expect(fan.targetY).toBeLessThanOrEqual(600)
+            expect(fan.targetY).toBeLessThanOrEqual(mockObstacles.height * 0.7)
         })
     })
 
