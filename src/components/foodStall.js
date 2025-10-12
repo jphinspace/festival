@@ -190,7 +190,7 @@ export class FoodStall {
                 
                 // Check if fan has reached the front position
                 if (frontFan.isNearTarget(5)) {
-                    // Remove from queue and start processing
+                    // Remove from queue and send to processing position
                     queue.splice(0, 1)
                     
                     // Calculate processing position (walk up to stall counter)
@@ -200,8 +200,8 @@ export class FoodStall {
                         this.x + this.width + (spacing * 0.5)
                     const processingY = this.y + this.height / 2
                     
-                    // Set fan to processing state
-                    frontFan.state = 'processing'
+                    // Fan walks to processing position (not stationary yet)
+                    frontFan.state = 'walking_to_process'
                     frontFan.inQueue = false
                     frontFan.waitStartTime = simulationTime
                     frontFan.setTarget(processingX, processingY, this.obstacles, simulationTime)
@@ -210,8 +210,6 @@ export class FoodStall {
                     
                     // Update remaining fans' positions
                     this.updateQueuePositions(width, height, true, simulationTime)
-                } else if (!frontFan.processingAtStall) {
-                    // Fan is at front but hasn't reached position yet - they'll keep moving forward
                 }
             }
         })
@@ -230,47 +228,60 @@ export class FoodStall {
      * @returns {boolean} True if fan was processed
      */
     checkAndProcessFan(fan, width, height, simulationTime) {
-        if (fan.processingAtStall !== this || fan.state !== 'processing') {
+        if (fan.processingAtStall !== this) {
             return false
         }
         
-        // Check if fan has reached processing position and waited long enough
-        if (fan.isNearTarget(5) && 
-            fan.waitStartTime && 
-            simulationTime - fan.waitStartTime >= this.config.FOOD_WAIT_TIME) {
-            
-            // Decrease hunger and complete processing
-            fan.hunger = Math.max(0, fan.hunger - this.config.HUNGER_DECREASE_AMOUNT)
-            fan.hasEatenFood = true // Mark as having eaten
-            
-            // Move to the side after eating
-            const side = fan.processingSide
-            const moveDistance = 80 + Math.random() * 50 // Move 80-130 pixels to the side
-            let targetX, targetY
-            
-            if (side === 'left') {
-                // If on left queue, move further left
-                targetX = this.x - moveDistance
-                targetY = this.y + (Math.random() - 0.5) * 60
-            } else {
-                // If on right queue, move further right
-                targetX = this.x + this.width + moveDistance
-                targetY = this.y + (Math.random() - 0.5) * 60
+        // If fan is walking to processing position and has arrived, change to processing
+        if (fan.state === 'walking_to_process' && fan.isNearTarget(5)) {
+            fan.state = 'processing'
+            // Clear target and waypoints - fan is now stationary
+            fan.targetX = fan.x
+            fan.targetY = fan.y
+            fan.staticWaypoints = []
+            fan.waypointUpdateTimes = []
+            fan.dynamicWaypoint = null
+        }
+        
+        // Only check processing time if fan is actually in processing state (not walking)
+        if (fan.state === 'processing') {
+            // Check if fan has waited long enough
+            if (fan.waitStartTime && 
+                simulationTime - fan.waitStartTime >= this.config.FOOD_WAIT_TIME) {
+                
+                // Decrease hunger and complete processing
+                fan.hunger = Math.max(0, fan.hunger - this.config.HUNGER_DECREASE_AMOUNT)
+                fan.hasEatenFood = true // Mark as having eaten
+                
+                // Move to the side after eating
+                const side = fan.processingSide
+                const moveDistance = 80 + Math.random() * 50 // Move 80-130 pixels to the side
+                let targetX, targetY
+                
+                if (side === 'left') {
+                    // If on left queue, move further left
+                    targetX = this.x - moveDistance
+                    targetY = this.y + (Math.random() - 0.5) * 60
+                } else {
+                    // If on right queue, move further right
+                    targetX = this.x + this.width + moveDistance
+                    targetY = this.y + (Math.random() - 0.5) * 60
+                }
+                
+                // Clamp to canvas bounds
+                targetX = Math.max(20, Math.min(width - 20, targetX))
+                targetY = Math.max(20, Math.min(height * 0.7, targetY))
+                
+                fan.setTarget(targetX, targetY, this.obstacles, simulationTime)
+                fan.state = 'moving'
+                
+                // Clean up processing references
+                delete fan.processingAtStall
+                delete fan.processingSide
+                delete fan.waitStartTime
+                
+                return true
             }
-            
-            // Clamp to canvas bounds
-            targetX = Math.max(20, Math.min(width - 20, targetX))
-            targetY = Math.max(20, Math.min(height * 0.7, targetY))
-            
-            fan.setTarget(targetX, targetY, this.obstacles, simulationTime)
-            fan.state = 'moving'
-            
-            // Clean up processing references
-            delete fan.processingAtStall
-            delete fan.processingSide
-            delete fan.waitStartTime
-            
-            return true
         }
         
         return false

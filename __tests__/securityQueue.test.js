@@ -128,13 +128,15 @@ describe('SecurityQueue', () => {
         
         const startTime = 1000;
         
-        // Start processing fan1
+        // Start processing fan1 - should be walking to process position
         securityQueue.update(startTime)
-        expect(fan1.state).toBe('processing')
+        expect(fan1.state).toBe('walking_to_process')
         
-        // Keep fan at position during check
-        fan1.x = fan1.targetX;
-        fan1.y = fan1.targetY;
+        // Move fan to processing position and update - should transition to processing
+        fan1.x = fan1.targetX
+        fan1.y = fan1.targetY
+        securityQueue.update(startTime + 10)
+        expect(fan1.state).toBe('processing')
         
         // After enhanced security time - fan1 should be sent to back (starts walking there)
         securityQueue.update(startTime + mockConfig.ENHANCED_SECURITY_TIME + 100)
@@ -180,14 +182,18 @@ describe('SecurityQueue', () => {
         
         const startTime = 1000;
         
-        // Start processing
+        // Start processing - should be walking to process position
         securityQueue.update(startTime)
-        expect(fan.state).toBe('processing')
+        expect(fan.state).toBe('walking_to_process')
         
         // Fan should now have a processing position target
-        // Move fan to their NEW processing position (not the old front position)
+        // Move fan to their NEW processing position
         fan.x = fan.targetX
         fan.y = fan.targetY
+        
+        // Update to transition to processing state
+        securityQueue.update(startTime + 10)
+        expect(fan.state).toBe('processing')
         
         // After enhanced security time - fan should be sent to back
         securityQueue.update(startTime + mockConfig.ENHANCED_SECURITY_TIME + 100)

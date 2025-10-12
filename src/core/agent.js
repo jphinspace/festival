@@ -64,10 +64,11 @@ export class Agent {
             this.waypointUpdateTimes = []
         }
         
-        // Set state to moving (unless already in a queue/processing state)
+        // Set state to moving (unless already in a queue/processing/walking state)
         if (this.state !== 'in_queue' && 
             this.state !== 'approaching_queue' && 
-            this.state !== 'processing') {
+            this.state !== 'processing' &&
+            this.state !== 'walking_to_process') {
             this.state = 'moving'
         }
         
@@ -228,98 +229,6 @@ export class Agent {
     }
 
     /**
-     * Calculate dynamic waypoint for avoiding other fans
-     * Uses local knowledge (MAX_DETECTION_DISTANCE) and 30-degree avoidance angle
-     * Updated every frame for responsive fan avoidance
-     * @param {Agent[]} otherAgents - Array of other agents to avoid
-     * @param {number} nextTargetX - Next waypoint or final target X
-     * @param {number} nextTargetY - Next waypoint or final target Y
-     * @param {Obstacles} obstacles - Obstacles manager for validation
-     * @returns {Object|null} Single waypoint object {x, y} or null
-     */
-    calculateDynamicFanAvoidance(otherAgents, nextTargetX, nextTargetY, obstacles = null) {
-        const MAX_DETECTION_DISTANCE = 100; // Local knowledge limit
-        const AVOIDANCE_ANGLE = Math.PI / 6; // 30 degrees - small angle for mostly straight paths
-        const MIN_AVOIDANCE_DISTANCE = 20; // Minimum distance to create waypoint
-        
-        // Direction to next target
-        const toTargetDx = nextTargetX - this.x;
-        const toTargetDy = nextTargetY - this.y;
-        const distToTarget = Math.sqrt(toTargetDx * toTargetDx + toTargetDy * toTargetDy);
-        
-        if (distToTarget < 5) return null; // Already at target
-        
-        const targetDirX = toTargetDx / distToTarget;
-        const targetDirY = toTargetDy / distToTarget;
-        
-        // Find fans in the way
-        let needsAvoidance = false;
-        let avoidRight = false;
-        
-        for (const other of otherAgents) {
-            if (other === this) continue;
-            // Note: Removed !other.isMoving() check - we need to avoid ALL fans, moving or stuck
-            
-            const dx = other.x - this.x;
-            const dy = other.y - this.y;
-            const distToOther = Math.sqrt(dx * dx + dy * dy);
-            
-            // Only consider nearby fans (local knowledge)
-            if (distToOther > MAX_DETECTION_DISTANCE) continue;
-            
-            // Check if other fan is roughly in our path to target
-            const dotProduct = (dx * targetDirX + dy * targetDirY) / distToOther;
-            
-            // Fan is in our way if they're ahead of us (dotProduct > 0.5 means within ~60 degrees)
-            // OR if they're very close (within personal space * 2) at any angle (handles perpendicular collisions)
-            const inOurPath = dotProduct > 0.5 && distToOther < this.config.PERSONAL_SPACE * 3;
-            const veryClose = distToOther < this.config.PERSONAL_SPACE * 2;
-            
-            if (inOurPath || veryClose) {
-                needsAvoidance = true;
-                
-                // Determine if we should avoid right or left
-                // Cross product tells us if other fan is to our left or right
-                const crossProduct = targetDirX * dy - targetDirY * dx;
-                
-                // Both fans avoid to their right (positive cross = fan on left, avoid right)
-                // This creates consistent behavior when fans are on collision course
-                avoidRight = crossProduct > 0;
-                break;
-            }
-        }
-        
-        if (!needsAvoidance) return null;
-        
-        // Create a waypoint to the side using 30-degree angle
-        const avoidDistance = MIN_AVOIDANCE_DISTANCE;
-        const angle = avoidRight ? -AVOIDANCE_ANGLE : AVOIDANCE_ANGLE;
-        
-        // Rotate direction vector by avoidance angle
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
-        const avoidDirX = targetDirX * cos - targetDirY * sin;
-        const avoidDirY = targetDirX * sin + targetDirY * cos;
-        
-        // Create waypoint
-        const waypointX = this.x + avoidDirX * avoidDistance;
-        const waypointY = this.y + avoidDirY * avoidDistance;
-        
-        // Validate dynamic waypoint isn't inside an obstacle
-        if (obstacles) {
-            const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? 
-                this.config.PERSONAL_SPACE : 0
-            
-            // Check if waypoint is inside an obstacle
-            if (obstacles.checkCollision(waypointX, waypointY, this.radius, this.state, personalSpaceBuffer)) {
-                return null // Waypoint is inside an obstacle, don't use it
-            }
-        }
-        
-        return { x: waypointX, y: waypointY }
-    }
-
-    /**
      * Update agent state for current frame
      * @param {number} deltaTime - Time since last frame in seconds
      * @param {number} simulationSpeed - Speed multiplier for simulation
@@ -328,8 +237,8 @@ export class Agent {
      * @param {number} simulationTime - Current simulation time in milliseconds
      */
     update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null, simulationTime = 0) {
-        // Allow movement for moving, in_queue, passed_security, and approaching_queue states
-        if ((this.state === 'moving' || this.state === 'in_queue' || this.state === 'passed_security' || this.state === 'approaching_queue') && this.targetX !== null) {
+        // Allow movement for moving, in_queue, passed_security, approaching_queue, returning_to_queue, and walking_to_process states
+        if ((this.state === 'moving' || this.state === 'in_queue' || this.state === 'passed_security' || this.state === 'approaching_queue' || this.state === 'returning_to_queue' || this.state === 'walking_to_process') && this.targetX !== null) {
             const currentTime = simulationTime || Date.now()
             const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? 
                 this.config.PERSONAL_SPACE : 0
@@ -389,8 +298,8 @@ export class Agent {
             }
             
             // Calculate dynamic fan avoidance waypoint (updated every frame)
-            this.dynamicWaypoint = this.calculateDynamicFanAvoidance(
-                otherAgents, nextStaticTargetX, nextStaticTargetY, obstacles
+            this.dynamicWaypoint = Pathfinding.calculateDynamicFanAvoidance(
+                this, otherAgents, nextStaticTargetX, nextStaticTargetY, obstacles, this.config
             )
             
             // Determine actual movement target

@@ -209,17 +209,18 @@ export class SecurityQueue {
                 
                 // Check if fan has reached the front of the queue (position 0)
                 if (fan.isNearTarget(5)) {
-                    // Remove from queue and start processing
+                    // Remove from queue and send to processing position
                     queue.shift()
                     this.processing[queueIndex] = fan
                     this.processingStartTime[queueIndex] = simulationTime
                     
-                    // Set up processing position - walk up to security guard
+                    // Calculate processing position - walk up to security guard
                     const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X)
                     const startY = this.height * this.config.QUEUE_START_Y
                     const processingY = startY - this.config.QUEUE_SPACING // One space in front of queue
                     
-                    fan.state = 'processing'
+                    // Fan walks to processing position (not stationary yet)
+                    fan.state = 'walking_to_process'
                     fan.inQueue = false
                     fan.setTarget(queueX, processingY, this.obstacles, simulationTime)
                     
@@ -228,56 +229,70 @@ export class SecurityQueue {
                 }
             }
             
-            // If someone is being processed, check if their time is up
+            // If someone is walking to or being processed, update their state
             if (this.processing[queueIndex] !== null) {
                 const fan = this.processing[queueIndex]
                 
                 // Skip if fan is returning to queue
                 if (fan.returningToQueue !== undefined) continue
                 
-                const elapsedTime = simulationTime - this.processingStartTime[queueIndex]
-                const requiredTime = fan.enhancedSecurity ? 
-                    this.config.ENHANCED_SECURITY_TIME : 
-                    this.config.REGULAR_SECURITY_TIME
+                // If fan is walking to process position and has arrived, change to processing
+                if (fan.state === 'walking_to_process' && fan.isNearTarget(5)) {
+                    fan.state = 'processing'
+                    // Clear target and waypoints - fan is now stationary
+                    fan.targetX = fan.x
+                    fan.targetY = fan.y
+                    fan.staticWaypoints = []
+                    fan.waypointUpdateTimes = []
+                    fan.dynamicWaypoint = null
+                }
                 
-                // Check if fan has reached processing position AND time has elapsed
-                if (fan.isNearTarget(5) && elapsedTime >= requiredTime) {
-                    if (fan.enhancedSecurity) {
-                        // Send to back of the line - fan needs to walk to end
-                        fan.enhancedSecurity = false // Only enhanced once
-                        fan.goal = 'security (re-check)'
-                        
-                        // Calculate end of line position
-                        const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X)
-                        const startY = this.height * this.config.QUEUE_START_Y
-                        const spacing = this.config.QUEUE_SPACING
-                        const endPosition = queue.length + entering.length
-                        const endY = startY + (endPosition * spacing)
-                        
-                        // Set target first (which might change state to moving)
-                        fan.inQueue = false
-                        fan.setTarget(queueX, endY, this.obstacles, simulationTime)
-                        
-                        // Then override state to returning_to_queue
-                        fan.state = 'returning_to_queue'
-                        fan.returningToQueue = queueIndex
-                        
-                        // Keep fan in processing until they reach end of line
-                        // Don't clear processing here - will be cleared when fan reaches end
-                    } else {
-                        // Allow into festival - move straight ahead to CENTER of festival
-                        // All fans should converge to center regardless of which queue they came from
-                        const targetX = this.width * 0.5 // Center of festival
-                        const targetY = this.height * 0.3 // Move to festival area (30% down from top)
-                        fan.goal = 'exploring festival'
-                        fan.setTarget(targetX, targetY, this.obstacles, simulationTime)
-                        fan.state = 'passed_security'
-                        fan.inQueue = false
-                        fan.justPassedSecurity = true // Mark to prevent immediate wandering
-                        
-                        // Clear processing
-                        this.processing[queueIndex] = null
-                        this.processingStartTime[queueIndex] = null
+                // Only check processing time if fan is actually in processing state (not walking)
+                if (fan.state === 'processing') {
+                    const elapsedTime = simulationTime - this.processingStartTime[queueIndex]
+                    const requiredTime = fan.enhancedSecurity ? 
+                        this.config.ENHANCED_SECURITY_TIME : 
+                        this.config.REGULAR_SECURITY_TIME
+                    
+                    // Check if processing time has elapsed
+                    if (elapsedTime >= requiredTime) {
+                        if (fan.enhancedSecurity) {
+                            // Send to back of the line - fan needs to walk to end
+                            fan.enhancedSecurity = false // Only enhanced once
+                            fan.goal = 'security (re-check)'
+                            
+                            // Calculate end of line position
+                            const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X)
+                            const startY = this.height * this.config.QUEUE_START_Y
+                            const spacing = this.config.QUEUE_SPACING
+                            const endPosition = queue.length + entering.length
+                            const endY = startY + (endPosition * spacing)
+                            
+                            // Set target first (which might change state to moving)
+                            fan.inQueue = false
+                            fan.setTarget(queueX, endY, this.obstacles, simulationTime)
+                            
+                            // Then override state to returning_to_queue
+                            fan.state = 'returning_to_queue'
+                            fan.returningToQueue = queueIndex
+                            
+                            // Keep fan in processing until they reach end of line
+                            // Don't clear processing here - will be cleared when fan reaches end
+                        } else {
+                            // Allow into festival - move straight ahead to CENTER of festival
+                            // All fans should converge to center regardless of which queue they came from
+                            const targetX = this.width * 0.5 // Center of festival
+                            const targetY = this.height * 0.3 // Move to festival area (30% down from top)
+                            fan.goal = 'exploring festival'
+                            fan.setTarget(targetX, targetY, this.obstacles, simulationTime)
+                            fan.state = 'passed_security'
+                            fan.inQueue = false
+                            fan.justPassedSecurity = true // Mark to prevent immediate wandering
+                            
+                            // Clear processing
+                            this.processing[queueIndex] = null
+                            this.processingStartTime[queueIndex] = null
+                        }
                     }
                 }
             }

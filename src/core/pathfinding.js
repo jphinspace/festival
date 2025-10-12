@@ -456,3 +456,95 @@ export function shouldUpdateWaypoints(waypointUpdateTimes, currentTime, config) 
     
     return timeSinceUpdate >= baseInterval
 }
+
+/**
+ * Calculate dynamic waypoint for avoiding other agents
+ * Uses local knowledge and 30-degree avoidance angle
+ * Updated every frame for responsive agent avoidance
+ * @param {Object} agent - The agent doing the avoiding
+ * @param {Array} otherAgents - Array of other agents to avoid
+ * @param {number} nextTargetX - Next waypoint or final target X
+ * @param {number} nextTargetY - Next waypoint or final target Y
+ * @param {Obstacles} obstacles - Obstacles manager for validation
+ * @param {Object} config - Configuration object
+ * @returns {Object|null} Single waypoint object {x, y} or null
+ */
+export function calculateDynamicFanAvoidance(agent, otherAgents, nextTargetX, nextTargetY, obstacles, config) {
+    const MAX_DETECTION_DISTANCE = 100 // Local knowledge limit
+    const AVOIDANCE_ANGLE = Math.PI / 6 // 30 degrees - small angle for mostly straight paths
+    const MIN_AVOIDANCE_DISTANCE = 20 // Minimum distance to create waypoint
+    
+    // Direction to next target
+    const toTargetDx = nextTargetX - agent.x
+    const toTargetDy = nextTargetY - agent.y
+    const distToTarget = Math.sqrt(toTargetDx * toTargetDx + toTargetDy * toTargetDy)
+    
+    if (distToTarget < 5) return null // Already at target
+    
+    const targetDirX = toTargetDx / distToTarget
+    const targetDirY = toTargetDy / distToTarget
+    
+    // Find agents in the way
+    let needsAvoidance = false
+    let avoidRight = false
+    
+    for (const other of otherAgents) {
+        if (other === agent) continue
+        
+        const dx = other.x - agent.x
+        const dy = other.y - agent.y
+        const distToOther = Math.sqrt(dx * dx + dy * dy)
+        
+        // Only consider nearby agents (local knowledge)
+        if (distToOther > MAX_DETECTION_DISTANCE) continue
+        
+        // Check if other agent is roughly in our path to target
+        const dotProduct = (dx * targetDirX + dy * targetDirY) / distToOther
+        
+        // Agent is in our way if they're ahead of us (dotProduct > 0.5 means within ~60 degrees)
+        // OR if they're very close (within personal space * 2) at any angle
+        const inOurPath = dotProduct > 0.5 && distToOther < config.PERSONAL_SPACE * 3
+        const veryClose = distToOther < config.PERSONAL_SPACE * 2
+        
+        if (inOurPath || veryClose) {
+            needsAvoidance = true
+            
+            // Determine if we should avoid right or left
+            // Cross product tells us if other agent is to our left or right
+            const crossProduct = targetDirX * dy - targetDirY * dx
+            
+            // Both agents avoid to their right (positive cross = agent on left, avoid right)
+            avoidRight = crossProduct > 0
+            break
+        }
+    }
+    
+    if (!needsAvoidance) return null
+    
+    // Create a waypoint to the side using 30-degree angle
+    const avoidDistance = MIN_AVOIDANCE_DISTANCE
+    const angle = avoidRight ? -AVOIDANCE_ANGLE : AVOIDANCE_ANGLE
+    
+    // Rotate direction vector by avoidance angle
+    const cos = Math.cos(angle)
+    const sin = Math.sin(angle)
+    const avoidDirX = targetDirX * cos - targetDirY * sin
+    const avoidDirY = targetDirX * sin + targetDirY * cos
+    
+    // Create waypoint
+    const waypointX = agent.x + avoidDirX * avoidDistance
+    const waypointY = agent.y + avoidDirY * avoidDistance
+    
+    // Validate dynamic waypoint isn't inside an obstacle
+    if (obstacles) {
+        const personalSpaceBuffer = (agent.state === 'approaching_queue' || agent.state === 'moving') ? 
+            config.PERSONAL_SPACE : 0
+        
+        // Check if waypoint is inside an obstacle
+        if (obstacles.checkCollision(waypointX, waypointY, agent.radius, agent.state, personalSpaceBuffer)) {
+            return null // Waypoint is inside an obstacle, don't use it
+        }
+    }
+    
+    return { x: waypointX, y: waypointY }
+}
