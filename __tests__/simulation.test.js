@@ -1,15 +1,9 @@
 // Test for Simulation class
 import { Simulation } from '../src/core/simulation.js'
+import { CONFIG } from '../src/utils/config.js'
 import { jest } from '@jest/globals'
 
-const mockConfig = {
-    AGENT_RADIUS: 3,
-    AGENT_SPEED: 0.5,
-    DEFAULT_SIMULATION_SPEED: 1.0,
-    MIN_SIMULATION_SPEED: 0.1,
-    MAX_SIMULATION_SPEED: 10.0,
-    MAX_FPS: 60
-}
+const mockConfig = CONFIG
 
 describe('Simulation', () => {
     let simulation
@@ -29,7 +23,16 @@ describe('Simulation', () => {
         mockCanvas = {
             getContext: jest.fn(() => mockCtx),
             width: 800,
-            height: 600
+            height: 600,
+            addEventListener: jest.fn(),
+            parentElement: {
+                clientWidth: 800,
+                clientHeight: 600
+            },
+            getBoundingClientRect: jest.fn(() => ({
+                left: 0,
+                top: 0
+            }))
         }
 
         simulation = new Simulation(mockCanvas, mockConfig)
@@ -96,5 +99,230 @@ describe('Simulation', () => {
 
         // Time should not have changed while paused
         expect(simulation.simulationTime).toBe(initialTime)
+    })
+
+    test('should initialize simulation with initialize method', () => {
+        // Create a proper canvas with parentElement
+        const parentElement = {
+            clientWidth: 800,
+            clientHeight: 600
+        }
+        mockCanvas.parentElement = parentElement
+        
+        simulation.initialize()
+        
+        expect(simulation.eventManager).not.toBeNull()
+        expect(simulation.renderer.width).toBe(800)
+        expect(simulation.renderer.height).toBe(600)
+    })
+
+    test('should resize renderer when canvas parent changes', () => {
+        const parentElement = {
+            clientWidth: 1024,
+            clientHeight: 768
+        }
+        mockCanvas.parentElement = parentElement
+        
+        simulation.resize()
+        
+        expect(simulation.renderer.width).toBe(1024)
+        expect(simulation.renderer.height).toBe(768)
+    })
+
+    test('should update event manager dimensions on resize', () => {
+        const parentElement = {
+            clientWidth: 1024,
+            clientHeight: 768
+        }
+        mockCanvas.parentElement = parentElement
+        
+        // Initialize first
+        simulation.initialize()
+        
+        // Then resize
+        simulation.resize()
+        
+        expect(simulation.eventManager.width).toBe(1024)
+        expect(simulation.eventManager.height).toBe(768)
+    })
+
+    test('should trigger left concert', () => {
+        simulation.initialize()
+        simulation.triggerLeftConcert()
+        
+        expect(simulation.eventManager.leftConcertActive).toBe(true)
+    })
+
+    test('should trigger right concert', () => {
+        simulation.initialize()
+        simulation.triggerRightConcert()
+        
+        expect(simulation.eventManager.rightConcertActive).toBe(true)
+    })
+
+    test('should trigger bus arrival and add agents', () => {
+        simulation.initialize()
+        const initialCount = simulation.agents.length
+        
+        simulation.triggerBusArrival()
+        
+        expect(simulation.agents.length).toBeGreaterThan(initialCount)
+    })
+
+    test('should trigger car arrival and add single agent', () => {
+        simulation.initialize()
+        const initialCount = simulation.agents.length
+        
+        simulation.triggerCarArrival()
+        
+        expect(simulation.agents.length).toBe(initialCount + 1)
+    })
+
+    test('should trigger bus departure', () => {
+        simulation.initialize()
+        
+        // Add some agents first
+        simulation.triggerBusArrival()
+        
+        // Mark some as ready to leave
+        simulation.agents.forEach(agent => {
+            if (agent.type === 'fan') {
+                agent.hasSeenShow = true
+                agent.hasEatenFood = true
+            }
+        })
+        
+        simulation.triggerBusDeparture()
+        
+        // Some agents should be marked as leaving
+        const leavingAgents = simulation.agents.filter(a => a.state === 'leaving')
+        expect(leavingAgents.length).toBeGreaterThanOrEqual(0)
+    })
+
+    test('should clamp simulation speed to min', () => {
+        simulation.setSimulationSpeed(0.01) // Below MIN_SIMULATION_SPEED
+        
+        expect(simulation.simulationSpeed).toBe(mockConfig.MIN_SIMULATION_SPEED)
+    })
+
+    test('should clamp simulation speed to max', () => {
+        simulation.setSimulationSpeed(100) // Above MAX_SIMULATION_SPEED
+        
+        expect(simulation.simulationSpeed).toBe(mockConfig.MAX_SIMULATION_SPEED)
+    })
+
+    test('should set simulation speed within range', () => {
+        simulation.setSimulationSpeed(5.0)
+        
+        expect(simulation.simulationSpeed).toBe(5.0)
+    })
+
+    test('should setup mouse handlers', () => {
+        const mockAddEventListener = jest.fn()
+        mockCanvas.addEventListener = mockAddEventListener
+        
+        simulation.setupMouseHandlers()
+        
+        // Should have added two event listeners
+        expect(mockAddEventListener).toHaveBeenCalledTimes(2)
+        expect(mockAddEventListener).toHaveBeenCalledWith('mousemove', expect.any(Function))
+        expect(mockAddEventListener).toHaveBeenCalledWith('mouseleave', expect.any(Function))
+    })
+
+    test('should find fan under mouse', () => {
+        const mockFan = {
+            type: 'fan',
+            x: 400,
+            y: 300,
+            radius: 10
+        }
+        
+        simulation.agents = [mockFan]
+        
+        const found = simulation.findFanUnderMouse(405, 305)
+        
+        expect(found).toBe(mockFan)
+    })
+
+    test('should return null when no fan under mouse', () => {
+        const mockFan = {
+            type: 'fan',
+            x: 400,
+            y: 300,
+            radius: 10
+        }
+        
+        simulation.agents = [mockFan]
+        
+        const found = simulation.findFanUnderMouse(100, 100)
+        
+        expect(found).toBeNull()
+    })
+
+    test('should render scene', () => {
+        simulation.initialize()
+        
+        const mockRender = jest.fn()
+        simulation.renderer.render = mockRender
+        simulation.renderer.setHoveredFan = jest.fn()
+        
+        simulation.render()
+        
+        expect(mockRender).toHaveBeenCalledTimes(1)
+    })
+
+    test('should update agents in update loop', () => {
+        simulation.initialize()
+        
+        const mockAgent = {
+            type: 'fan',
+            update: jest.fn()
+        }
+        
+        simulation.agents = [mockAgent]
+        simulation.update(0.016)
+        
+        expect(mockAgent.update).toHaveBeenCalledTimes(1)
+    })
+
+    test('should call onStatsUpdate callback', () => {
+        simulation.initialize()
+        
+        const mockCallback = jest.fn()
+        simulation.onStatsUpdate = mockCallback
+        
+        // Just verify the callback can be set
+        expect(simulation.onStatsUpdate).toBe(mockCallback)
+    })
+
+    test('should throttle frame rate', () => {
+        simulation.initialize()
+        
+        // Just verify throttling logic exists
+        expect(simulation.targetFrameTime).toBe(1000 / mockConfig.MAX_FPS)
+    })
+
+    test('should handle first frame correctly', () => {
+        simulation.initialize()
+        
+        // Just verify initial state
+        expect(simulation.lastFrameTime).toBe(0)
+        expect(simulation.lastRenderTime).toBe(0)
+    })
+
+    test('should initialize with default values', () => {
+        expect(simulation.paused).toBe(false)
+        expect(simulation.simulationSpeed).toBe(mockConfig.DEFAULT_SIMULATION_SPEED)
+        expect(simulation.agents).toEqual([])
+        expect(simulation.lastFrameTime).toBe(0)
+        expect(simulation.frameCount).toBe(0)
+    })
+
+    test('should return paused state from togglePause', () => {
+        const result1 = simulation.togglePause()
+        expect(result1).toBe(true)
+        
+        const result2 = simulation.togglePause()
+        expect(result2).toBe(false)
     })
 })

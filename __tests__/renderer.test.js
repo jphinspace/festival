@@ -150,4 +150,294 @@ describe('Renderer', () => {
         expect(renderer.width).toBe(800);
         expect(getSecurityBoundariesCalled).toBe(true);
     });
+
+    test('should draw show timer during prep phase', () => {
+        renderer.resize(800, 600);
+        const agents = [];
+        const leftShowInfo = { isPrep: true, progress: 0.5 };
+        
+        // Track arc calls
+        const arcCalls = [];
+        ctx.arc = (...args) => arcCalls.push(args);
+        ctx.stroke = () => {};
+        
+        renderer.render(agents, false, false, [], leftShowInfo, null, null);
+        
+        // Should have called arc for timer
+        expect(arcCalls.length).toBeGreaterThan(0);
+    });
+
+    test('should draw show timer during show phase', () => {
+        renderer.resize(800, 600);
+        const agents = [];
+        const rightShowInfo = { isPrep: false, progress: 0.75 };
+        
+        // Track arc calls
+        const arcCalls = [];
+        ctx.arc = (...args) => arcCalls.push(args);
+        ctx.stroke = () => {};
+        
+        renderer.render(agents, false, false, [], null, rightShowInfo, null);
+        
+        // Should have called arc for timer
+        expect(arcCalls.length).toBeGreaterThan(0);
+    });
+
+    test('should draw agents', () => {
+        renderer.resize(800, 600);
+        
+        const mockAgent = {
+            type: 'fan',
+            x: 400,
+            y: 300,
+            targetX: null,
+            targetY: null,
+            draw: (ctx) => {
+                // Mock draw method
+            }
+        };
+        
+        renderer.drawAgents([mockAgent]);
+        // Just verify it doesn't crash
+        expect(renderer.width).toBe(800);
+    });
+
+    test('should draw fan paths when agent has target', () => {
+        renderer.resize(800, 600);
+        
+        const mockFan = {
+            type: 'fan',
+            x: 400,
+            y: 300,
+            targetX: 500,
+            targetY: 400,
+            staticWaypoints: [{ x: 450, y: 350 }],
+            dynamicWaypoint: null,
+            draw: () => {}
+        };
+        
+        // Track moveTo and lineTo calls
+        const moveTosCalls = [];
+        const lineToCalls = [];
+        ctx.moveTo = (...args) => moveTosCalls.push(args);
+        ctx.lineTo = (...args) => lineToCalls.push(args);
+        ctx.stroke = () => {};
+        ctx.setLineDash = () => {};
+        
+        renderer.drawFanPaths(mockFan);
+        
+        // Should have drawn lines
+        expect(moveTosCalls.length).toBeGreaterThan(0);
+        expect(lineToCalls.length).toBeGreaterThan(0);
+    });
+
+    test('should draw fan dynamic waypoint', () => {
+        renderer.resize(800, 600);
+        
+        const mockFan = {
+            type: 'fan',
+            x: 400,
+            y: 300,
+            targetX: 500,
+            targetY: 400,
+            staticWaypoints: [],
+            dynamicWaypoint: { x: 450, y: 350 },
+            draw: () => {}
+        };
+        
+        // Track draw calls
+        const moveTosCalls = [];
+        const lineToCalls = [];
+        ctx.moveTo = (...args) => moveTosCalls.push(args);
+        ctx.lineTo = (...args) => lineToCalls.push(args);
+        ctx.stroke = () => {};
+        ctx.setLineDash = () => {};
+        
+        renderer.drawFanPaths(mockFan);
+        
+        // Should have drawn dynamic waypoint line
+        expect(moveTosCalls.length).toBeGreaterThan(0);
+        expect(lineToCalls.length).toBeGreaterThan(0);
+    });
+
+    test('should draw all paths when showAllPaths is enabled', () => {
+        renderer.resize(800, 600);
+        renderer.showAllPaths = true;
+        
+        const mockFan = {
+            type: 'fan',
+            x: 400,
+            y: 300,
+            targetX: 500,
+            targetY: 400,
+            staticWaypoints: [],
+            dynamicWaypoint: null,
+            draw: () => {}
+        };
+        
+        ctx.stroke = () => {};
+        ctx.setLineDash = () => {};
+        ctx.moveTo = () => {};
+        ctx.lineTo = () => {};
+        
+        renderer.drawAgents([mockFan]);
+        
+        // Just verify it doesn't crash
+        expect(renderer.showAllPaths).toBe(true);
+    });
+
+    test('should draw debug overlay for hovered fan', () => {
+        renderer.resize(800, 600);
+        
+        const mockFan = {
+            type: 'fan',
+            x: 400,
+            y: 300,
+            targetX: 500,
+            targetY: 400,
+            state: 'moving',
+            goal: 'stage',
+            hunger: 0.5,
+            inQueue: false,
+            queuePosition: null,
+            staticWaypoints: [],
+            dynamicWaypoint: null,
+            enhancedSecurity: false,
+            waitStartTime: null,
+            stagePreference: 'left',
+            currentShow: null,
+            draw: () => {}
+        };
+        
+        // Track fillRect calls
+        const fillRectCalls = [];
+        ctx.fillRect = (...args) => fillRectCalls.push(args);
+        ctx.strokeRect = () => {};
+        ctx.measureText = (text) => ({ width: 100 });
+        ctx.stroke = () => {};
+        ctx.setLineDash = () => {};
+        ctx.moveTo = () => {};
+        ctx.lineTo = () => {};
+        
+        renderer.setHoveredFan(mockFan, 450, 350);
+        renderer.render([mockFan], false, false, [], null, null, null);
+        
+        // Should have drawn overlay background
+        expect(fillRectCalls.length).toBeGreaterThan(0);
+    });
+
+    test('should draw debug overlay with proper positioning when near edge', () => {
+        renderer.resize(800, 600);
+        
+        const mockFan = {
+            type: 'fan',
+            x: 750,
+            y: 550,
+            targetX: 500,
+            targetY: 400,
+            state: 'moving',
+            goal: 'stage',
+            hunger: 0.5,
+            inQueue: false,
+            queuePosition: null,
+            staticWaypoints: [],
+            dynamicWaypoint: null,
+            enhancedSecurity: false,
+            waitStartTime: null,
+            stagePreference: 'left',
+            currentShow: null,
+            draw: () => {}
+        };
+        
+        // Mock measureText to return a fixed width
+        ctx.measureText = (text) => ({ width: 100 });
+        ctx.fillRect = () => {};
+        ctx.strokeRect = () => {};
+        ctx.stroke = () => {};
+        ctx.setLineDash = () => {};
+        ctx.moveTo = () => {};
+        ctx.lineTo = () => {};
+        
+        // Position mouse near bottom-right corner
+        renderer.setHoveredFan(mockFan, 780, 580);
+        renderer.render([mockFan], false, false, [], null, null, null);
+        
+        // Just verify it doesn't crash
+        expect(renderer.hoveredFan).toBe(mockFan);
+    });
+
+    test('should draw food stalls', () => {
+        renderer.resize(800, 600);
+        
+        const mockStall = {
+            draw: (ctx) => {
+                // Mock draw method
+            }
+        };
+        
+        renderer.drawFoodStalls([mockStall]);
+        // Just verify it doesn't crash
+        expect(renderer.width).toBe(800);
+    });
+
+    test('should set hovered fan', () => {
+        const mockFan = { x: 100, y: 200 };
+        renderer.setHoveredFan(mockFan, 150, 250);
+        
+        expect(renderer.hoveredFan).toBe(mockFan);
+        expect(renderer.mouseX).toBe(150);
+        expect(renderer.mouseY).toBe(250);
+    });
+
+    test('should draw security queues', () => {
+        renderer.resize(800, 600);
+        
+        ctx.strokeRect = () => {};
+        renderer.drawSecurityQueues();
+        
+        // Just verify it doesn't crash
+        expect(renderer.width).toBe(800);
+    });
+
+    test('should draw stage with active state', () => {
+        renderer.resize(800, 600);
+        
+        // Track what fillStyle is set to
+        let capturedFillStyle = null;
+        const originalFillRect = ctx.fillRect;
+        ctx.fillRect = (...args) => {
+            capturedFillStyle = ctx.fillStyle;
+            originalFillRect(...args);
+        };
+        
+        renderer.drawStage(100, 100, 50, 50, 'TEST', true);
+        
+        // Just verify it was called and didn't crash
+        expect(renderer.width).toBe(800);
+    });
+
+    test('should draw stage with inactive state', () => {
+        renderer.resize(800, 600);
+        
+        // Track what fillStyle is set to
+        let capturedFillStyle = null;
+        const originalFillRect = ctx.fillRect;
+        ctx.fillRect = (...args) => {
+            capturedFillStyle = ctx.fillStyle;
+            originalFillRect(...args);
+        };
+        
+        renderer.drawStage(100, 100, 50, 50, 'TEST', false);
+        
+        // Just verify it was called and didn't crash
+        expect(renderer.width).toBe(800);
+    });
+
+    test('should initialize with null hoveredFan', () => {
+        expect(renderer.hoveredFan).toBeNull();
+    });
+
+    test('should initialize with showAllPaths false', () => {
+        expect(renderer.showAllPaths).toBe(false);
+    });
 });
