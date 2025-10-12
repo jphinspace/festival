@@ -179,19 +179,21 @@ export class Agent {
      * @returns {Object|null} {x, y} position or null if no valid position found
      */
     findAvoidancePosition(targetDx, targetDy, moveDistance, obstacles) {
-        const distance = Math.sqrt(targetDx * targetDx + targetDy * targetDy);
-        if (distance === 0) return null;
+        if (!obstacles) return null
         
-        const dirX = targetDx / distance;
-        const dirY = targetDy / distance;
+        const distance = Math.sqrt(targetDx * targetDx + targetDy * targetDy)
+        if (distance === 0) return null
+        
+        const dirX = targetDx / distance
+        const dirY = targetDy / distance
         
         // Perpendicular direction for side-stepping
-        const perpX = -dirY;
-        const perpY = dirX;
+        const perpX = -dirY
+        const perpY = dirX
         
         // Use personal space buffer for food stalls when approaching_queue or moving
         const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? 
-            this.config.PERSONAL_SPACE : 0;
+            this.config.PERSONAL_SPACE : 0
         
         // Try multiple avoidance strategies in order of preference
         const strategies = [
@@ -213,16 +215,16 @@ export class Agent {
             // 6. Try moving perpendicular left
             { x: this.x - perpX * moveDistance, 
               y: this.y - perpY * moveDistance }
-        ];
+        ]
         
         // Try each strategy
         for (const pos of strategies) {
             if (!obstacles.checkCollision(pos.x, pos.y, this.radius, this.state, personalSpaceBuffer)) {
-                return pos;
+                return pos
             }
         }
         
-        return null; // No valid position found
+        return null // No valid position found
     }
 
     /**
