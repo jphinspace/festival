@@ -163,6 +163,27 @@ export class FoodStall extends QueuedProcessor {
      * @param {number} simulationTime - Current simulation time in milliseconds
      */
     /**
+     * Implement abstract method to check if food processing is complete
+     * @param {Fan} fan - Fan being processed
+     * @param {number} simulationTime - Current simulation time
+     * @param {number} processingStartTime - When processing started (fan.waitStartTime in this case)
+     * @returns {Object} {completed: boolean, action: string, data: Object}
+     */
+    checkProcessingComplete(fan, simulationTime, processingStartTime) {
+        // Check if fan has waited long enough
+        if (processingStartTime && 
+            simulationTime - processingStartTime >= this.config.FOOD_WAIT_TIME) {
+            return {
+                completed: true,
+                action: 'release',
+                data: { side: fan.processingSide }
+            }
+        }
+        
+        return { completed: false, action: null, data: {} }
+    }
+
+    /**
      * Process queue - handle fans at front and those entering
      * @param {number} width - Canvas width
      * @param {number} height - Canvas height
@@ -177,47 +198,35 @@ export class FoodStall extends QueuedProcessor {
             { queue: this.leftQueue, approaching: this.leftApproaching, side: 'left' },
             { queue: this.rightQueue, approaching: this.rightApproaching, side: 'right' }
         ].forEach(({ queue, approaching, side }) => {
-            // Use QueueManager to handle approaching->queue transitions
-            QueueManager.processApproaching(
-                queue,
-                approaching,
-                () => this.updateQueuePositions(width, height, true, simulationTime),
-                10  // Threshold
-            )
+            // Process fans entering the queue
+            this.processEntering(queue, approaching, (forceUpdate, simTime) => {
+                this.updateQueuePositions(width, height, forceUpdate, simTime)
+            }, simulationTime)
             
             // Process the fan at the front of the queue
-            if (queue.length > 0) {
-                const frontFan = queue[0]
-                
-                // Check if fan has reached the front position
-                if (frontFan.isNearTarget(5)) {
+            this.processFrontOfQueue(
+                queue,
+                approaching,
+                () => {
                     // Calculate processing position (walk up to stall counter)
                     const spacing = 8
                     const processingX = side === 'left' ? 
                         this.x - (spacing * 0.5) :  // Half spacing from stall
                         this.x + this.width + (spacing * 0.5)
                     const processingY = this.y + this.height / 2
-                    
-                    // Use base class to handle processing start
-                    const result = this.startProcessingFan(
-                        queue,
-                        approaching,
-                        () => ({ x: processingX, y: processingY }),
-                        null,
-                        simulationTime
-                    )
-                    
-                    if (result.shouldStartProcessing) {
-                        const fan = result.fanToProcess
-                        fan.waitStartTime = simulationTime
-                        fan.processingAtStall = this // Keep reference to this stall
-                        fan.processingSide = side
-                        
-                        // Update remaining fans' positions
-                        this.updateQueuePositions(width, height, true, simulationTime)
-                    }
+                    return { x: processingX, y: processingY }
+                },
+                null, // No tracking of current processing fan
+                simulationTime,
+                (fan, simTime) => {
+                    // Set processor-specific state
+                    fan.waitStartTime = simTime
+                    fan.processingAtStall = this // Keep reference to this stall
+                    fan.processingSide = side
+                    // Update remaining fans' positions
+                    this.updateQueuePositions(width, height, true, simTime)
                 }
-            }
+            )
         })
         
         // Check for fans currently being processed (not in queue anymore)
@@ -241,18 +250,17 @@ export class FoodStall extends QueuedProcessor {
         // Use base class to check for processing transition
         this.checkProcessingTransition(fan)
         
-        // Only check processing time if fan is actually in processing state (not advancing)
+        // Only check processing completion if fan is actually in processing state (not advancing)
         if (fan.state === 'processing') {
-            // Check if fan has waited long enough
-            if (fan.waitStartTime && 
-                simulationTime - fan.waitStartTime >= this.config.FOOD_WAIT_TIME) {
-                
+            const result = this.checkProcessingComplete(fan, simulationTime, fan.waitStartTime)
+            
+            if (result.completed && result.action === 'release') {
                 // Decrease hunger and complete processing
                 fan.hunger = Math.max(0, fan.hunger - this.config.HUNGER_DECREASE_AMOUNT)
                 fan.hasEatenFood = true // Mark as having eaten
                 
                 // Move to the side after eating (using shared wandering logic but with custom position)
-                const side = fan.processingSide
+                const side = result.data.side
                 const moveDistance = 80 + Math.random() * 50 // Move 80-130 pixels to the side
                 let targetX, targetY
                 

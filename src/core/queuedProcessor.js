@@ -23,43 +23,64 @@ export class QueuedProcessor {
     }
 
     /**
-     * Start processing a fan from the front of a queue
+     * Process fans entering the queue - transitions from approaching to in_queue
+     * @param {Array} queue - Queue array
+     * @param {Array} entering - Entering fans array
+     * @param {Function} updatePositionsCallback - Callback to update queue positions after fan joins
+     * @param {number} simulationTime - Current simulation time
+     */
+    processEntering(queue, entering, updatePositionsCallback, simulationTime) {
+        for (let i = entering.length - 1; i >= 0; i--) {
+            const fan = entering[i]
+            
+            // Check if fan has reached the entry point
+            if (fan.isNearTarget(5)) {
+                // Move from entering to actual queue
+                entering.splice(i, 1)
+                queue.push(fan)
+                fan.state = 'in_queue_waiting'
+                // Update all queue positions since someone joined
+                updatePositionsCallback(true, simulationTime)
+            }
+        }
+    }
+
+    /**
+     * Process front of queue - start processing fan if they've reached front position
      * @param {Array} queue - Queue array
      * @param {Array} entering - Entering fans array
      * @param {Function} getProcessingPosition - Function that returns {x, y} for processing position
-     * @param {Fan|null} currentProcessing - Currently processing fan (or null)
+     * @param {any} currentProcessing - Currently processing value (fan or null)
      * @param {number} simulationTime - Current simulation time
-     * @returns {Object} {shouldStartProcessing: boolean, fanToProcess: Fan|null}
+     * @param {Function} onStartProcessing - Callback when processing starts with fan
+     * @returns {any} New processing value (fan if started, null otherwise)
      */
-    startProcessingFan(queue, entering, getProcessingPosition, currentProcessing, simulationTime) {
-        const result = {
-            shouldStartProcessing: false,
-            fanToProcess: null
-        }
-
-        // Process the fan at the front of the queue if not already processing
-        if (queue.length > 0 && !currentProcessing) {
-            const frontFan = queue[0]
+    processFrontOfQueue(queue, entering, getProcessingPosition, currentProcessing, simulationTime, onStartProcessing) {
+        // If no one is being processed and queue has people, start processing
+        if (currentProcessing === null && queue.length > 0) {
+            const fan = queue[0]
             
-            // Check if fan has reached the front position
-            if (frontFan.isNearTarget(5)) {
-                // Remove from queue and send to processing position
+            // Check if fan has reached the front of the queue (position 0)
+            if (fan.isNearTarget(5)) {
+                // Remove from queue
                 queue.shift()
                 
                 // Get processing position from callback
                 const processingPos = getProcessingPosition()
                 
                 // Fan advances to processing position (still moving in queue)
-                frontFan.state = 'in_queue_advancing'
-                frontFan.inQueue = true // Still in queue, just advancing to processing
-                frontFan.setTarget(processingPos.x, processingPos.y, this.obstacles, simulationTime)
+                fan.state = 'in_queue_advancing'
+                fan.inQueue = true // Still in queue, just advancing to processing
+                fan.setTarget(processingPos.x, processingPos.y, this.obstacles, simulationTime)
                 
-                result.shouldStartProcessing = true
-                result.fanToProcess = frontFan
+                // Call callback to set processor-specific state
+                onStartProcessing(fan, simulationTime)
+                
+                return fan
             }
         }
-
-        return result
+        
+        return currentProcessing
     }
 
     /**
@@ -78,6 +99,17 @@ export class QueuedProcessor {
             return true
         }
         return false
+    }
+
+    /**
+     * Abstract method for processing completion - must be implemented by subclasses
+     * @param {Fan} fan - Fan being processed
+     * @param {number} simulationTime - Current simulation time
+     * @param {number} processingStartTime - When processing started
+     * @returns {Object} {completed: boolean, action: string} - Whether processing is complete and what action to take
+     */
+    checkProcessingComplete(fan, simulationTime, processingStartTime) {
+        throw new Error('checkProcessingComplete must be implemented by subclass')
     }
 
     /**
@@ -104,14 +136,14 @@ export class QueuedProcessor {
             const targetPos = getTargetPosition(index)
             
             // Check if fan has reached their queue position
-            const distToTarget = QueueManager.prototype.getDistanceToPosition.call(this, fan, targetPos)
+            const distToTarget = this.getDistanceToPosition(fan, targetPos)
             const isAtTarget = distToTarget < 5 // Within 5 pixels
             
             // Throttle setTarget calls to once every 125ms per fan (unless forceUpdate is true)
             // But only set target if fan is not at target already
             if (!isAtTarget) {
-                const updated = QueueManager.prototype.updateFanTarget.call(
-                    this, fan, targetPos, this.obstacles, forceUpdate, currentTime
+                const updated = this.updateFanTarget(
+                    fan, targetPos, this.obstacles, forceUpdate, currentTime
                 )
                 if (updated) {
                     fan.state = 'in_queue_advancing'

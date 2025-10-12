@@ -190,7 +190,6 @@ export class EventManager {
             
             if (shouldAttend) {
                 agent.currentShow = stage;
-                agent.justPassedSecurity = false; // Clear flag when assigned to event
                 
                 // Small percentage go up front (cluster tightly)
                 if (Math.random() < 0.2) {
@@ -227,8 +226,6 @@ export class EventManager {
                     if (agent.state !== 'passed_security' && agent.state !== 'idle' && agent.state !== 'moving') {
                         return;
                     }
-                    
-                    agent.justPassedSecurity = false; // Clear flag when getting food
                     
                     // Choose a food stall randomly (d4 roll) - each stall has different food
                     // Fans should distribute across all 4 stalls rather than all using one

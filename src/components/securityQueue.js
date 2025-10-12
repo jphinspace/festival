@@ -132,6 +132,38 @@ export class SecurityQueue extends QueuedProcessor {
     }
     
     /**
+     * Implement abstract method to check if security processing is complete
+     * @param {Fan} fan - Fan being processed
+     * @param {number} simulationTime - Current simulation time
+     * @param {number} processingStartTime - When processing started
+     * @returns {Object} {completed: boolean, action: string, data: Object}
+     */
+    checkProcessingComplete(fan, simulationTime, processingStartTime) {
+        const elapsedTime = simulationTime - processingStartTime
+        const requiredTime = fan.enhancedSecurity ? 
+            this.config.ENHANCED_SECURITY_TIME : 
+            this.config.REGULAR_SECURITY_TIME
+        
+        if (elapsedTime >= requiredTime) {
+            if (fan.enhancedSecurity) {
+                return {
+                    completed: true,
+                    action: 'return_to_queue',
+                    data: { queueIndex: fan.queueIndex }
+                }
+            } else {
+                return {
+                    completed: true,
+                    action: 'release',
+                    data: {}
+                }
+            }
+        }
+        
+        return { completed: false, action: null, data: {} }
+    }
+
+    /**
      * Process queues - handle fans at the front and those entering
      * @param {number} simulationTime - Current simulation time in milliseconds
      */
@@ -141,20 +173,9 @@ export class SecurityQueue extends QueuedProcessor {
             const entering = this.entering[queueIndex]
             
             // Process fans entering the queue FIRST (before updating positions)
-            for (let i = entering.length - 1; i >= 0; i--) {
-                const fan = entering[i]
-                
-                // Check if fan has reached the entry point
-                if (fan.isNearTarget(5)) {
-                    // Move from entering to actual queue
-                    entering.splice(i, 1)
-                    queue.push(fan)
-                    fan.state = 'in_queue'
-                    // inQueue is already true from addToQueue - consistent with food queues
-                    // Update all queue positions and sort since someone joined
-                    this.updateQueuePositions(queueIndex, true, simulationTime)
-                }
-            }
+            this.processEntering(queue, entering, (forceUpdate, simTime) => {
+                this.updateQueuePositions(queueIndex, forceUpdate, simTime)
+            }, simulationTime)
             
             // Update positions for all fans after processing enters
             this.updateQueuePositions(queueIndex, false, simulationTime)
@@ -197,31 +218,29 @@ export class SecurityQueue extends QueuedProcessor {
             }
             
             // If no one is being processed and queue has people, start processing
-            if (this.processing[queueIndex] === null && queue.length > 0) {
-                const fan = queue[0]
-                
-                // Check if fan has reached the front of the queue (position 0)
-                if (fan.isNearTarget(5)) {
-                    // Use base class to handle processing start
+            const newProcessing = this.processFrontOfQueue(
+                queue,
+                entering,
+                () => {
                     const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X)
                     const startY = this.height * this.config.QUEUE_START_Y
                     const processingY = startY - this.config.QUEUE_SPACING // One space in front of queue
-                    
-                    const result = this.startProcessingFan(
-                        queue,
-                        entering,
-                        () => ({ x: queueX, y: processingY }),
-                        this.processing[queueIndex],
-                        simulationTime
-                    )
-                    
-                    if (result.shouldStartProcessing) {
-                        this.processing[queueIndex] = result.fanToProcess
-                        this.processingStartTime[queueIndex] = simulationTime
-                        
-                        // Update remaining fans' positions after removing front fan
-                        this.updateQueuePositions(queueIndex, true, simulationTime)
-                    }
+                    return { x: queueX, y: processingY }
+                },
+                this.processing[queueIndex],
+                simulationTime,
+                (fan, simTime) => {
+                    // Set processor-specific state
+                    this.processing[queueIndex] = fan
+                    this.processingStartTime[queueIndex] = simTime
+                }
+            )
+            
+            // Update queue positions if we started processing someone
+            if (newProcessing !== this.processing[queueIndex]) {
+                this.processing[queueIndex] = newProcessing
+                if (newProcessing !== null) {
+                    this.updateQueuePositions(queueIndex, true, simulationTime)
                 }
             }
             
@@ -235,16 +254,12 @@ export class SecurityQueue extends QueuedProcessor {
                 // Use base class to check for processing transition
                 this.checkProcessingTransition(fan)
                 
-                // Only check processing time if fan is actually in processing state (not advancing)
+                // Only check processing completion if fan is actually in processing state (not advancing)
                 if (fan.state === 'processing') {
-                    const elapsedTime = simulationTime - this.processingStartTime[queueIndex]
-                    const requiredTime = fan.enhancedSecurity ? 
-                        this.config.ENHANCED_SECURITY_TIME : 
-                        this.config.REGULAR_SECURITY_TIME
+                    const result = this.checkProcessingComplete(fan, simulationTime, this.processingStartTime[queueIndex])
                     
-                    // Check if processing time has elapsed
-                    if (elapsedTime >= requiredTime) {
-                        if (fan.enhancedSecurity) {
+                    if (result.completed) {
+                        if (result.action === 'return_to_queue') {
                             // Send to back of the line - fan needs to walk to end
                             fan.enhancedSecurity = false // Only enhanced once
                             fan.goal = 'security (re-check)'
@@ -266,11 +281,10 @@ export class SecurityQueue extends QueuedProcessor {
                             
                             // Keep fan in processing until they reach end of line
                             // Don't clear processing here - will be cleared when fan reaches end
-                        } else {
+                        } else if (result.action === 'release') {
                             // Allow into festival - fan wanders naturally using shared logic
                             fan.goal = 'exploring festival'
                             fan.inQueue = false
-                            fan.justPassedSecurity = true // Mark to prevent immediate re-wandering
                             
                             // Start wandering immediately using shared function
                             fan.startWandering(this.obstacles, simulationTime)
