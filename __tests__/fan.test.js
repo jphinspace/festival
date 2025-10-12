@@ -378,4 +378,59 @@ describe('Fan Class', () => {
             }).not.toThrow()
         })
     })
+
+    describe('draw method - color based on state', () => {
+        let ctx
+
+        beforeEach(() => {
+            ctx = {
+                fillStyle: '',
+                beginPath: jest.fn(),
+                arc: jest.fn(),
+                fill: jest.fn()
+            }
+        })
+
+        test('should use AGENT_IN_QUEUE color for queue states', () => {
+            fan.state = AgentState.IN_QUEUE_WAITING
+            fan.draw(ctx)
+            expect(fan.color).toBe(mockConfig.COLORS.AGENT_IN_QUEUE)
+
+            fan.state = AgentState.IN_QUEUE_ADVANCING
+            fan.draw(ctx)
+            expect(fan.color).toBe(mockConfig.COLORS.AGENT_IN_QUEUE)
+
+            fan.state = AgentState.APPROACHING_QUEUE
+            fan.draw(ctx)
+            expect(fan.color).toBe(mockConfig.COLORS.AGENT_IN_QUEUE)
+        })
+
+        test('should use AGENT_BEING_CHECKED color when being checked without enhanced security', () => {
+            fan.state = AgentState.BEING_CHECKED
+            fan.enhancedSecurity = false
+            fan.draw(ctx)
+            expect(fan.color).toBe(mockConfig.COLORS.AGENT_BEING_CHECKED)
+        })
+
+        test('should use AGENT_ENHANCED_SECURITY color when being checked with enhanced security', () => {
+            fan.state = AgentState.BEING_CHECKED
+            fan.enhancedSecurity = true
+            fan.draw(ctx)
+            expect(fan.color).toBe(mockConfig.COLORS.AGENT_ENHANCED_SECURITY)
+        })
+
+        test('should use AGENT_BEING_CHECKED color for PROCESSING state without enhanced security', () => {
+            fan.state = AgentState.PROCESSING
+            fan.enhancedSecurity = false
+            fan.draw(ctx)
+            expect(fan.color).toBe(mockConfig.COLORS.AGENT_BEING_CHECKED)
+        })
+
+        test('should use AGENT_ENHANCED_SECURITY color for PROCESSING state with enhanced security', () => {
+            fan.state = AgentState.PROCESSING
+            fan.enhancedSecurity = true
+            fan.draw(ctx)
+            expect(fan.color).toBe(mockConfig.COLORS.AGENT_ENHANCED_SECURITY)
+        })
+    })
 })

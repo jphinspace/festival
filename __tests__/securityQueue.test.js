@@ -447,5 +447,40 @@ describe('SecurityQueue', () => {
             // Processing should still be the same fan
             expect(securityQueue.processing[0]).toBe(fan);
         });
+
+        test('should update queue positions when starting to process a new fan', () => {
+            const fan1 = new Fan(360, 424, mockConfig);
+            const fan2 = new Fan(360, 424, mockConfig);
+            fan1.state = AgentState.IN_QUEUE_WAITING;
+            fan2.state = AgentState.IN_QUEUE_WAITING;
+            
+            securityQueue.queues[0] = [fan1, fan2];
+            securityQueue.entering[0] = [];
+            securityQueue.processing[0] = null;
+            
+            // Process the first fan
+            securityQueue.update(1000);
+            
+            // Should have started processing and updated queue positions
+            expect(securityQueue.processing[0]).toBe(fan1);
+            expect(fan1.state).toBe(AgentState.BEING_CHECKED);
+        });
+
+        test('should handle transition from null to processing a fan', () => {
+            const fan = new Fan(360, 424, mockConfig);
+            fan.state = AgentState.IN_QUEUE_WAITING;
+            
+            securityQueue.queues[0] = [fan];
+            securityQueue.entering[0] = [];
+            securityQueue.processing[0] = null;
+            
+            const updateQueueSpy = jest.spyOn(securityQueue, 'updateQueuePositions');
+            
+            securityQueue.update(1000);
+            
+            // Should have called updateQueuePositions when starting to process
+            expect(updateQueueSpy).toHaveBeenCalledWith(0, true, 1000);
+            expect(securityQueue.processing[0]).toBe(fan);
+        });
     });
 });
