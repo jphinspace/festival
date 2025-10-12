@@ -3,6 +3,7 @@
  */
 import { QueueManager } from '../core/queueManager.js'
 import { QueuedProcessor } from '../core/queuedProcessor.js'
+import { AgentState, QueueSide } from '../utils/enums.js'
 
 export class FoodStall extends QueuedProcessor {
     /**
@@ -251,7 +252,7 @@ export class FoodStall extends QueuedProcessor {
         this.checkProcessingTransition(fan)
         
         // Only check processing completion if fan is actually in processing state (not advancing)
-        if (fan.state === 'processing') {
+        if (fan.state === AgentState.PROCESSING) {
             const result = this.checkProcessingComplete(fan, simulationTime, fan.waitStartTime)
             
             if (result.completed && result.action === 'release') {
@@ -280,7 +281,7 @@ export class FoodStall extends QueuedProcessor {
                 
                 // Set target and transition directly to moving state
                 fan.setTarget(targetX, targetY, this.obstacles, simulationTime)
-                fan.state = 'moving'
+                fan.state = AgentState.MOVING
                 
                 // Clean up processing references
                 delete fan.processingAtStall

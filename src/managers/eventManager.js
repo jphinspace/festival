@@ -3,6 +3,7 @@ import { Fan } from '../core/fan.js';
 import { SecurityQueue } from '../components/securityQueue.js';
 import { FoodStall } from '../components/foodStall.js';
 import { Obstacles } from '../components/obstacles.js';
+import { AgentState, StagePreference } from '../utils/enums.js';
 
 export class EventManager {
     constructor(config, width, height) {
@@ -166,16 +167,16 @@ export class EventManager {
      * @param {string} stage - 'left' or 'right'
      */
     moveAgentsToStage(agents, stage) {
-        const targetX = this.width * (stage === 'left' ? this.config.STAGE_LEFT_X : this.config.STAGE_RIGHT_X);
+        const targetX = this.width * (stage === StagePreference.LEFT ? this.config.STAGE_LEFT_X : this.config.STAGE_RIGHT_X);
         
         agents.forEach(agent => {
-            if (agent.type !== 'fan' || agent.state === 'leaving') return;
+            if (agent.type !== 'fan' || agent.state === AgentState.LEAVING) return;
             
             // Skip fans who are in food queue - they must finish getting food first
             if (agent.inQueue) return;
             
             // Skip fans who haven't passed security yet
-            if (agent.state !== 'passed_security' && agent.state !== 'idle' && agent.state !== 'moving') return;
+            if (agent.state !== AgentState.PASSED_SECURITY && agent.state !== AgentState.IDLE && agent.state !== AgentState.MOVING) return;
             
             // Determine if fan should attend this show
             let shouldAttend = false;
@@ -183,7 +184,7 @@ export class EventManager {
             if (agent.stagePreference === stage) {
                 // Preferred stage - always attend if not in food queue
                 shouldAttend = agent.currentShow !== stage;
-            } else if (agent.stagePreference === 'none' && !agent.currentShow) {
+            } else if (agent.stagePreference === StagePreference.NONE && !agent.currentShow) {
                 // No preference, not watching another show
                 shouldAttend = true;
             }
@@ -325,7 +326,7 @@ export class EventManager {
             const busY = this.height * this.config.BUS_Y;
             for (let i = agents.length - 1; i >= 0; i--) {
                 const agent = agents[i];
-                if (agent.state === 'leaving' && Math.abs(agent.y - busY) <= 10) {
+                if (agent.state === AgentState.LEAVING && Math.abs(agent.y - busY) <= 10) {
                     agents.splice(i, 1);
                 }
             }

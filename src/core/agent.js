@@ -3,6 +3,7 @@
  * Provides movement, collision detection, and rendering functionality
  */
 import * as Pathfinding from './pathfinding.js'
+import { AgentState } from '../utils/enums.js'
 
 export class Agent {
     /**
@@ -18,7 +19,7 @@ export class Agent {
         this.targetY = null
         this.staticWaypoints = [] // Waypoints for routing around static obstacles (stages, food stalls)
         this.dynamicWaypoint = null // Single waypoint for avoiding other fans
-        this.state = 'idle' // idle, moving, leaving, in_queue_waiting, in_queue_advancing, approaching_queue, processing, returning_to_queue
+        this.state = AgentState.IDLE
         this.config = config
         this.color = config.COLORS.AGENT_ACTIVE
         this.radius = config.AGENT_RADIUS
@@ -39,14 +40,14 @@ export class Agent {
         // Determine if this agent needs pathfinding based on state
         // Moving fans need pathfinding (but not stationary fans like those in_queue, processing, or idle)
         const needsPathfinding = obstacles && (
-            this.state === 'moving' || 
-            this.state === 'approaching_queue' || 
-            this.state === 'idle'
+            this.state === AgentState.MOVING || 
+            this.state === AgentState.APPROACHING_QUEUE || 
+            this.state === AgentState.IDLE
         )
         
         if (needsPathfinding) {
             // Calculate static waypoints using pathfinding module
-            const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? 
+            const personalSpaceBuffer = (this.state === AgentState.APPROACHING_QUEUE || this.state === AgentState.MOVING) ? 
                 this.config.PERSONAL_SPACE : 0
             
             this.staticWaypoints = Pathfinding.calculateStaticWaypoints(
@@ -65,11 +66,11 @@ export class Agent {
         }
         
         // Set state to moving (unless already in a queue/processing/advancing/waiting state)
-        if (this.state !== 'in_queue_waiting' && 
-            this.state !== 'approaching_queue' && 
-            this.state !== 'processing' &&
-            this.state !== 'in_queue_advancing') {
-            this.state = 'moving'
+        if (this.state !== AgentState.IN_QUEUE_WAITING && 
+            this.state !== AgentState.APPROACHING_QUEUE && 
+            this.state !== AgentState.PROCESSING &&
+            this.state !== AgentState.IN_QUEUE_ADVANCING) {
+            this.state = AgentState.MOVING
         }
         
         // Clear dynamic waypoint when target changes
@@ -80,7 +81,7 @@ export class Agent {
      * Mark agent as leaving the festival
      */
     markAsLeaving() {
-        this.state = 'leaving';
+        this.state = AgentState.LEAVING;
         this.color = this.config.COLORS.AGENT_LEAVING;
     }
 
@@ -99,10 +100,10 @@ export class Agent {
         // Check if one agent is passing through a queue (special case)
         // An agent is "passing through" if they're moving and not in queue, 
         // while the other is in queue
-        const thisPassingThrough = (this.state === 'moving' || this.state === 'idle') && !this.inQueue;
-        const otherInQueue = other.inQueue || other.state === 'in_queue' || other.state === 'approaching_queue';
-        const otherPassingThrough = (other.state === 'moving' || other.state === 'idle') && !other.inQueue;
-        const thisInQueue = this.inQueue || this.state === 'in_queue' || this.state === 'approaching_queue';
+        const thisPassingThrough = (this.state === AgentState.MOVING || this.state === AgentState.IDLE) && !this.inQueue;
+        const otherInQueue = other.inQueue || other.state === AgentState.IN_QUEUE || other.state === AgentState.APPROACHING_QUEUE;
+        const otherPassingThrough = (other.state === AgentState.MOVING || other.state === AgentState.IDLE) && !other.inQueue;
+        const thisInQueue = this.inQueue || this.state === AgentState.IN_QUEUE || this.state === AgentState.APPROACHING_QUEUE;
         
         if ((thisPassingThrough && otherInQueue) || (otherPassingThrough && thisInQueue)) {
             // Allow closer proximity when passing through queues
@@ -140,8 +141,8 @@ export class Agent {
      * @returns {boolean} True if agent is in a moving state
      */
     isMoving() {
-        return this.state === 'moving' || this.state === 'approaching_queue' || 
-               this.state === 'in_queue_advancing' || this.state === 'returning_to_queue';
+        return this.state === AgentState.MOVING || this.state === AgentState.APPROACHING_QUEUE || 
+               this.state === AgentState.IN_QUEUE_ADVANCING || this.state === AgentState.RETURNING_TO_QUEUE;
     }
 
     /**
@@ -193,7 +194,7 @@ export class Agent {
         const perpY = dirX
         
         // Use personal space buffer for food stalls when approaching_queue or moving
-        const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? 
+        const personalSpaceBuffer = (this.state === AgentState.APPROACHING_QUEUE || this.state === AgentState.MOVING) ? 
             this.config.PERSONAL_SPACE : 0
         
         // Try multiple avoidance strategies in order of preference
@@ -239,9 +240,9 @@ export class Agent {
     update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null, simulationTime = 0) {
         // Allow movement for moving, in_queue_advancing, approaching_queue, and returning_to_queue states
         // Note: in_queue_waiting, processing, and idle are stationary states
-        if ((this.state === 'moving' || this.state === 'in_queue_advancing' || this.state === 'approaching_queue' || this.state === 'returning_to_queue') && this.targetX !== null) {
+        if ((this.state === AgentState.MOVING || this.state === AgentState.IN_QUEUE_ADVANCING || this.state === AgentState.APPROACHING_QUEUE || this.state === AgentState.RETURNING_TO_QUEUE) && this.targetX !== null) {
             const currentTime = simulationTime || Date.now()
-            const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? 
+            const personalSpaceBuffer = (this.state === AgentState.APPROACHING_QUEUE || this.state === AgentState.MOVING) ? 
                 this.config.PERSONAL_SPACE : 0
             const waypointReachDistance = this.config.WAYPOINT_REACH_DISTANCE || 10
             
@@ -342,8 +343,8 @@ export class Agent {
                     this.waypointUpdateTimes = []
                     
                     // Transition to idle when reaching target
-                    if (this.state === 'moving') {
-                        this.state = 'idle'
+                    if (this.state === AgentState.MOVING) {
+                        this.state = AgentState.IDLE
                     }
                 }
             } else {

@@ -4,6 +4,7 @@
  */
 import { QueueManager } from '../core/queueManager.js'
 import { QueuedProcessor } from '../core/queuedProcessor.js'
+import { AgentState, FanGoal } from '../utils/enums.js'
 
 export class SecurityQueue extends QueuedProcessor {
     /**
@@ -255,14 +256,14 @@ export class SecurityQueue extends QueuedProcessor {
                 this.checkProcessingTransition(fan)
                 
                 // Only check processing completion if fan is actually in processing state (not advancing)
-                if (fan.state === 'processing') {
+                if (fan.state === AgentState.PROCESSING) {
                     const result = this.checkProcessingComplete(fan, simulationTime, this.processingStartTime[queueIndex])
                     
                     if (result.completed) {
                         if (result.action === 'return_to_queue') {
                             // Send to back of the line - fan needs to walk to end
                             fan.enhancedSecurity = false // Only enhanced once
-                            fan.goal = 'security (re-check)'
+                            fan.goal = FanGoal.SECURITY
                             
                             // Calculate end of line position
                             const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X)
@@ -276,14 +277,14 @@ export class SecurityQueue extends QueuedProcessor {
                             fan.setTarget(queueX, endY, this.obstacles, simulationTime)
                             
                             // Then override state to returning_to_queue
-                            fan.state = 'returning_to_queue'
+                            fan.state = AgentState.RETURNING_TO_QUEUE
                             fan.returningToQueue = queueIndex
                             
                             // Keep fan in processing until they reach end of line
                             // Don't clear processing here - will be cleared when fan reaches end
                         } else if (result.action === 'release') {
                             // Allow into festival - fan wanders naturally using shared logic
-                            fan.goal = 'exploring festival'
+                            fan.goal = FanGoal.EXPLORING_FESTIVAL
                             fan.inQueue = false
                             
                             // Start wandering immediately using shared function
