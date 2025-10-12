@@ -244,19 +244,13 @@ describe('QueuedProcessor Base Class', () => {
 
     describe('getDistanceToPosition', () => {
         test('should calculate distance correctly', () => {
-            mockFan.x = 0
-            mockFan.y = 0
-
-            const distance = processor.getDistanceToPosition(mockFan, 3, 4)
+            const distance = processor.getDistanceToPosition(0, 0, 3, 4)
 
             expect(distance).toBe(5) // 3-4-5 triangle
         })
 
         test('should return 0 for same position', () => {
-            mockFan.x = 100
-            mockFan.y = 200
-
-            const distance = processor.getDistanceToPosition(mockFan, 100, 200)
+            const distance = processor.getDistanceToPosition(100, 200, 100, 200)
 
             expect(distance).toBe(0)
         })
@@ -274,7 +268,8 @@ describe('QueuedProcessor Base Class', () => {
 
     describe('updateFanTarget', () => {
         test('should call setTarget with obstacles and time', () => {
-            processor.updateFanTarget(mockFan, 100, 200, 1000)
+            const targetPos = { x: 100, y: 200 }
+            processor.updateFanTarget(mockFan, targetPos, 1000)
 
             expect(mockFan.setTarget).toHaveBeenCalledWith(100, 200, mockObstacles, 1000)
         })

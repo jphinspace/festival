@@ -39,9 +39,9 @@ describe('Obstacles', () => {
         expect(busObstacles.length).toBe(1);
     });
 
-    test('should create security obstacles', () => {
+    test('should not create security obstacles (fence removed)', () => {
         const securityObstacles = obstacles.obstacles.filter(obs => obs.type === 'security');
-        expect(securityObstacles.length).toBe(2); // Left and right security lines
+        expect(securityObstacles.length).toBe(0); // Security fence has been removed
     });
 
     test('should create boundary obstacles', () => {

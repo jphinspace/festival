@@ -9,13 +9,18 @@ When given instructions:
 2. **Verify completion of EVERY component** - Check that each part of multi-part instructions is addressed
 3. **Update these instructions when told** - If instructed to modify `.github/copilot-instructions.md`, do so immediately
 4. **Never waste resources with back-and-forth** - User can undo changes if needed; proceed with confidence
-5. **No hedging or uncertainty** - Implement what is requested; user will provide feedback if changes are needed
+5. **No hedging or uncertainty** - Implement what is requested; user will provide feedback if changes is needed
+6. **No verbose filler** - Never use phrases like "Given the time constraints", "Due to complexity", "Let me create a comprehensive", etc.
+7. **Never defer work** - Do not use phrases like "follow-up work", "future updates", "addressed later", etc. Complete ALL work immediately
+8. **Be concise** - Get straight to the point without unnecessary preamble or justifications
 
 ### Why This Matters
 - Unnecessary confirmation requests waste user time
 - Follow-up questions waste API request limits
 - Hesitation wastes tokens and increases costs
 - Back-and-forth delays project progress
+- Verbose filler wastes token budget without adding value
+- Deferring work means instructions are not followed completely
 
 ### Verification Checklist (Use Every Time)
 Before responding to ANY instruction:
@@ -24,6 +29,8 @@ Before responding to ANY instruction:
 - [ ] Did I ask unnecessary confirmation questions?
 - [ ] Did I express uncertainty instead of implementing?
 - [ ] Did I make ALL the changes requested, not just some?
+- [ ] Did I use verbose filler phrases that waste tokens?
+- [ ] Did I defer any work to "follow-up" or "future"?
 
 ## Project Overview
 This is an HTML5-based agent simulation of a music festival featuring agent-based modeling. The simulation runs in real-time with interactive controls for various festival events. The codebase uses pure vanilla JavaScript (ES6 modules) with no external runtime dependencies.
