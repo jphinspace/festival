@@ -27,7 +27,9 @@ describe('Config Module', () => {
 
     test('should have hunger system properties', () => {
         expect(CONFIG).toHaveProperty('HUNGER_INCREASE_RATE')
-        expect(CONFIG).toHaveProperty('HUNGER_THRESHOLD')
+        expect(CONFIG).toHaveProperty('HUNGER_THRESHOLD_BASE')
+        expect(CONFIG).toHaveProperty('HUNGER_MIN_INITIAL')
+        expect(CONFIG).toHaveProperty('HUNGER_MAX_INITIAL')
     })
 
     test('should have queue properties', () => {

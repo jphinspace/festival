@@ -4,7 +4,11 @@ import { jest } from '@jest/globals'
 
 const mockConfig = {
     AGENT_RADIUS: 3,
-    AGENT_SPEED: 0.5
+    AGENT_SPEED: 0.5,
+    DEFAULT_SIMULATION_SPEED: 1.0,
+    MIN_SIMULATION_SPEED: 0.1,
+    MAX_SIMULATION_SPEED: 10.0,
+    MAX_FPS: 60
 }
 
 describe('Simulation', () => {
@@ -36,8 +40,8 @@ describe('Simulation', () => {
         expect(simulation.config).toBe(mockConfig)
     })
 
-    test('should start with simulation running', () => {
-        expect(simulation.isRunning).toBe(true)
+    test('should start with simulation not paused', () => {
+        expect(simulation.paused).toBe(false)
     })
 
     test('should have initial simulation time of 0', () => {
@@ -45,51 +49,52 @@ describe('Simulation', () => {
     })
 
     test('should set simulation speed', () => {
-        simulation.setSpeed(2.0)
-        expect(simulation.speed).toBe(2.0)
+        simulation.setSimulationSpeed(2.0)
+        expect(simulation.simulationSpeed).toBe(2.0)
     })
 
-    test('should pause and resume', () => {
-        simulation.pause()
-        expect(simulation.isRunning).toBe(false)
-
-        simulation.resume()
-        expect(simulation.isRunning).toBe(true)
-    })
-
-    test('should toggle pause', () => {
-        const wasRunning = simulation.isRunning
+    test('should toggle pause state', () => {
+        const wasPaused = simulation.paused
         simulation.togglePause()
-        expect(simulation.isRunning).toBe(!wasRunning)
-    })
-
-    test('should reset simulation', () => {
-        simulation.simulationTime = 1000
-        simulation.speed = 2.0
-
-        simulation.reset()
-
-        expect(simulation.simulationTime).toBe(0)
+        expect(simulation.paused).toBe(!wasPaused)
+        
+        // Toggle back
+        simulation.togglePause()
+        expect(simulation.paused).toBe(wasPaused)
     })
 
     test('should have update method', () => {
         expect(typeof simulation.update).toBe('function')
     })
 
-    test('should update simulation time when running', () => {
-        const initialTime = simulation.simulationTime
+    test('should update simulation time when not paused', () => {
+        simulation.paused = false
+        simulation.simulationTime = 0
+        simulation.simulationSpeed = 1.0
+        
+        // Mock event manager so update doesn't fail
+        simulation.eventManager = {
+            update: jest.fn()
+        }
+        
         simulation.update(0.016) // 16ms frame
         
-        // Time should have increased (depending on implementation)
-        expect(simulation.simulationTime).toBeGreaterThanOrEqual(initialTime)
+        // Time should have increased
+        expect(simulation.simulationTime).toBeGreaterThan(0)
     })
 
-    test('should not update when paused', () => {
-        simulation.pause()
+    test('should not update simulation time when paused', () => {
+        simulation.paused = true
         const initialTime = simulation.simulationTime
+
+        // Mock event manager
+        simulation.eventManager = {
+            update: jest.fn()
+        }
 
         simulation.update(0.016)
 
+        // Time should not have changed while paused
         expect(simulation.simulationTime).toBe(initialTime)
     })
 })
