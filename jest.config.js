@@ -4,8 +4,8 @@ export default {
   moduleFileExtensions: ['js', 'json'],
   testMatch: ['**/__tests__/**/*.test.js'],
   collectCoverageFrom: [
-    '*.js',
-    '!app.js',
+    'src/**/*.js',
+    '!src/app.js',
     '!jest.config.js',
     '!coverage/**'
   ],
