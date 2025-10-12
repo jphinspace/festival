@@ -165,6 +165,116 @@ export class SecurityQueue extends QueuedProcessor {
     }
 
     /**
+     * Calculate the end-of-line position for a queue
+     * @param {number} queueIndex - Index of the queue (0 or 1)
+     * @returns {{x: number, y: number}} Position at end of line
+     */
+    _calculateEndOfLinePosition(queueIndex) {
+        const queue = this.queues[queueIndex]
+        const entering = this.entering[queueIndex]
+        const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X)
+        const startY = this.height * this.config.QUEUE_START_Y
+        const spacing = this.config.QUEUE_SPACING
+        const endPosition = queue.length + entering.length
+        const endY = startY + (endPosition * spacing)
+        return { x: queueX, y: endY }
+    }
+
+    /**
+     * Handle a fan returning to the back of the queue after enhanced security
+     * @param {number} queueIndex - Index of the queue
+     * @param {Fan} processingFan - The fan returning to queue
+     * @param {number} simulationTime - Current simulation time
+     */
+    _handleReturningFan(queueIndex, processingFan, simulationTime) {
+        const endPos = this._calculateEndOfLinePosition(queueIndex)
+        
+        // Check if line has changed since fan started returning
+        const distToCurrentEnd = Math.sqrt(
+            Math.pow(processingFan.targetX - endPos.x, 2) +
+            Math.pow(processingFan.targetY - endPos.y, 2)
+        )
+        
+        if (distToCurrentEnd > 10) {
+            // Line has changed, update target to new end
+            processingFan.setTarget(endPos.x, endPos.y, this.obstacles, simulationTime)
+        } else if (processingFan.isNearTarget(10)) {
+            // Reached end of line, add to entering list
+            delete processingFan.returningToQueue
+            this.entering[queueIndex].push(processingFan)
+            processingFan.state = AgentState.APPROACHING_QUEUE
+            processingFan.inQueue = true
+            
+            // Clear processing
+            this.processing[queueIndex] = null
+            this.processingStartTime[queueIndex] = null
+            
+            // Update positions for all fans
+            this.updateQueuePositions(queueIndex, true, simulationTime)
+        }
+    }
+
+    /**
+     * Send a fan to the back of the queue after enhanced security check
+     * @param {number} queueIndex - Index of the queue
+     * @param {Fan} fan - The fan to send back
+     * @param {number} simulationTime - Current simulation time
+     */
+    _sendFanToBackOfQueue(queueIndex, fan, simulationTime) {
+        fan.enhancedSecurity = false // Only enhanced once
+        fan.goal = FanGoal.SECURITY
+        
+        const endPos = this._calculateEndOfLinePosition(queueIndex)
+        
+        // Set target first (which might change state to moving)
+        fan.inQueue = false
+        fan.setTarget(endPos.x, endPos.y, this.obstacles, simulationTime)
+        
+        // Then override state to returning_to_queue
+        fan.state = AgentState.RETURNING_TO_QUEUE
+        fan.returningToQueue = queueIndex
+        
+        // Keep fan in processing until they reach end of line
+        // Don't clear processing here - will be cleared when fan reaches end
+    }
+
+    /**
+     * Release a fan into the festival after passing security
+     * @param {number} queueIndex - Index of the queue
+     * @param {Fan} fan - The fan to release
+     * @param {number} simulationTime - Current simulation time
+     */
+    _releaseFanIntoFestival(queueIndex, fan, simulationTime) {
+        fan.goal = FanGoal.EXPLORING_FESTIVAL
+        fan.inQueue = false
+        
+        // Start wandering immediately using shared function
+        fan.startWandering(this.obstacles, simulationTime)
+        
+        // Clear processing
+        this.processing[queueIndex] = null
+        this.processingStartTime[queueIndex] = null
+    }
+
+    /**
+     * Process a fan who has completed security checking
+     * @param {number} queueIndex - Index of the queue
+     * @param {Fan} fan - The fan being processed
+     * @param {number} simulationTime - Current simulation time
+     */
+    _handleCompletedProcessing(queueIndex, fan, simulationTime) {
+        const result = this.checkProcessingComplete(fan, simulationTime, this.processingStartTime[queueIndex])
+        
+        if (result.completed) {
+            if (result.action === 'return_to_queue') {
+                this._sendFanToBackOfQueue(queueIndex, fan, simulationTime)
+            } else if (result.action === 'release') {
+                this._releaseFanIntoFestival(queueIndex, fan, simulationTime)
+            }
+        }
+    }
+
+    /**
      * Process queues - handle fans at the front and those entering
      * @param {number} simulationTime - Current simulation time in milliseconds
      */
@@ -185,36 +295,7 @@ export class SecurityQueue extends QueuedProcessor {
             if (this.processing[queueIndex] !== null) {
                 const processingFan = this.processing[queueIndex]
                 if (processingFan.returningToQueue === queueIndex) {
-                    // Calculate current end of line position
-                    const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X)
-                    const startY = this.height * this.config.QUEUE_START_Y
-                    const spacing = this.config.QUEUE_SPACING
-                    const currentEndPosition = queue.length + entering.length
-                    const currentEndY = startY + (currentEndPosition * spacing)
-                    
-                    // Check if line has changed since fan started returning
-                    const distToCurrentEnd = Math.sqrt(
-                        Math.pow(processingFan.targetX - queueX, 2) +
-                        Math.pow(processingFan.targetY - currentEndY, 2)
-                    )
-                    
-                    if (distToCurrentEnd > 10) {
-                        // Line has changed, update target to new end
-                        processingFan.setTarget(queueX, currentEndY, this.obstacles, simulationTime)
-                    } else if (processingFan.isNearTarget(10)) {
-                        // Reached end of line, add to entering list
-                        delete processingFan.returningToQueue
-                        entering.push(processingFan)
-                        processingFan.state = AgentState.APPROACHING_QUEUE
-                        processingFan.inQueue = true
-                        
-                        // Clear processing
-                        this.processing[queueIndex] = null
-                        this.processingStartTime[queueIndex] = null
-                        
-                        // Update positions for all fans
-                        this.updateQueuePositions(queueIndex, true, simulationTime)
-                    }
+                    this._handleReturningFan(queueIndex, processingFan, simulationTime)
                 }
             }
             
@@ -257,44 +338,7 @@ export class SecurityQueue extends QueuedProcessor {
                 
                 // Only check processing completion if fan is actually in processing state (not advancing)
                 if (fan.state === AgentState.PROCESSING) {
-                    const result = this.checkProcessingComplete(fan, simulationTime, this.processingStartTime[queueIndex])
-                    
-                    if (result.completed) {
-                        if (result.action === 'return_to_queue') {
-                            // Send to back of the line - fan needs to walk to end
-                            fan.enhancedSecurity = false // Only enhanced once
-                            fan.goal = FanGoal.SECURITY
-                            
-                            // Calculate end of line position
-                            const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X)
-                            const startY = this.height * this.config.QUEUE_START_Y
-                            const spacing = this.config.QUEUE_SPACING
-                            const endPosition = queue.length + entering.length
-                            const endY = startY + (endPosition * spacing)
-                            
-                            // Set target first (which might change state to moving)
-                            fan.inQueue = false
-                            fan.setTarget(queueX, endY, this.obstacles, simulationTime)
-                            
-                            // Then override state to returning_to_queue
-                            fan.state = AgentState.RETURNING_TO_QUEUE
-                            fan.returningToQueue = queueIndex
-                            
-                            // Keep fan in processing until they reach end of line
-                            // Don't clear processing here - will be cleared when fan reaches end
-                        } else if (result.action === 'release') {
-                            // Allow into festival - fan wanders naturally using shared logic
-                            fan.goal = FanGoal.EXPLORING_FESTIVAL
-                            fan.inQueue = false
-                            
-                            // Start wandering immediately using shared function
-                            fan.startWandering(this.obstacles, simulationTime)
-                            
-                            // Clear processing
-                            this.processing[queueIndex] = null
-                            this.processingStartTime[queueIndex] = null
-                        }
-                    }
+                    this._handleCompletedProcessing(queueIndex, fan, simulationTime)
                 }
             }
         }

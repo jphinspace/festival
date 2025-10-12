@@ -2,6 +2,7 @@
 import { FoodStall } from '../src/components/foodStall.js';
 import { Fan } from '../src/core/fan.js';
 import { AgentState } from '../src/utils/enums.js';
+import { jest } from '@jest/globals';
 
 const mockConfig = {
     AGENT_RADIUS: 3,
@@ -424,6 +425,136 @@ describe('FoodStall', () => {
         
         // The approaching fan should be assigned to the back (position 2, after fan2)
         expect(approachingFan.queuePosition).toBe(2);
+    });
+
+    describe('Branch coverage for removeFromQueue', () => {
+        test('should remove fan from left queue', () => {
+            const fan = new Fan(50, 150, mockConfig);
+            foodStall.leftQueue.push(fan);
+            
+            foodStall.removeFromQueue(fan);
+            
+            expect(foodStall.leftQueue).not.toContain(fan);
+            expect(foodStall.leftQueue).toHaveLength(0);
+        });
+
+        test('should remove fan from right queue', () => {
+            const fan = new Fan(150, 150, mockConfig);
+            foodStall.rightQueue.push(fan);
+            
+            foodStall.removeFromQueue(fan);
+            
+            expect(foodStall.rightQueue).not.toContain(fan);
+        });
+
+        test('should remove fan from left approaching', () => {
+            const fan = new Fan(50, 150, mockConfig);
+            foodStall.leftApproaching.push(fan);
+            
+            foodStall.removeFromQueue(fan);
+            
+            expect(foodStall.leftApproaching).not.toContain(fan);
+        });
+
+        test('should remove fan from right approaching', () => {
+            const fan = new Fan(150, 150, mockConfig);
+            foodStall.rightApproaching.push(fan);
+            
+            foodStall.removeFromQueue(fan);
+            
+            expect(foodStall.rightApproaching).not.toContain(fan);
+        });
+
+        test('should handle fan not in any queue', () => {
+            const fan = new Fan(50, 50, mockConfig);
+            
+            // Should not throw
+            foodStall.removeFromQueue(fan);
+            
+            expect(foodStall.leftQueue).toHaveLength(0);
+            expect(foodStall.rightQueue).toHaveLength(0);
+        });
+    });
+
+    describe('Branch coverage for getQueuePosition', () => {
+        test('should return -1 for fan not in any queue', () => {
+            const fan = new Fan(50, 50, mockConfig);
+            
+            const position = foodStall.getQueuePosition(fan);
+            
+            expect(position).toBe(-1);
+        });
+    });
+
+    describe('Branch coverage for checkAndProcessFan', () => {
+        test('should return false if fan processingAtStall does not match', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            fan.processingAtStall = null; // Not processing at this stall
+            
+            const result = foodStall.checkAndProcessFan(fan, 800, 600, 0);
+            
+            expect(result).toBe(false);
+        });
+
+        test('should handle right side fan after eating', () => {
+            const fan = new Fan(120, 115, mockConfig);
+            fan.state = AgentState.PROCESSING;
+            fan.processingAtStall = foodStall; // Set dynamically
+            fan.waitStartTime = 1; // Use non-zero value (0 is falsy!)
+            fan.hunger = 0.8;
+            fan.processingSide = 'right'; // Use processingSide not queueSide
+            fan.setTarget = jest.fn(); // Mock setTarget to avoid needing full setup
+            
+            const result = foodStall.checkAndProcessFan(fan, 800, 600, 2000); // Use time > FOOD_WAIT_TIME (1000)
+            
+            // Should return true indicating processing occurred
+            expect(result).toBe(true);
+            // Fan should have eaten and moved
+            expect(fan.hunger).toBeLessThan(0.8);
+            expect(fan.hasEatenFood).toBe(true);
+            // Check that setTarget was called with x > stall position (moving right)
+            expect(fan.setTarget).toHaveBeenCalled();
+            const targetX = fan.setTarget.mock.calls[0][0];
+            expect(targetX).toBeGreaterThan(foodStall.x + foodStall.width);
+        });
+
+        test('should handle left side fan after eating', () => {
+            const fan = new Fan(100, 115, mockConfig);
+            fan.state = AgentState.PROCESSING;
+            fan.processingAtStall = foodStall; // Set dynamically
+            fan.waitStartTime = 1; // Use non-zero value (0 is falsy!)
+            fan.hunger = 0.8;
+            fan.processingSide = 'left'; // Use processingSide not queueSide
+            fan.setTarget = jest.fn(); // Mock setTarget to avoid needing full setup
+            
+            const result = foodStall.checkAndProcessFan(fan, 800, 600, 2000); // Use time > FOOD_WAIT_TIME (1000)
+            
+            // Should return true indicating processing occurred
+            expect(result).toBe(true);
+            // Fan should have eaten and moved
+            expect(fan.hunger).toBeLessThan(0.8);
+            expect(fan.hasEatenFood).toBe(true);
+            // Check that setTarget was called with x < stall position (moving left)
+            expect(fan.setTarget).toHaveBeenCalled();
+            const targetX = fan.setTarget.mock.calls[0][0];
+            expect(targetX).toBeLessThan(foodStall.x);
+        });
+    });
+
+    describe('Branch coverage for draw', () => {
+        test('should draw food stall on canvas', () => {
+            const mockCtx = {
+                fillStyle: '',
+                font: '',
+                fillRect: jest.fn(),
+                fillText: jest.fn()
+            };
+            
+            foodStall.draw(mockCtx);
+            
+            expect(mockCtx.fillRect).toHaveBeenCalledWith(100, 100, 20, 30);
+            expect(mockCtx.fillText).toHaveBeenCalledWith('FOOD', 101, 118);
+        });
     });
 });
 

@@ -328,4 +328,124 @@ describe('SecurityQueue', () => {
         expect(securityQueue.queues[queueIndex][1]).toBe(fan2);
         expect(securityQueue.queues[queueIndex][2]).toBe(fan1);
     });
+
+    describe('Branch coverage for checkProcessingComplete', () => {
+        test('should return release action for regular security', () => {
+            const fan = new Fan(400, 300, mockConfig);
+            fan.enhancedSecurity = false;
+            
+            const result = securityQueue.checkProcessingComplete(fan, 2000, 0);
+            
+            expect(result.completed).toBe(true);
+            expect(result.action).toBe('release');
+        });
+
+        test('should return return_to_queue action for enhanced security', () => {
+            const fan = new Fan(400, 300, mockConfig);
+            fan.enhancedSecurity = true;
+            fan.queueIndex = 0;
+            
+            const result = securityQueue.checkProcessingComplete(fan, 4000, 0);
+            
+            expect(result.completed).toBe(true);
+            expect(result.action).toBe('return_to_queue');
+            expect(result.data.queueIndex).toBe(0);
+        });
+
+        test('should return not completed when time not elapsed', () => {
+            const fan = new Fan(400, 300, mockConfig);
+            fan.enhancedSecurity = false;
+            
+            const result = securityQueue.checkProcessingComplete(fan, 500, 0);
+            
+            expect(result.completed).toBe(false);
+            expect(result.action).toBeNull();
+        });
+    });
+
+    describe('Branch coverage for update method', () => {
+        test('should update target when returning fan line changed', () => {
+            const fan = new Fan(400, 300, mockConfig);
+            fan.enhancedSecurity = true;
+            fan.queueIndex = 0;
+            fan.state = AgentState.RETURNING_TO_QUEUE;
+            fan.returningToQueue = 0;
+            fan.targetX = 100; // Far from queue
+            fan.targetY = 100;
+            
+            securityQueue.processing[0] = fan;
+            securityQueue.processingStartTime[0] = 0;
+            
+            // Add other fans to queue to change the line position
+            const fan2 = new Fan(360, 400, mockConfig);
+            securityQueue.queues[0].push(fan2);
+            
+            securityQueue.update(5000);
+            
+            // Fan's target should have been updated (setTarget called)
+            // After setTarget is called, state may change to moving
+            expect(fan.state).toBe(AgentState.MOVING);
+        });
+
+        test('should handle returning fan reaching end of line', () => {
+            const fan = new Fan(360, 432, mockConfig); // Near queue end
+            fan.enhancedSecurity = true;
+            fan.queueIndex = 0;
+            fan.state = AgentState.RETURNING_TO_QUEUE;
+            fan.returningToQueue = 0;
+            fan.targetX = 360;
+            fan.targetY = 432;
+            fan.x = 360;
+            fan.y = 432;
+            
+            securityQueue.processing[0] = fan;
+            securityQueue.processingStartTime[0] = 0;
+            
+            securityQueue.update(5000);
+            
+            // Fan should be added to entering list and processing cleared
+            expect(securityQueue.processing[0]).toBeNull();
+        });
+
+        test('should release fan with regular security', () => {
+            const fan = new Fan(360, 424, mockConfig);
+            fan.enhancedSecurity = false;
+            fan.state = AgentState.PROCESSING;
+            
+            securityQueue.processing[0] = fan;
+            securityQueue.processingStartTime[0] = 0;
+            
+            securityQueue.update(2000); // After regular security time
+            
+            // Fan should be released and processing cleared
+            expect(securityQueue.processing[0]).toBeNull();
+            expect(fan.inQueue).toBe(false);
+        });
+
+        test('should handle when newProcessing is null (no one to process)', () => {
+            // Empty queue, no one processing
+            securityQueue.processing[0] = null;
+            securityQueue.queues[0] = [];
+            securityQueue.entering[0] = [];
+            
+            securityQueue.update(1000);
+            
+            // Processing should remain null
+            expect(securityQueue.processing[0]).toBeNull();
+        });
+
+        test('should not update queue when newProcessing equals current processing', () => {
+            const fan = new Fan(360, 424, mockConfig);
+            fan.state = AgentState.PROCESSING;
+            
+            securityQueue.processing[0] = fan;
+            securityQueue.processingStartTime[0] = 0;
+            
+            // Run update - newProcessing should equal current processing
+            securityQueue.update(500); // Before completion
+            
+            // Processing should still be the same fan
+            expect(securityQueue.processing[0]).toBe(fan);
+        });
+    });
 });

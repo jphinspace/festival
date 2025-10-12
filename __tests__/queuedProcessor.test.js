@@ -328,4 +328,71 @@ describe('QueuedProcessor Base Class', () => {
             expect(fan.setTarget).toHaveBeenCalledWith(100, 200, mockObstacles, 1000)
         })
     })
+
+    describe('checkProcessingComplete abstract method', () => {
+        test('should throw error when called on base class directly', () => {
+            const baseProcessor = new QueuedProcessor(mockConfig)
+            const fan = { x: 100, y: 100 }
+            
+            expect(() => {
+                baseProcessor.checkProcessingComplete(fan, 1000, 0)
+            }).toThrow('checkProcessingComplete must be implemented by subclass')
+        })
+    })
+
+    describe('updateQueuePositions complex branching', () => {
+        test('should transition fan from advancing to waiting when reaching target (else if branch at line 154)', () => {
+            const fan1 = {
+                x: 240,  // At queue position (240, 60)
+                y: 60,
+                state: 'in_queue_advancing',
+                setTarget: jest.fn(),
+                queueTargetUpdateTime: 0
+            }
+            
+            processor.queue = [fan1]
+            processor.setObstacles(mockObstacles)
+            
+            processor.updateQueuePositionsWrapper(false, 1000)
+            
+            expect(fan1.state).toBe('in_queue_waiting')
+        })
+
+        test('should keep fan in waiting state when already waiting and at target', () => {
+            const fan1 = {
+                x: 240,  // At queue position (240, 60)
+                y: 60,
+                state: 'in_queue_waiting',
+                setTarget: jest.fn(),
+                queueTargetUpdateTime: 0
+            }
+            
+            processor.queue = [fan1]
+            processor.setObstacles(mockObstacles)
+            
+            processor.updateQueuePositionsWrapper(false, 1000)
+            
+            // State should remain waiting
+            expect(fan1.state).toBe('in_queue_waiting')
+        })
+
+        test('should set advancing state when fan not at target and update succeeds', () => {
+            const fan1 = {
+                x: 100,  // Not at queue position (240, 60)
+                y: 100,
+                state: 'in_queue_waiting',
+                setTarget: jest.fn(),
+                queueTargetUpdateTime: 0  // No recent update
+            }
+            
+            processor.queue = [fan1]
+            processor.setObstacles(mockObstacles)
+            
+            processor.updateQueuePositionsWrapper(false, 1000)
+            
+            // State should change to advancing since update succeeded
+            expect(fan1.state).toBe('in_queue_advancing')
+            expect(fan1.setTarget).toHaveBeenCalled()
+        })
+    })
 })
