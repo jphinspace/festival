@@ -23,6 +23,7 @@ export class Agent {
         this.lastStaticWaypointUpdate = 0; // Track when static waypoints were last recalculated (deprecated, kept for compatibility)
         this.staticWaypointUpdateInterval = 500; // ms between static waypoint updates (deprecated, kept for compatibility)
         this.waypointUpdateTimes = []; // Track last update time for each waypoint individually
+        this.queueTargetUpdateTime = 0; // Track last time queue system called setTarget for throttling
     }
 
     /**
@@ -30,34 +31,20 @@ export class Agent {
      * @param {number} x - Target X position
      * @param {number} y - Target Y position
      * @param {Obstacles} obstacles - Optional obstacles manager for pathfinding
+     * @param {number} simulationTime - Optional simulation time (for timestamp initialization)
      */
-    setTarget(x, y, obstacles = null) {
-        // DEBUG: Log setTarget calls
-        if (this.debugWaypoints) {
-            console.log(`[setTarget] Called with target (${x.toFixed(1)}, ${y.toFixed(1)}), current target: (${this.targetX?.toFixed(1)}, ${this.targetY?.toFixed(1)})`);
-        }
-        
+    setTarget(x, y, obstacles = null, simulationTime = 0) {
         // Check if target has changed significantly (more than 5 pixels)
-        // IMPORTANT: Check BEFORE updating targetX/targetY
         const targetChanged = !this.targetX || !this.targetY || 
             Math.abs(x - this.targetX) > 5 || Math.abs(y - this.targetY) > 5;
         
-        // DEBUG: Log target change decision
-        if (this.debugWaypoints) {
-            console.log(`[setTarget] Target changed: ${targetChanged} (distance: ${this.targetX && this.targetY ? Math.sqrt(Math.pow(x - this.targetX, 2) + Math.pow(y - this.targetY, 2)).toFixed(1) : 'N/A'}px)`);
-        }
+        this.targetX = x;
+        this.targetY = y;
         
         // Only recalculate waypoints if target changed significantly
         if (!targetChanged) {
-            if (this.debugWaypoints) {
-                console.log(`[setTarget] Skipping recalculation - target unchanged`);
-            }
             return; // Target hasn't moved enough, keep existing waypoints
         }
-        
-        // Update target AFTER checking if it changed
-        this.targetX = x;
-        this.targetY = y;
         
         // Calculate static waypoints for routing around obstacles (global pathfinding)
         // Check state BEFORE potentially changing it
@@ -66,25 +53,11 @@ export class Agent {
         // Generate waypoints BEFORE changing state
         if (needsPathfinding) {
             this.staticWaypoints = this.calculateStaticWaypoints(x, y, obstacles);
-            // Initialize update times for each waypoint with STAGGERED timestamps
-            // to prevent all waypoints from updating together
-            const currentTime = Date.now();
-            // Note: We don't have access to simulationSpeed here, so we use base intervals
-            // The update() method will handle simulation speed scaling when checking
-            this.waypointUpdateTimes = this.staticWaypoints.map((wp, index) => {
-                // Each waypoint gets an older timestamp based on its interval
-                // This ensures they become due at different times
-                const interval = 125 * Math.pow(2, index);
-                // Set timestamp so waypoint is ~10% through its interval
-                // This gives some time before first update while maintaining stagger
-                return currentTime - (interval * 0.1);
-            });
+            // Initialize update times for each waypoint
+            const currentTime = simulationTime || Date.now(); // Use simulationTime if available
+            this.waypointUpdateTimes = this.staticWaypoints.map(() => currentTime);
             // Reset the timer so waypoints are recalculated on schedule (kept for compatibility)
             this.lastStaticWaypointUpdate = currentTime;
-            
-            // ALWAYS LOG: Waypoint generation with stack trace
-            console.log(`[WAYPOINT GENERATION] setTarget() generated ${this.staticWaypoints.length} waypoints for agent at (${this.x.toFixed(1)}, ${this.y.toFixed(1)}) to target (${x.toFixed(1)}, ${y.toFixed(1)})`);
-            console.trace('Stack trace:');
         } else {
             this.staticWaypoints = [];
             this.waypointUpdateTimes = [];
@@ -137,9 +110,7 @@ export class Agent {
             
             // Route around the first blocking obstacle
             const obstacle = blockingObstacles[0];
-            // Use agent radius + personal space buffer (no extra buffer)
-            // The personalSpaceBuffer already accounts for comfortable spacing
-            const buffer = this.radius + personalSpaceBuffer;
+            const buffer = this.radius + personalSpaceBuffer + 5; // Extra 5px buffer
             
             // Calculate the four corners of the obstacle (with buffer)
             const corners = [
@@ -277,9 +248,7 @@ export class Agent {
             
             // Route around the first blocking obstacle
             const obstacle = blockingObstacles[0];
-            // Use agent radius + personal space buffer (no extra buffer)
-            // The personalSpaceBuffer already accounts for comfortable spacing
-            const buffer = this.radius + personalSpaceBuffer;
+            const buffer = this.radius + personalSpaceBuffer + 5; // Extra 5px buffer
             
             // Calculate the four corners of the obstacle (with buffer)
             const corners = [
@@ -785,12 +754,13 @@ export class Agent {
      * @param {number} simulationSpeed - Speed multiplier for simulation
      * @param {Agent[]} otherAgents - Array of other agents for collision detection
      * @param {Obstacles} obstacles - Obstacles manager for static object collision
+     * @param {number} simulationTime - Current simulation time in milliseconds
      */
-    update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null) {
+    update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null, simulationTime = 0) {
         // Allow movement for moving, in_queue, passed_security, and approaching_queue states
         if ((this.state === 'moving' || this.state === 'in_queue' || this.state === 'passed_security' || this.state === 'approaching_queue') && this.targetX !== null) {
-            // Update static waypoints with progressive intervals
-            const currentTime = Date.now();
+            // Update static waypoints at 125ms intervals, checking only waypoint[0]
+            const currentTime = simulationTime || Date.now(); // Use simulationTime if available
             const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? this.config.PERSONAL_SPACE : 0;
             
             // Ensure waypointUpdateTimes array is in sync with staticWaypoints
@@ -803,41 +773,13 @@ export class Agent {
                 this.waypointUpdateTimes = this.waypointUpdateTimes.slice(0, this.staticWaypoints.length);
             }
             
-            // Check if we need to update waypoints
-            // Each waypoint has a progressive interval based on its distance from the fan:
-            // - Waypoint[0] (immediate destination): 125ms (most frequent - needs responsive updates)
-            // - Waypoint[1]: 250ms
-            // - Waypoint[2]: 500ms
-            // - And so on (progressively double the time)
-            // Each waypoint is checked individually and only waypoints that exceed their
-            // interval are recalculated, starting from their respective positions.
-            
-            // Check each waypoint to see if it needs updating based on progressive intervals
-            let waypointsToUpdate = [];
+            // Check only waypoint[0] at 125ms intervals
+            let needsWaypointUpdate = false;
             
             if (this.staticWaypoints.length > 0 && obstacles) {
-                for (let i = 0; i < this.staticWaypoints.length; i++) {
-                    // Calculate progressive interval: 125ms for first, then double for each subsequent
-                    // Scale interval by simulation speed so faster simulations update more frequently
-                    const baseInterval = 125 * Math.pow(2, i);
-                    const waypointInterval = baseInterval / (simulationSpeed || 1);
-                    const timeSinceUpdate = currentTime - (this.waypointUpdateTimes[i] || currentTime);
-                    
-                    if (timeSinceUpdate > waypointInterval) {
-                        waypointsToUpdate.push(i);
-                    }
-                }
-                
-                // DEBUG: Log when waypoints are due (enable by setting agent.debugWaypoints = true)
-                if (this.debugWaypoints && waypointsToUpdate.length > 0) {
-                    console.log(`[Agent] Waypoints due: [${waypointsToUpdate.join(', ')}] at ${currentTime}ms`);
-                    this.staticWaypoints.forEach((wp, i) => {
-                        const baseInterval = 125 * Math.pow(2, i);
-                        const waypointInterval = baseInterval / (simulationSpeed || 1);
-                        const age = currentTime - (this.waypointUpdateTimes[i] || currentTime);
-                        console.log(`  wp${i}: age=${age.toFixed(1)}ms, interval=${waypointInterval.toFixed(1)}ms, due=${age > waypointInterval}`);
-                    });
-                }
+                // Only check waypoint[0] at fixed 125ms interval
+                const timeSinceUpdate = currentTime - (this.waypointUpdateTimes[0] || currentTime);
+                needsWaypointUpdate = timeSinceUpdate > 125;
             }
             
             // Also update if we have no waypoints and path to target is blocked
@@ -846,99 +788,14 @@ export class Agent {
             
             const needsWaypointsNow = this.staticWaypoints.length === 0 && pathBlocked;
             
-            // DEBUG: Log needsWaypointsNow
-            if (this.debugWaypoints && needsWaypointsNow) {
-                console.log(`[update] needsWaypointsNow=true (no waypoints and path blocked)`);
-            }
-            
             // Update waypoints if needed
-            if ((waypointsToUpdate.length > 0 || needsWaypointsNow) && this.targetX !== null && this.targetY !== null && obstacles) {
-                if (waypointsToUpdate.length > 0) {
-                    // Update waypoints progressively
-                    // We update from the earliest waypoint that needs updating
-                    const earliestIndex = Math.min(...waypointsToUpdate);
-                    
-                    // Find the latest waypoint that needs updating
-                    const latestIndex = Math.max(...waypointsToUpdate);
-                    
-                    // Check if there are waypoints after latestIndex that DON'T need updating
-                    const hasLaterWaypoints = latestIndex < this.staticWaypoints.length - 1;
-                    
-                    // If updating from waypoint 0, recalculate entire path from current position
-                    if (earliestIndex === 0) {
-                        // Always recalculate the full path to target
-                        // Partial recalculation is complex because pathfinding can return variable waypoint counts
-                        this.staticWaypoints = this.calculateStaticWaypoints(this.targetX, this.targetY, obstacles);
-                        
-                        // Assign staggered timestamps to maintain progressive intervals
-                        // ALL waypoints are NEW after recalculation, so ALL get staggered timestamps
-                        // The staggering ensures each waypoint updates at its designed rate
-                        this.waypointUpdateTimes = this.staticWaypoints.map((wp, index) => {
-                            const baseInterval = 125 * Math.pow(2, index);
-                            const interval = baseInterval / (simulationSpeed || 1);
-                            // Set timestamp so waypoint is 10% through its interval
-                            // This matches setTarget() behavior
-                            return currentTime - (interval * 0.1);
-                        });
-                        
-                        // ALWAYS LOG: Waypoint recalculation with stack trace
-                        console.log(`[WAYPOINT GENERATION] update() recalculated ${this.staticWaypoints.length} waypoints (earliestIndex=0) for agent at (${this.x.toFixed(1)}, ${this.y.toFixed(1)})`);
-                        console.log(`  Waypoints due: [${waypointsToUpdate.join(', ')}]`);
-                        console.trace('Stack trace:');
-                    } else {
-                        // Recalculate from the waypoint position, preserving earlier waypoints
-                        const startWaypoint = this.staticWaypoints[earliestIndex - 1];
-                        
-                        // Always recalculate to the final target for simplicity
-                        // Partial preservation is complex due to variable waypoint counts
-                        const newWaypoints = this.calculateStaticWaypointsFromPosition(
-                            startWaypoint.x, startWaypoint.y, 
-                            this.targetX, this.targetY, 
-                            obstacles, 
-                            personalSpaceBuffer
-                        );
-                        
-                        // Replace waypoints from earliestIndex onwards
-                        this.staticWaypoints = [
-                            ...this.staticWaypoints.slice(0, earliestIndex),
-                            ...newWaypoints
-                        ];
-                        
-                        // Assign staggered timestamps to maintain progressive intervals
-                        // ALL new waypoints get staggered timestamps based on their position
-                        const newTimestamps = newWaypoints.map((wp, i) => {
-                            const actualIndex = earliestIndex + i;
-                            const baseInterval = 125 * Math.pow(2, actualIndex);
-                            const interval = baseInterval / (simulationSpeed || 1);
-                            // Set timestamp so waypoint is 10% through its interval
-                            return currentTime - (interval * 0.1);
-                        });
-                        
-                        this.waypointUpdateTimes = [
-                            ...this.waypointUpdateTimes.slice(0, earliestIndex),
-                            ...newTimestamps
-                        ];
-                    }
-                    
-                    // Update legacy timer for compatibility
-                    this.lastStaticWaypointUpdate = currentTime;
-                } else if (needsWaypointsNow) {
-                    // No existing waypoints, need to create new path
-                    this.staticWaypoints = this.calculateStaticWaypoints(this.targetX, this.targetY, obstacles);
-                    // Assign staggered timestamps to prevent synchronization
-                    // Each waypoint gets a slightly older timestamp based on its interval
-                    this.waypointUpdateTimes = this.staticWaypoints.map((wp, index) => {
-                        const baseInterval = 125 * Math.pow(2, index);
-                        const interval = baseInterval / (simulationSpeed || 1);
-                        // Set timestamp so waypoint is ~10% through its interval
-                        return currentTime - (interval * 0.1);
-                    });
-                    this.lastStaticWaypointUpdate = currentTime;
-                    
-                    // ALWAYS LOG: Waypoint creation with stack trace
-                    console.log(`[WAYPOINT GENERATION] update() created ${this.staticWaypoints.length} waypoints (needsWaypointsNow) for agent at (${this.x.toFixed(1)}, ${this.y.toFixed(1)})`);
-                    console.trace('Stack trace:');
-                }
+            if ((needsWaypointUpdate || needsWaypointsNow) && this.targetX !== null && this.targetY !== null && obstacles) {
+                // Always recalculate entire path from current position
+                this.staticWaypoints = this.calculateStaticWaypoints(this.targetX, this.targetY, obstacles);
+                // Reset all waypoint update times to current time
+                this.waypointUpdateTimes = this.staticWaypoints.map(() => currentTime);
+                // Update legacy timer for compatibility
+                this.lastStaticWaypointUpdate = currentTime;
             }
             
             // Determine next static waypoint or final target

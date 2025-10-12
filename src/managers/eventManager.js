@@ -63,7 +63,7 @@ export class EventManager {
     updateFoodStalls(simulationTime) {
         this.foodStalls.forEach(stall => {
             stall.processQueue(this.width, this.height, simulationTime);
-            stall.updateQueuePositions(this.width, this.height);
+            stall.updateQueuePositions(this.width, this.height, false, simulationTime);
         });
     }
     
@@ -121,7 +121,7 @@ export class EventManager {
                         // Wander to random position
                         const targetX = Math.random() * this.width;
                         const targetY = Math.random() * this.height * 0.7;
-                        agent.setTarget(targetX, targetY, this.obstacles);
+                        agent.setTarget(targetX, targetY, this.obstacles, simulationTime);
                     }
                 });
             }
@@ -145,7 +145,7 @@ export class EventManager {
                         // Wander to random position
                         const targetX = Math.random() * this.width;
                         const targetY = Math.random() * this.height * 0.7;
-                        agent.setTarget(targetX, targetY, this.obstacles);
+                        agent.setTarget(targetX, targetY, this.obstacles, simulationTime);
                     }
                 });
             }

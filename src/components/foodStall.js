@@ -169,7 +169,7 @@ export class FoodStall {
      */
     processQueue(width, height, simulationTime) {
         // Update positions every frame for responsive movement
-        this.updateQueuePositions(width, height, false);
+        this.updateQueuePositions(width, height, false, simulationTime);
         
         // Use QueueManager to process both queues
         [
@@ -180,7 +180,7 @@ export class FoodStall {
             QueueManager.processApproaching(
                 queue,
                 approaching,
-                () => this.updateQueuePositions(width, height, true),
+                () => this.updateQueuePositions(width, height, true, simulationTime),
                 10  // Threshold
             );
             
@@ -224,7 +224,7 @@ export class FoodStall {
                         targetX = Math.max(20, Math.min(width - 20, targetX));
                         targetY = Math.max(20, Math.min(height * 0.7, targetY));
                         
-                        frontFan.setTarget(targetX, targetY, this.obstacles); // Pass obstacles for routing
+                        frontFan.setTarget(targetX, targetY, this.obstacles, simulationTime); // Pass obstacles and simulationTime for routing
                         frontFan.state = 'moving'; // Set state to moving so they leave
                     }
                 }
@@ -237,8 +237,9 @@ export class FoodStall {
      * @param {number} width - Canvas width for bounds
      * @param {number} height - Canvas height for bounds
      * @param {boolean} sortNeeded - Whether to sort queues (only on join/leave events)
+     * @param {number} simulationTime - Current simulation time in milliseconds
      */
-    updateQueuePositions(width, height, sortNeeded = false) {
+    updateQueuePositions(width, height, sortNeeded = false, simulationTime = 0) {
         // Use shared QueueManager for consistent behavior
         // The "front" position should match where position 0 fans actually stand
         const spacing = 8;
@@ -256,8 +257,9 @@ export class FoodStall {
             this.leftApproaching,
             (position) => this.getQueueTargetPosition(position, 'left'),
             { x: frontLeftX, y: frontY },
-            this.obstacles,  // Pass obstacles for pathfinding
-            false  // Don't use proximity lock - update positions dynamically like security queues
+            this.obstacles,
+            sortNeeded,
+            simulationTime
         );
         
         // Update right queue using QueueManager - pass obstacles for pathfinding
@@ -266,8 +268,9 @@ export class FoodStall {
             this.rightApproaching,
             (position) => this.getQueueTargetPosition(position, 'right'),
             { x: frontRightX, y: frontY },
-            this.obstacles,  // Pass obstacles for pathfinding
-            false  // Don't use proximity lock - update positions dynamically like security queues
+            this.obstacles,
+            sortNeeded,
+            simulationTime
         );
     }
     

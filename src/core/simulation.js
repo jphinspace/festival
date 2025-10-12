@@ -130,8 +130,8 @@ export class Simulation {
             // Update event manager (process security queue and food stalls)
             this.eventManager.update(this.simulationTime, this.agents, this.simulationSpeed);
             
-            // Pass all agents and obstacles to each agent's update for collision detection
-            this.agents.forEach(agent => agent.update(deltaTime, this.simulationSpeed, this.agents, this.eventManager.obstacles));
+            // Pass all agents, obstacles, and simulation time to each agent's update for collision detection
+            this.agents.forEach(agent => agent.update(deltaTime, this.simulationSpeed, this.agents, this.eventManager.obstacles, this.simulationTime));
         }
     }
 
