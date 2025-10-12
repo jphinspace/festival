@@ -423,6 +423,29 @@ describe('Simulation', () => {
         expect(simulation.currentFPS).toBeGreaterThanOrEqual(0)
     })
 
+    test('should not call onStatsUpdate when falsy after FPS update time', () => {
+        simulation.initialize()
+        
+        global.requestAnimationFrame = jest.fn()
+        simulation.onStatsUpdate = null
+        
+        // First frame to initialize
+        simulation.animate(0)
+        
+        // Simulate several frames to increment frameCount
+        simulation.animate(16.67)
+        simulation.animate(33.34)
+        simulation.animate(50)
+        simulation.animate(66.67)
+        simulation.animate(83.34)
+        
+        // After 1 second - FPS should update but onStatsUpdate should not be called
+        simulation.animate(1100)
+        
+        // Should have updated FPS stats without calling callback
+        expect(simulation.currentFPS).toBeGreaterThan(0)
+    })
+
     test('should start animation loop', () => {
         simulation.initialize()
         

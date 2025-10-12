@@ -358,6 +358,25 @@ describe('QueuedProcessor Base Class', () => {
             expect(fan1.state).toBe('in_queue_waiting')
         })
 
+        test('should use Date.now() fallback when simulationTime is 0', () => {
+            const fan1 = {
+                x: 100,
+                y: 100,
+                state: 'in_queue_waiting',
+                setTarget: jest.fn(),
+                queueTargetUpdateTime: 0,
+                isNearTarget: jest.fn(() => false)
+            }
+            
+            processor.queue = [fan1]
+            processor.setObstacles(mockObstacles)
+            
+            // Call with simulationTime = 0 to trigger Date.now() fallback
+            processor.updateQueuePositionsWrapper(false, 0)
+            
+            expect(fan1.setTarget).toHaveBeenCalled()
+        })
+
         test('should keep fan in waiting state when already waiting and at target', () => {
             const fan1 = {
                 x: 240,  // At queue position (240, 60)
