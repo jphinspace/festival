@@ -34,6 +34,68 @@ describe('Pathfinding Module', () => {
     })
 
     describe('calculateStaticWaypoints', () => {
+        describe('input validation', () => {
+            test('should warn for non-numeric coordinates and return fallback', () => {
+                const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+                
+                const result = calculateStaticWaypoints(
+                    'invalid', 100, 200, 200, mockObstacles, 3, 0, mockConfig
+                );
+                
+                expect(consoleSpy).toHaveBeenCalled();
+                expect(result).toBeDefined();
+                consoleSpy.mockRestore();
+            });
+
+            test('should warn for non-finite coordinates and return empty array', () => {
+                const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+                
+                const result = calculateStaticWaypoints(
+                    Infinity, 100, 200, 200, mockObstacles, 3, 0, mockConfig
+                );
+                
+                expect(consoleSpy).toHaveBeenCalled();
+                expect(result).toEqual([]);
+                consoleSpy.mockRestore();
+            });
+
+            test('should warn for invalid radius and use default', () => {
+                const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+                
+                const result = calculateStaticWaypoints(
+                    100, 100, 200, 200, mockObstacles, 0, 0, mockConfig
+                );
+                
+                expect(consoleSpy).toHaveBeenCalled();
+                expect(result).toBeDefined();
+                consoleSpy.mockRestore();
+            });
+
+            test('should handle negative personal space buffer with warning', () => {
+                const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+                
+                const result = calculateStaticWaypoints(
+                    100, 100, 200, 200, mockObstacles, 3, -1, mockConfig
+                );
+                
+                expect(consoleSpy).toHaveBeenCalled();
+                expect(result).toBeDefined();
+                consoleSpy.mockRestore();
+            });
+
+            test('should handle invalid config with warning', () => {
+                const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+                
+                const result = calculateStaticWaypoints(
+                    100, 100, 200, 200, mockObstacles, 3, 0, null
+                );
+                
+                expect(consoleSpy).toHaveBeenCalled();
+                expect(result).toBeDefined();
+                consoleSpy.mockRestore();
+            });
+        });
+
         test('should return single waypoint at destination when path is clear', () => {
             const waypoints = calculateStaticWaypoints(
                 mockAgent.x,
@@ -180,6 +242,76 @@ describe('Pathfinding Module', () => {
     })
 
     describe('calculateDynamicFanAvoidance', () => {
+        describe('input validation', () => {
+            test('should warn for invalid agent', () => {
+                const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+                
+                const result = calculateDynamicFanAvoidance(
+                    null, [], 200, 200, mockObstacles, mockConfig
+                );
+                
+                expect(consoleSpy).toHaveBeenCalled();
+                consoleSpy.mockRestore();
+            });
+
+            test('should warn for agent without numeric coordinates', () => {
+                const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+                const invalidAgent = { x: 'invalid', y: 100, radius: 3 };
+                
+                const result = calculateDynamicFanAvoidance(
+                    invalidAgent, [], 200, 200, mockObstacles, mockConfig
+                );
+                
+                expect(consoleSpy).toHaveBeenCalled();
+                consoleSpy.mockRestore();
+            });
+
+            test('should warn for non-array otherAgents', () => {
+                const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+                
+                const result = calculateDynamicFanAvoidance(
+                    mockAgent, null, 200, 200, mockObstacles, mockConfig
+                );
+                
+                expect(consoleSpy).toHaveBeenCalled();
+                consoleSpy.mockRestore();
+            });
+
+            test('should warn for non-numeric target coordinates', () => {
+                const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+                
+                const result = calculateDynamicFanAvoidance(
+                    mockAgent, [], 'invalid', 200, mockObstacles, mockConfig
+                );
+                
+                expect(consoleSpy).toHaveBeenCalled();
+                consoleSpy.mockRestore();
+            });
+
+            test('should warn for invalid config', () => {
+                const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+                
+                const result = calculateDynamicFanAvoidance(
+                    mockAgent, [], 200, 200, mockObstacles, null
+                );
+                
+                expect(consoleSpy).toHaveBeenCalled();
+                consoleSpy.mockRestore();
+            });
+
+            test('should warn for invalid PERSONAL_SPACE in config', () => {
+                const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+                const invalidConfig = { ...mockConfig, PERSONAL_SPACE: 0 };
+                
+                const result = calculateDynamicFanAvoidance(
+                    mockAgent, [], 200, 200, mockObstacles, invalidConfig
+                );
+                
+                expect(consoleSpy).toHaveBeenCalled();
+                consoleSpy.mockRestore();
+            });
+        });
+
         test('should return null when no other agents nearby', () => {
             const waypoint = calculateDynamicFanAvoidance(
                 mockAgent,

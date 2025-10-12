@@ -17,6 +17,41 @@ import { AgentState } from '../utils/enums.js';
  * @returns {Array} Array of {x, y} waypoints ending with exact target position
  */
 export function calculateStaticWaypoints(startX, startY, targetX, targetY, obstacles, radius, personalSpaceBuffer, config) {
+    // Input validation with graceful fallbacks for backwards compatibility
+    if (typeof startX !== 'number' || typeof startY !== 'number' || 
+        typeof targetX !== 'number' || typeof targetY !== 'number') {
+        console.warn(`[Pathfinding] Invalid coordinate types: startX=${typeof startX}, startY=${typeof startY}, targetX=${typeof targetX}, targetY=${typeof targetY}`);
+        // Return single waypoint at target if possible, or empty array
+        return [{ x: targetX || 0, y: targetY || 0 }];
+    }
+    
+    if (!Number.isFinite(startX) || !Number.isFinite(startY) ||
+        !Number.isFinite(targetX) || !Number.isFinite(targetY)) {
+        console.warn(`[Pathfinding] Non-finite coordinates detected: startX=${startX}, startY=${startY}, targetX=${targetX}, targetY=${targetY}`);
+        // Return empty waypoint array as fallback
+        return [];
+    }
+    
+    if (typeof radius !== 'number' || radius <= 0) {
+        console.warn(`[Pathfinding] Invalid radius: ${radius}, using default 3`);
+        radius = 3;
+    }
+    
+    // Allow undefined/null personalSpaceBuffer, default to 0
+    if (personalSpaceBuffer !== undefined && personalSpaceBuffer !== null) {
+        if (typeof personalSpaceBuffer !== 'number' || personalSpaceBuffer < 0) {
+            console.warn(`[Pathfinding] Invalid personalSpaceBuffer: ${personalSpaceBuffer}, using default 0`);
+            personalSpaceBuffer = 0;
+        }
+    } else {
+        personalSpaceBuffer = 0;
+    }
+    
+    if (!config || typeof config !== 'object') {
+        console.warn('[Pathfinding] Invalid config, using defaults');
+        config = { MAX_STATIC_WAYPOINTS: 6, WAYPOINT_BUFFER_DISTANCE: 5 };
+    }
+    
     // Check if direct path is clear
     if (isPathClear(startX, startY, targetX, targetY, obstacles, radius, personalSpaceBuffer)) {
         // Direct path is clear - return single waypoint at target
@@ -471,6 +506,37 @@ export function shouldUpdateWaypoints(waypointUpdateTimes, currentTime, config) 
  * @returns {Object|null} Single waypoint object {x, y} or null
  */
 export function calculateDynamicFanAvoidance(agent, otherAgents, nextTargetX, nextTargetY, obstacles, config) {
+    // Input validation with graceful fallbacks for backwards compatibility
+    if (!agent || typeof agent !== 'object') {
+        console.warn('[Pathfinding] Invalid agent object');
+        return null;
+    }
+    
+    if (typeof agent.x !== 'number' || typeof agent.y !== 'number') {
+        console.warn('[Pathfinding] Agent must have numeric x and y properties');
+        return null;
+    }
+    
+    if (!Array.isArray(otherAgents)) {
+        console.warn('[Pathfinding] otherAgents must be an array, using empty array');
+        otherAgents = [];
+    }
+    
+    if (typeof nextTargetX !== 'number' || typeof nextTargetY !== 'number') {
+        console.warn(`[Pathfinding] Invalid target coordinates: ${nextTargetX}, ${nextTargetY}`);
+        return null;
+    }
+    
+    if (!config || typeof config !== 'object') {
+        console.warn('[Pathfinding] Invalid config, using defaults');
+        config = { PERSONAL_SPACE: 12 };
+    }
+    
+    if (typeof config.PERSONAL_SPACE !== 'number' || config.PERSONAL_SPACE <= 0) {
+        console.warn(`[Pathfinding] Invalid PERSONAL_SPACE: ${config.PERSONAL_SPACE}, using default 12`);
+        config = { ...config, PERSONAL_SPACE: 12 };
+    }
+    
     const MAX_DETECTION_DISTANCE = 100 // Local knowledge limit
     const AVOIDANCE_ANGLE = Math.PI / 6 // 30 degrees - small angle for mostly straight paths
     const MIN_AVOIDANCE_DISTANCE = 20 // Minimum distance to create waypoint
