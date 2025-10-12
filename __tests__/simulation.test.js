@@ -359,6 +359,30 @@ describe('Simulation', () => {
         expect(onStatsUpdate.mock.calls[0][0]).toHaveProperty('fps')
     })
 
+    test('should call onStatsUpdate with correct stats', () => {
+        simulation.initialize()
+        
+        let statsReceived = null
+        simulation.onStatsUpdate = (stats) => {
+            statsReceived = stats
+        }
+        
+        global.requestAnimationFrame = jest.fn()
+        
+        // Add some agents
+        simulation.agents = [{}, {}, {}]
+        
+        // First frame
+        simulation.animate(0)
+        
+        // After 1 second
+        simulation.animate(1100)
+        
+        expect(statsReceived).not.toBeNull()
+        expect(statsReceived.attendeeCount).toBe(3)
+        expect(typeof statsReceived.fps).toBe('number')
+    })
+
     test('should not call onStatsUpdate if not set', () => {
         simulation.initialize()
         
@@ -373,6 +397,21 @@ describe('Simulation', () => {
         
         // Should not throw
         expect(global.requestAnimationFrame).toHaveBeenCalled()
+    })
+
+    test('should not call onStatsUpdate when undefined', () => {
+        simulation.initialize()
+        
+        global.requestAnimationFrame = jest.fn()
+        // Don't set onStatsUpdate at all (undefined)
+        
+        // First frame
+        simulation.animate(0)
+        
+        // After 1 second - should not throw even without onStatsUpdate
+        simulation.animate(1100)
+        
+        expect(simulation.currentFPS).toBeGreaterThanOrEqual(0)
     })
 
     test('should start animation loop', () => {
