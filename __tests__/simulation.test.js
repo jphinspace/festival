@@ -116,7 +116,7 @@ describe('Simulation', () => {
         
         simulation.update(0.016) // 16ms frame
         
-        // Time should have increased
+        // Time should have increased (calculation tested in timeUtils.test.js)
         expect(simulation.simulationTime).toBeGreaterThan(0)
     })
 
