@@ -52,8 +52,8 @@ describe('Simulation', () => {
     })
 
     test('should set simulation speed', () => {
-        simulation.setSimulationSpeed(2.0)
-        expect(simulation.simulationSpeed).toBe(2.0)
+        simulation.setSimulationSpeed(50.0)
+        expect(simulation.simulationSpeed).toBe(50.0)
     })
 
     test('should toggle pause state', () => {

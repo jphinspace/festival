@@ -1,23 +1,10 @@
 // Unit tests for Agent class
 import { Agent } from '../src/core/agent.js';
 import { Fan } from '../src/core/fan.js';
+import { CONFIG } from '../src/utils/config.js';
 import { jest } from '@jest/globals';
 
-const mockConfig = {
-    AGENT_RADIUS: 3,
-    AGENT_SPEED: 0.5,
-    PERSONAL_SPACE: 12,
-    CONCERT_PERSONAL_SPACE: 4,
-    BASE_WAYPOINT_UPDATE_INTERVAL: 125,
-    WAYPOINT_UPDATE_RANDOMNESS: 50,
-    WAYPOINT_REACH_DISTANCE: 10,
-    MAX_STATIC_WAYPOINTS: 6,
-    WAYPOINT_BUFFER_DISTANCE: 5,
-    COLORS: {
-        AGENT_ACTIVE: '#4a90e2',
-        AGENT_LEAVING: '#e24a4a'
-    }
-};
+const mockConfig = CONFIG;
 
 describe('Agent', () => {
     let agent;
@@ -313,4 +300,92 @@ describe('Fan', () => {
         })
     })
 
+    describe('Movement and collision', () => {
+        test('should move agent when no obstacles', () => {
+            const agent = new Agent(100, 100, mockConfig);
+            agent.setTarget(200, 200);
+            
+            const mockObstacles = {
+                checkCollision: jest.fn(() => false),
+                resolveCollision: jest.fn()
+            };
+            
+            const initialX = agent.x;
+            const initialY = agent.y;
+            
+            agent.update(0.016, 1.0, [], mockObstacles, 0);
+            
+            // Agent should have moved
+            expect(agent.x).not.toBe(initialX);
+            expect(agent.y).not.toBe(initialY);
+        });
+
+        test('should handle obstacles in path', () => {
+            const agent = new Agent(100, 100, mockConfig);
+            agent.setTarget(200, 200);
+            
+            const mockObstacles = {
+                checkCollision: jest.fn(() => true),
+                resolveCollision: jest.fn()
+            };
+            
+            agent.update(0.016, 1.0, [], mockObstacles, 0);
+            
+            // Agent should call collision resolution
+            expect(mockObstacles.resolveCollision).toHaveBeenCalled();
+        });
+
+        test('should avoid other agents', () => {
+            const agent = new Agent(100, 100, mockConfig);
+            agent.setTarget(200, 200);
+            
+            const otherAgent = new Agent(150, 150, mockConfig);
+            
+            const mockObstacles = {
+                checkCollision: jest.fn(() => false),
+                resolveCollision: jest.fn()
+            };
+            
+            agent.update(0.016, 1.0, [otherAgent], mockObstacles, 0);
+            
+            // Just verify it doesn't crash with other agents
+            expect(agent.x).toBeDefined();
+        });
+    });
+
+    describe('Drawing', () => {
+        test('should draw agent', () => {
+            const agent = new Agent(100, 100, mockConfig);
+            
+            const mockCtx = {
+                fillStyle: '',
+                beginPath: jest.fn(),
+                arc: jest.fn(),
+                fill: jest.fn()
+            };
+            
+            agent.draw(mockCtx);
+            
+            expect(mockCtx.beginPath).toHaveBeenCalled();
+            expect(mockCtx.arc).toHaveBeenCalledWith(100, 100, mockConfig.AGENT_RADIUS, 0, Math.PI * 2);
+            expect(mockCtx.fill).toHaveBeenCalled();
+        });
+
+        test('should use leaving color for leaving agents', () => {
+            const agent = new Agent(100, 100, mockConfig);
+            agent.markAsLeaving();
+            
+            const mockCtx = {
+                fillStyle: '',
+                beginPath: jest.fn(),
+                arc: jest.fn(),
+                fill: jest.fn()
+            };
+            
+            agent.draw(mockCtx);
+            
+            expect(mockCtx.fillStyle).toBe(mockConfig.COLORS.AGENT_LEAVING);
+        });
+    });
 });
+
