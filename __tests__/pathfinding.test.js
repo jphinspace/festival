@@ -230,8 +230,13 @@ describe('Pathfinding Module', () => {
         })
 
         test('should avoid agents in path to target', () => {
+            // Dynamic avoidance only triggers when agent is close AND in path
+            // Agent at (150, 150) relative to mockAgent at (100, 100) going to (200, 200)
+            // is on the path but distance is ~70 pixels from current position
+            // MIN_AVOIDANCE_DISTANCE is typically 30-40, so this won't trigger
+            // Let's place agent closer - at (120, 120) - distance ~28 pixels
             const otherAgents = [
-                { x: 150, y: 150, radius: 3, state: 'moving' }
+                { x: 120, y: 120, radius: 3, state: 'moving' }
             ]
 
             const waypoint = calculateDynamicFanAvoidance(
@@ -243,6 +248,7 @@ describe('Pathfinding Module', () => {
                 mockConfig
             )
 
+            // Should create avoidance waypoint when agent is close and in path
             expect(waypoint).not.toBeNull()
         })
 

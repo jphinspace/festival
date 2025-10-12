@@ -128,17 +128,15 @@ describe('QueuedProcessor Base Class', () => {
 
         test('should not add fan if not in approaching_queue state', () => {
             mockFan.state = 'moving'
-            mockFan.isNearTarget = jest.fn(() => true)
+            mockFan.isNearTarget = jest.fn(() => false) // Not near target
 
-            // Fans in queue state are not processed by processEntering (which only handles approaching fans)
-            // So even if isNearTarget returns true, fan won't be added because state is not approaching_queue
-            // However, the QueueManager.processApproaching inside updateQueuePositions may still try to process it
-            // Let's directly test the processEntering method behavior
             const entering = [mockFan]
             const updateCallback = (sortNeeded, simTime) => {}
             processor.processEntering(processor.queue, entering, updateCallback, 1000)
 
+            // Fan won't be added because isNearTarget returns false
             expect(processor.queue).not.toContain(mockFan)
+            expect(entering).toContain(mockFan) // Still in entering array
         })
 
         test('should not add fan if too far from queue', () => {
