@@ -10,12 +10,22 @@ const mockConfig = {
     HUNGER_RATE: 0.001,
     HUNGER_THRESHOLD: 0.7,
     INITIAL_HUNGER: 0.3,
+    HUNGER_MIN_INITIAL: 0.1,
+    HUNGER_MAX_INITIAL: 0.3,
+    HUNGER_THRESHOLD_BASE: 0.7,
+    HUNGER_THRESHOLD_VARIANCE: 0.1,
+    HUNGER_INCREASE_RATE: 0.001,
     COLORS: {
         FAN_IDLE: '#4a90e2',
         FAN_MOVING: '#2ecc71',
         FAN_HUNGRY: '#e67e22',
         FAN_AT_SHOW: '#9b59b6',
-        FAN_LEAVING: '#e24a4a'
+        FAN_LEAVING: '#e24a4a',
+        AGENT_ACTIVE: '#4a90e2',
+        AGENT_IN_QUEUE: '#f39c12',
+        AGENT_BEING_CHECKED: '#e74c3c',
+        AGENT_ENHANCED_SECURITY: '#c0392b',
+        AGENT_LEAVING: '#e24a4a'
     },
     STAGE_CENTER_X: 0.5,
     STAGE_CENTER_Y: 0.5,
@@ -25,10 +35,13 @@ const mockConfig = {
 const mockObstacles = {
     checkCollision: jest.fn(() => false),
     resolveCollision: jest.fn(),
+    isValidPosition: jest.fn(() => true),
     obstacles: [],
     stages: [],
     foodStalls: [],
-    bus: null
+    bus: null,
+    width: 800,
+    height: 600
 }
 
 describe('Fan Class', () => {

@@ -109,10 +109,8 @@ describe('Obstacles', () => {
         const boundaries = obstacles.getSecurityBoundaries();
         expect(boundaries.length).toBeGreaterThan(0);
         
-        // Should include security and boundary types
-        const hasSecurityType = boundaries.some(b => b.type === 'security');
+        // Should include boundary types (security fence obstacles were removed)
         const hasBoundaryType = boundaries.some(b => b.type === 'boundary');
-        expect(hasSecurityType).toBe(true);
         expect(hasBoundaryType).toBe(true);
     });
 

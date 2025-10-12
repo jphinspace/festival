@@ -36,10 +36,14 @@ describe('Pathfinding Module', () => {
     describe('calculateStaticWaypoints', () => {
         test('should return single waypoint at destination when path is clear', () => {
             const waypoints = calculateStaticWaypoints(
-                mockAgent,
+                mockAgent.x,
+                mockAgent.y,
                 200,
                 200,
-                mockObstacles
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
             )
 
             expect(waypoints.length).toBe(1)
@@ -48,10 +52,14 @@ describe('Pathfinding Module', () => {
 
         test('should return empty array when start equals target', () => {
             const waypoints = calculateStaticWaypoints(
-                mockAgent,
+                mockAgent.x,
+                mockAgent.y,
                 100,
                 100,
-                mockObstacles
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
             )
 
             expect(waypoints.length).toBe(1)
@@ -79,10 +87,14 @@ describe('Pathfinding Module', () => {
             }
 
             const waypoints = calculateStaticWaypoints(
-                mockAgent,
+                mockAgent.x,
+                mockAgent.y,
                 200,
                 200,
-                obstacleMock
+                obstacleMock,
+                mockAgent.radius,
+                0,
+                mockConfig
             )
 
             // Should have multiple waypoints to go around obstacle
@@ -93,10 +105,14 @@ describe('Pathfinding Module', () => {
         test('should handle approaching_queue state with personal space', () => {
             const agent = { ...mockAgent, state: 'approaching_queue' }
             const waypoints = calculateStaticWaypoints(
-                agent,
+                agent.x,
+                agent.y,
                 200,
                 200,
-                mockObstacles
+                mockObstacles,
+                agent.radius,
+                mockConfig.PERSONAL_SPACE,
+                mockConfig
             )
 
             expect(waypoints.length).toBeGreaterThanOrEqual(1)
@@ -121,10 +137,14 @@ describe('Pathfinding Module', () => {
             }
 
             const waypoints = calculateStaticWaypoints(
-                mockAgent,
+                mockAgent.x,
+                mockAgent.y,
                 300,
                 300,
-                obstacleMock
+                obstacleMock,
+                mockAgent.radius,
+                0,
+                mockConfig
             )
 
             Math.random = originalRandom
@@ -145,10 +165,14 @@ describe('Pathfinding Module', () => {
             }
 
             const waypoints = calculateStaticWaypoints(
-                mockAgent,
+                mockAgent.x,
+                mockAgent.y,
                 500,
                 500,
-                obstacleMock
+                obstacleMock,
+                mockAgent.radius,
+                0,
+                mockConfig
             )
 
             expect(waypoints.length).toBeLessThanOrEqual(mockConfig.MAX_STATIC_WAYPOINTS)
@@ -162,7 +186,8 @@ describe('Pathfinding Module', () => {
                 [],
                 200,
                 200,
-                mockObstacles
+                mockObstacles,
+                mockConfig
             )
 
             expect(waypoint).toBeNull()
@@ -178,7 +203,8 @@ describe('Pathfinding Module', () => {
                 otherAgents,
                 200,
                 200,
-                mockObstacles
+                mockObstacles,
+                mockConfig
             )
 
             expect(waypoint).toBeNull()
@@ -194,7 +220,8 @@ describe('Pathfinding Module', () => {
                 otherAgents,
                 200,
                 200,
-                mockObstacles
+                mockObstacles,
+                mockConfig
             )
 
             expect(waypoint).not.toBeNull()
@@ -212,7 +239,8 @@ describe('Pathfinding Module', () => {
                 otherAgents,
                 200,
                 200,
-                mockObstacles
+                mockObstacles,
+                mockConfig
             )
 
             expect(waypoint).not.toBeNull()
@@ -233,7 +261,8 @@ describe('Pathfinding Module', () => {
                 otherAgents,
                 200,
                 200,
-                obstaclesWithCollision
+                obstaclesWithCollision,
+                mockConfig
             )
 
             expect(obstaclesWithCollision.checkCollision).toHaveBeenCalled()
@@ -249,7 +278,8 @@ describe('Pathfinding Module', () => {
                 otherAgents,
                 200,
                 200,
-                null
+                null,
+                mockConfig
             )
 
             // Should still work without obstacles
@@ -266,7 +296,8 @@ describe('Pathfinding Module', () => {
                 otherAgents,
                 200,
                 200,
-                mockObstacles
+                mockObstacles,
+                mockConfig
             )
 
             // Agent behind should be ignored
@@ -283,7 +314,8 @@ describe('Pathfinding Module', () => {
                 otherAgents,
                 200,
                 200,
-                mockObstacles
+                mockObstacles,
+                mockConfig
             )
 
             if (waypoint) {
