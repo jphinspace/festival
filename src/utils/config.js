@@ -65,6 +65,7 @@ export const CONFIG = {
         BUS_AREA: '#6b6bff',
         SECURITY_QUEUE: '#9b6bff',
         SECURITY_BORDER: '#ff00ff',
+        SECURITY_BOUNDARY: '#8B0000',
         FOOD_STALL: '#8b4513',
         TEXT: '#fff'
     },

@@ -154,6 +154,20 @@ export class Renderer {
         this.ctx.fillText('SECURITY', this.width * 0.47, this.height * 0.68);
     }
 
+    drawSecurityBoundaries(obstacles) {
+        if (!obstacles) return;
+        
+        const boundaries = obstacles.getSecurityBoundaries();
+        
+        // Draw each boundary with dark red outline, no fill
+        this.ctx.strokeStyle = this.config.COLORS.SECURITY_BOUNDARY;
+        this.ctx.lineWidth = 2;
+        
+        boundaries.forEach(boundary => {
+            this.ctx.strokeRect(boundary.x, boundary.y, boundary.width, boundary.height);
+        });
+    }
+
     drawAgents(agents) {
         // If showAllPaths is enabled, draw all paths first (before agents so paths are behind)
         if (this.showAllPaths) {
@@ -314,7 +328,7 @@ export class Renderer {
         this.ctx.setLineDash([]);
     }
 
-    render(agents, leftConcertActive, rightConcertActive, foodStalls = [], leftShowInfo = null, rightShowInfo = null) {
+    render(agents, leftConcertActive, rightConcertActive, foodStalls = [], leftShowInfo = null, rightShowInfo = null, obstacles = null) {
         this.drawBackground();
         this.drawStages(leftConcertActive, rightConcertActive);
         
@@ -327,6 +341,7 @@ export class Renderer {
         }
         
         this.drawSecurityQueues();
+        this.drawSecurityBoundaries(obstacles);
         this.drawFoodStalls(foodStalls);
         this.drawBusArea();
         this.drawAgents(agents);

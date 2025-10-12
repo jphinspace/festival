@@ -11,6 +11,7 @@ const mockConfig = {
         BUS_AREA: '#6b6bff',
         SECURITY_QUEUE: '#9b6bff',
         SECURITY_BORDER: '#ff00ff',
+        SECURITY_BOUNDARY: '#8B0000',
         TEXT: '#fff'
     },
     GROUND_HEIGHT: 0.7,
@@ -90,5 +91,63 @@ describe('Renderer', () => {
         renderer.render(agents, false, false);
         // Just verify it doesn't crash
         expect(renderer.width).toBe(800);
+    });
+
+    test('should draw security boundaries when obstacles provided', () => {
+        renderer.resize(800, 600);
+        
+        // Create mock obstacles with getSecurityBoundaries method
+        let getSecurityBoundariesCalled = false;
+        const mockObstacles = {
+            getSecurityBoundaries: () => {
+                getSecurityBoundariesCalled = true;
+                return [
+                    { x: 0, y: 100, width: 50, height: 200 },
+                    { x: 750, y: 100, width: 50, height: 200 }
+                ];
+            }
+        };
+        
+        // Track strokeRect calls
+        const strokeRectCalls = [];
+        ctx.strokeRect = (...args) => strokeRectCalls.push(args);
+        
+        renderer.drawSecurityBoundaries(mockObstacles);
+        
+        expect(getSecurityBoundariesCalled).toBe(true);
+        expect(strokeRectCalls.length).toBe(2);
+        expect(strokeRectCalls[0]).toEqual([0, 100, 50, 200]);
+        expect(strokeRectCalls[1]).toEqual([750, 100, 50, 200]);
+        expect(ctx.strokeStyle).toBe(mockConfig.COLORS.SECURITY_BOUNDARY);
+        expect(ctx.lineWidth).toBe(2);
+    });
+
+    test('should handle null obstacles gracefully in drawSecurityBoundaries', () => {
+        renderer.resize(800, 600);
+        
+        // Should not throw when obstacles is null
+        expect(() => {
+            renderer.drawSecurityBoundaries(null);
+        }).not.toThrow();
+    });
+
+    test('should render complete scene with obstacles', () => {
+        renderer.resize(800, 600);
+        const agents = [];
+        let getSecurityBoundariesCalled = false;
+        const mockObstacles = {
+            getSecurityBoundaries: () => {
+                getSecurityBoundariesCalled = true;
+                return [
+                    { x: 0, y: 100, width: 50, height: 200 }
+                ];
+            }
+        };
+        
+        renderer.render(agents, false, false, [], null, null, mockObstacles);
+        
+        // Just verify it doesn't crash and obstacles method was called
+        expect(renderer.width).toBe(800);
+        expect(getSecurityBoundariesCalled).toBe(true);
     });
 });
