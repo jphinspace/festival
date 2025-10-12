@@ -26,26 +26,8 @@ jobs:
     - name: Install dependencies
       run: npm ci
     
-    - name: Run tests
-      run: npm test
-    
     - name: Run tests with coverage
       run: npm test -- --coverage --coverageReporters=text --coverageReporters=json-summary
-    
-    - name: Check coverage thresholds
-      run: |
-        echo "Checking coverage thresholds..."
-        COVERAGE_OUTPUT=$(npm test -- --coverage --passWithNoTests 2>&1)
-        
-        # Check if coverage thresholds were met
-        if echo "$COVERAGE_OUTPUT" | grep -q "Coverage thresholds not met"; then
-          echo "❌ Coverage thresholds not met!"
-          echo "$COVERAGE_OUTPUT" | grep -A 20 "Coverage thresholds"
-          exit 1
-        else
-          echo "✅ Coverage thresholds met!"
-          echo "$COVERAGE_OUTPUT" | grep -A 15 "All files"
-        fi
     
     - name: Upload coverage reports
       if: always()

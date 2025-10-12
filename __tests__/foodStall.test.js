@@ -500,12 +500,12 @@ describe('FoodStall', () => {
             const fan = new Fan(120, 115, mockConfig);
             fan.state = AgentState.PROCESSING;
             fan.processingAtStall = foodStall; // Set dynamically
-            fan.waitStartTime = 0;
+            fan.waitStartTime = 1; // Use non-zero value (0 is falsy!)
             fan.hunger = 0.8;
             fan.processingSide = 'right'; // Use processingSide not queueSide
             fan.setTarget = jest.fn(); // Mock setTarget to avoid needing full setup
             
-            const result = foodStall.checkAndProcessFan(fan, 800, 600, 2000);
+            const result = foodStall.checkAndProcessFan(fan, 800, 600, 2000); // Use time > FOOD_WAIT_TIME (1000)
             
             // Should return true indicating processing occurred
             expect(result).toBe(true);
@@ -522,12 +522,12 @@ describe('FoodStall', () => {
             const fan = new Fan(100, 115, mockConfig);
             fan.state = AgentState.PROCESSING;
             fan.processingAtStall = foodStall; // Set dynamically
-            fan.waitStartTime = 0;
+            fan.waitStartTime = 1; // Use non-zero value (0 is falsy!)
             fan.hunger = 0.8;
             fan.processingSide = 'left'; // Use processingSide not queueSide
             fan.setTarget = jest.fn(); // Mock setTarget to avoid needing full setup
             
-            const result = foodStall.checkAndProcessFan(fan, 800, 600, 2000);
+            const result = foodStall.checkAndProcessFan(fan, 800, 600, 2000); // Use time > FOOD_WAIT_TIME (1000)
             
             // Should return true indicating processing occurred
             expect(result).toBe(true);
