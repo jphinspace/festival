@@ -60,27 +60,35 @@ This document lists potential optimizations and improvements for the queue manag
 ## Better Behavior
 
 ### Queue Joining
-- **Natural approach angles**: Fans should approach from behind the queue, not cut through it
-- **Personal space during approach**: Maintain distance from other fans while approaching
+
+#### Completed
+- ✅ **Merge behavior**: Fans smoothly merge into queue line when joining from the side (implemented via proximity-based positioning in QueueManager.findApproachingPosition with 60px threshold)
+- ✅ **Natural approach angles**: Fans use pathfinding to approach queues, avoiding obstacles and other fans
+- ✅ **Personal space during approach**: Pathfinding respects personal space buffers and collision detection
+- ✅ **Arrival time fairness**: Distance-based ordering ensures first-come-first-served is respected (QueueManager.updatePositions sorts by distance to front)
+
+#### Future Improvements
 - **Queue choice intelligence**: Consider queue length, processing speed, and distance when choosing queues
 - **Avoid queue crossing**: Fans shouldn't walk through other queues to reach their queue
-- **Arrival time fairness**: Ensure first-come-first-served is respected even in approaching phase
-- **Merge behavior**: When joining from the side, smoothly merge into queue line
 - **Queue capacity awareness**: Show queue as "full" and discourage joining when too long
 - **Dynamic queue selection**: Fans could switch queues if one becomes much shorter
 - **Group queue joining**: Groups of fans should join queues together
 - **Queue announcement**: Visual or state indication when fan decides to join a queue
 
 ### Queue Movement
-- **Smooth position advancement**: Gradual movement forward, not teleporting between positions
-- **Acceleration/deceleration in queues**: Speed up and slow down naturally when moving in queue
-- **Position settling**: Small adjustments when reaching target position (not instant stop)
-- **Maintain spacing**: Keep consistent distance from fan ahead and behind
+
+#### Completed
+- ✅ **Smooth position advancement**: Fans move gradually forward using frame-independent movement (Agent.update uses deltaTime and moveDistance, no teleporting)
+- ✅ **Maintain spacing**: QueueManager calculates positions with consistent QUEUE_SPACING
+- ✅ **Collision-free advancement**: Collision detection with other agents prevents bumping (Agent.resolveOverlap)
+- ✅ **Position settling**: Fans transition from IN_QUEUE_ADVANCING to IN_QUEUE_WAITING when within 5 pixels of target
+
+#### Future Improvements
+- **Acceleration/deceleration in queues**: Speed up and slow down naturally when moving in queue (currently instant top speed)
 - **Side-to-side variation**: Small lateral movement while in queue for natural appearance
 - **Impatient animations**: Some fans could shift weight, look around, check phone
 - **Queue density response**: Adjust spacing based on how crowded the queue is
 - **Follow-the-leader logic**: Fan positions could be relative to fan ahead, not absolute
-- **Collision-free advancement**: Ensure fans don't bump into each other when advancing
 - **Predictive movement**: Start moving before target position changes (anticipate advancement)
 
 ### Queue Processing
@@ -96,7 +104,13 @@ This document lists potential optimizations and improvements for the queue manag
 - **Dynamic processing speed**: Adjust based on queue length (faster when queue is long)
 
 ### Queue Exit
-- **Natural exit paths**: Fans should move away from queue area after being served
+
+#### Completed
+- ✅ **Natural exit paths**: Fans use pathfinding to move away from queue area after being served
+- ✅ **Exit cleanup**: Queue properties are cleared on exit (inQueue, queuePosition, etc.)
+- ✅ **Return-to-queue handling**: Enhanced security re-check scenario uses RETURNING_TO_QUEUE state
+
+#### Future Improvements
 - **Exit flow management**: Ensure exiting fans don't collide with entering fans
 - **Clear exit indication**: Visual feedback when fan is done with queue
 - **Exit speed variation**: Some fans linger, others rush away
@@ -104,19 +118,21 @@ This document lists potential optimizations and improvements for the queue manag
 - **Group exits**: Groups should coordinate their exit
 - **Congestion-aware exits**: Avoid exiting into crowded areas
 - **Exit animations**: Distinct movement patterns for exiting vs. normal wandering
-- **Return-to-queue handling**: Better logic for enhanced security re-check scenario
-- **Exit cleanup**: Ensure all queue-related properties are cleared on exit
 
 ### State Transitions
-- **Smoother state changes**: Add transition states between major queue states
+
+#### Completed
+- ✅ **Smoother state changes**: Dedicated transition states implemented (APPROACHING_QUEUE, IN_QUEUE_ADVANCING, IN_QUEUE_WAITING)
+- ✅ **State synchronization**: Fan state matches queue data structures (approaching array vs queue array)
+- ✅ **Atomic state updates**: QueueManager ensures properties change together (state, inQueue, queuePosition)
+
+#### Future Improvements
 - **State validation**: Check state transitions are valid before applying
 - **State rollback**: Ability to undo invalid state transitions
 - **Context-aware states**: Queue behavior varies based on queue type, time, events
 - **State persistence**: Track state history for debugging and analytics
-- **Atomic state updates**: Ensure all related properties change together
 - **State machine enforcement**: Prevent invalid state transitions
 - **State transition logging**: Log all transitions for debugging queue issues
-- **State synchronization**: Ensure fan state matches queue data structures
 - **Emergency state recovery**: Detect and fix fans stuck in invalid states
 
 ## Resource Usage
@@ -442,9 +458,11 @@ This document lists potential optimizations and improvements for the queue manag
 
 ## Known Issues and Bugs
 
+### Resolved Issues
+- ✅ **Rightward drift after security**: Fixed by ensuring passed_security state can pass through security obstacles
+
 ### Current Issues
 - **Position 0 adjustment for empty queues**: Security queue uses getAdjustedQueuePosition workaround
-- **Rightward drift after security**: Fixed but shows need for better state-based permissions
 - **Queue position oscillation**: Fans near threshold may join/leave repeatedly
 - **Approaching list ordering**: May not always reflect true queue order during approach
 - **Processing fan tracking**: Food stalls don't track processing fans explicitly
@@ -512,8 +530,11 @@ The queue management system provides a solid foundation with:
 - Separation of approaching and in-queue phases
 - Throttled updates for performance
 - Proximity-based queue positioning
+- **Smooth gradual movement using frame-independent pathfinding (no teleporting)**
+- **Natural merging behavior when approaching queues from any angle**
 
 Key areas for immediate improvement:
+- **Acceleration/deceleration**: Add velocity-based movement so fans don't instantly reach top speed or stop
 - **Space efficiency**: Implement winding queues to reduce vertical space usage
 - **Performance**: Add caching, spatial partitioning, batch updates
 - **Robustness**: Better error handling, validation, edge case coverage

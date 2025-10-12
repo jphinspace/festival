@@ -42,18 +42,26 @@ This document lists potential optimizations and improvements for the new pathfin
 ## Better Behavior
 
 ### Navigation
+
+#### Completed
+- ✅ **Personal space respect**: Personal space buffers factored into pathfinding collision detection
+- ✅ **Obstacle prediction**: Fans use pathfinding around stationary obstacles
+
+#### Future Improvements
 - **Anticipatory avoidance**: Look further ahead to avoid getting into situations requiring sharp turns
 - **Group behavior**: Fans traveling together should coordinate paths
 - **Flow fields**: Use flow fields for large crowds moving to common destinations
 - **Lane formation**: Encourage fans to form lanes when moving in opposite directions
-- **Personal space respect**: Factor in personal space bubbles when calculating paths, not just hard obstacles
-- **Obstacle prediction**: Predict that stationary fans (in queues) won't move and path more confidently near them
 
-### Queue Behavior  
-- **Natural queue joining**: Make fans approach from behind the queue, not from arbitrary angles
-- **Queue density awareness**: Fans should avoid cutting through dense queue areas
+### Queue Behavior
+
+#### Completed
+- ✅ **Natural queue joining**: Fans approach queues using pathfinding, positioning based on proximity to other fans
+- ✅ **Queue density awareness**: Fans avoid cutting through dense queue areas via obstacle avoidance
+- ✅ **Walking speed variation**: Fans use frame-independent movement with consistent speed
+
+#### Future Improvements  
 - **Processing position variety**: Vary processing positions slightly to look more natural
-- **Walking speed variation**: Fans should slow down when approaching queue positions
 - **Impatient behavior**: Some fans could try to squeeze through gaps in queues (personality traits)
 
 ### State Transitions
@@ -146,16 +154,24 @@ Consider carefully before adding dependencies. Many optimizations can be achieve
 ## Consistency Improvements
 
 ### Movement
-- **Smooth interpolation**: Interpolate between waypoints instead of sharp turns
+
+#### Completed
+- ✅ **Smooth interpolation**: Waypoint-based pathfinding with randomization prevents sharp turns and crowding
+- ✅ **Collision response**: Agents slide along obstacles naturally (Agent.findAvoidancePosition, resolveOverlap)
+
+#### Future Improvements
 - **Velocity-based movement**: Use velocity vectors for more realistic physics
-- **Acceleration/deceleration**: Don't instantly reach top speed or stop
+- **Acceleration/deceleration**: Don't instantly reach top speed or stop (currently instant)
 - **Turning radius**: Limit how sharply fans can turn (more natural movement)
-- **Collision response**: When fans bump into obstacles, slide along them naturally
 
 ### Queue Management
-- **Consistent spacing**: Ensure fans maintain even spacing in queues
-- **No queue jumping**: Strictly enforce queue order
-- **Smooth queue progression**: Fans move up in queue gradually, not in sudden jumps
+
+#### Completed
+- ✅ **Consistent spacing**: QueueManager uses QUEUE_SPACING for even spacing in queues
+- ✅ **No queue jumping**: Distance-based ordering strictly enforces queue order
+- ✅ **Smooth queue progression**: Fans move gradually via pathfinding waypoints (no sudden jumps)
+
+#### Future Improvements
 - **Priority queues**: VIP fans or ticket holders could have separate queues
 - **Queue overflow handling**: What happens when queues exceed capacity?
 
@@ -245,6 +261,11 @@ The new pathfinding system provides a solid foundation with:
 - Configurable parameters
 - Support for randomization to prevent crowding
 - Tick-based progressive updates
+- **Smooth waypoint-based movement (no teleporting or instant position changes)**
+- **Natural queue joining with proximity-based positioning**
+
+Key missing feature:
+- **Acceleration/deceleration**: Fans instantly reach top speed and stop instantly - velocity-based movement would be more realistic
 
 Key areas for immediate improvement:
 - Performance optimization through caching and spatial partitioning
