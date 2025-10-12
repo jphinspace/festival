@@ -1,4 +1,6 @@
 // Renderer class for drawing the simulation
+import * as Positioning from '../utils/positioning.js';
+
 export class Renderer {
     constructor(canvas, config) {
         this.canvas = canvas;
@@ -286,35 +288,31 @@ export class Renderer {
         ];
         
         // Calculate overlay dimensions
-        const maxWidth = Math.max(...lines.map(line => this.ctx.measureText(line).width));
-        const overlayWidth = maxWidth + padding * 2;
-        const overlayHeight = lines.length * lineHeight + padding * 2;
+        const maxWidth = Positioning.calculateMaxTextWidth(this.ctx, lines);
+        const dimensions = Positioning.calculateOverlayDimensions(maxWidth, lines.length, padding, lineHeight);
         
         // Position overlay near mouse, but keep it on screen
-        let overlayX = mouseX + 15;
-        let overlayY = mouseY + 15;
-        
-        if (overlayX + overlayWidth > this.width) {
-            overlayX = mouseX - overlayWidth - 15;
-        }
-        if (overlayY + overlayHeight > this.height) {
-            overlayY = mouseY - overlayHeight - 15;
-        }
+        const position = Positioning.calculateOverlayPosition(
+            mouseX, mouseY, 
+            dimensions.width, dimensions.height, 
+            this.width, this.height
+        );
         
         // Draw background
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-        this.ctx.fillRect(overlayX, overlayY, overlayWidth, overlayHeight);
+        this.ctx.fillRect(position.x, position.y, dimensions.width, dimensions.height);
         
         // Draw border
         this.ctx.strokeStyle = '#4a90e2';
         this.ctx.lineWidth = 2;
-        this.ctx.strokeRect(overlayX, overlayY, overlayWidth, overlayHeight);
+        this.ctx.strokeRect(position.x, position.y, dimensions.width, dimensions.height);
         
         // Draw text
         this.ctx.fillStyle = '#ffffff';
         this.ctx.font = '11px monospace';
+        const linePositions = Positioning.calculateTextLinePositions(position.y, padding, lineHeight, lines.length);
         lines.forEach((line, index) => {
-            this.ctx.fillText(line, overlayX + padding, overlayY + padding + (index + 1) * lineHeight);
+            this.ctx.fillText(line, position.x + padding, linePositions[index]);
         });
         
         // Draw line from fan to overlay
@@ -323,7 +321,7 @@ export class Renderer {
         this.ctx.setLineDash([3, 3]);
         this.ctx.beginPath();
         this.ctx.moveTo(fan.x, fan.y);
-        this.ctx.lineTo(overlayX, overlayY);
+        this.ctx.lineTo(position.x, position.y);
         this.ctx.stroke();
         this.ctx.setLineDash([]);
     }
