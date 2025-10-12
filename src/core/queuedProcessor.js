@@ -3,6 +3,7 @@
  * Provides common queue management logic for security checkpoints and food stalls
  */
 import { QueueManager } from './queueManager.js'
+import { AgentState } from '../utils/enums.js'
 
 export class QueuedProcessor {
     /**
@@ -38,7 +39,7 @@ export class QueuedProcessor {
                 // Move from entering to actual queue
                 entering.splice(i, 1)
                 queue.push(fan)
-                fan.state = 'in_queue_waiting'
+                fan.state = AgentState.IN_QUEUE_WAITING
                 // Update all queue positions since someone joined
                 updatePositionsCallback(true, simulationTime)
             }
@@ -69,7 +70,7 @@ export class QueuedProcessor {
                 const processingPos = getProcessingPosition()
                 
                 // Fan advances to processing position (still moving in queue)
-                fan.state = 'in_queue_advancing'
+                fan.state = AgentState.IN_QUEUE_ADVANCING
                 fan.inQueue = true // Still in queue, just advancing to processing
                 fan.setTarget(processingPos.x, processingPos.y, this.obstacles, simulationTime)
                 
@@ -89,8 +90,8 @@ export class QueuedProcessor {
      * @returns {boolean} True if fan transitioned to processing
      */
     checkProcessingTransition(fan) {
-        if (fan && fan.state === 'in_queue_advancing' && fan.isNearTarget(5)) {
-            fan.state = 'processing'
+        if (fan && fan.state === AgentState.IN_QUEUE_ADVANCING && fan.isNearTarget(5)) {
+            fan.state = AgentState.PROCESSING
             fan.inQueue = false // No longer in queue, now being processed
             // Clear waypoints - fan is now stationary
             fan.staticWaypoints = []
@@ -146,13 +147,13 @@ export class QueuedProcessor {
                     fan, targetPos, this.obstacles, forceUpdate, currentTime
                 )
                 if (updated) {
-                    fan.state = 'in_queue_advancing'
-                } else if (fan.state === 'in_queue_advancing' && isAtTarget) {
-                    fan.state = 'in_queue_waiting'
+                    fan.state = AgentState.IN_QUEUE_ADVANCING
+                } else if (fan.state === AgentState.IN_QUEUE_ADVANCING && isAtTarget) {
+                    fan.state = AgentState.IN_QUEUE_WAITING
                 }
-            } else if (fan.state === 'in_queue_advancing') {
+            } else if (fan.state === AgentState.IN_QUEUE_ADVANCING) {
                 // Fan reached target, switch to waiting
-                fan.state = 'in_queue_waiting'
+                fan.state = AgentState.IN_QUEUE_WAITING
             }
         })
     }

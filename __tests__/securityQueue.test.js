@@ -1,6 +1,7 @@
 // Unit tests for SecurityQueue class
 import { SecurityQueue } from '../src/components/securityQueue.js';
 import { Fan } from '../src/core/fan.js';
+import { AgentState } from '../src/utils/enums.js';
 
 const mockConfig = {
     REGULAR_SECURITY_TIME: 1000,
@@ -115,8 +116,8 @@ describe('SecurityQueue', () => {
         securityQueue.queues[queueIndex].push(fan1);
         securityQueue.queues[queueIndex].push(fan2);
         securityQueue.updateQueuePositions(queueIndex);
-        fan1.state = 'in_queue';
-        fan2.state = 'in_queue';
+        fan1.state = AgentState.IN_QUEUE;
+        fan2.state = AgentState.IN_QUEUE;
         
         // Verify initial state
         expect(securityQueue.queues[queueIndex][0]).toBe(fan1);
@@ -170,7 +171,7 @@ describe('SecurityQueue', () => {
         // Manually add to queue (bypass entering)
         securityQueue.queues[queueIndex].push(fan);
         securityQueue.updateQueuePositions(queueIndex);
-        fan.state = 'in_queue';
+        fan.state = AgentState.IN_QUEUE;
         
         // Store initial front position
         const frontX = fan.targetX;

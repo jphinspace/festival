@@ -1,6 +1,7 @@
 // Unit tests for FoodStall class
 import { FoodStall } from '../src/components/foodStall.js';
 import { Fan } from '../src/core/fan.js';
+import { AgentState } from '../src/utils/enums.js';
 
 const mockConfig = {
     AGENT_RADIUS: 3,
@@ -133,7 +134,7 @@ describe('FoodStall', () => {
         fan.hunger = 0.8
         fan.targetX = 92
         fan.targetY = 115
-        fan.state = 'in_queue'
+        fan.state = AgentState.IN_QUEUE
         
         // Manually add fan to queue (bypass entering phase for test)
         foodStall.leftQueue.push(fan)
@@ -178,7 +179,7 @@ describe('FoodStall', () => {
         fan.hunger = 0.8
         fan.targetX = 92
         fan.targetY = 115
-        fan.state = 'in_queue'
+        fan.state = AgentState.IN_QUEUE
         
         // Manually add fan to queue
         foodStall.leftQueue.push(fan)
@@ -414,7 +415,7 @@ describe('FoodStall', () => {
         // Approaching fan positioned far from the queue (more than 80px away)
         const approachingFan = new Fan(50, 200, mockConfig);
         foodStall.leftApproaching.push(approachingFan);
-        approachingFan.state = 'approaching_queue';
+        approachingFan.state = AgentState.APPROACHING_QUEUE;
         approachingFan.targetFoodStall = foodStall;
         approachingFan.queueSide = 'left';
         

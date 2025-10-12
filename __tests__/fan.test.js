@@ -1,6 +1,7 @@
 // Test for Fan class
 import { Fan } from '../src/core/fan.js'
 import { jest } from '@jest/globals'
+import { AgentState } from '../src/utils/enums.js'
 
 const mockConfig = {
     AGENT_RADIUS: 3,
@@ -70,7 +71,7 @@ describe('Fan Class', () => {
     describe('update', () => {
         test('should increase hunger over time when not at food stall', () => {
             const initialHunger = fan.hunger
-            fan.state = 'moving'
+            fan.state = AgentState.MOVING
 
             fan.update(1, 1.0, [], mockObstacles, 0)
 
@@ -78,7 +79,7 @@ describe('Fan Class', () => {
         })
 
         test('should not increase hunger when at food stall', () => {
-            fan.state = 'approaching_queue'
+            fan.state = AgentState.APPROACHING_QUEUE
             fan.queueType = 'food'
             fan.waitStartTime = Date.now() // Set waitStartTime to prevent hunger increase
             const initialHunger = fan.hunger
@@ -89,7 +90,7 @@ describe('Fan Class', () => {
         })
 
         test('should not increase hunger when in food queue', () => {
-            fan.state = 'in_queue_waiting'
+            fan.state = AgentState.IN_QUEUE_WAITING
             fan.waitStartTime = Date.now() // Set waitStartTime to prevent hunger increase
             fan.queueType = 'food'
             const initialHunger = fan.hunger
@@ -100,7 +101,7 @@ describe('Fan Class', () => {
         })
 
         test('should not increase hunger when processing at food stall', () => {
-            fan.state = 'processing'
+            fan.state = AgentState.PROCESSING
             fan.queueType = 'food'
             fan.waitStartTime = Date.now() // Set waitStartTime to prevent hunger increase
             const initialHunger = fan.hunger
@@ -112,7 +113,7 @@ describe('Fan Class', () => {
 
         test('should clamp hunger to maximum of 1.0', () => {
             fan.hunger = 0.99
-            fan.state = 'moving'
+            fan.state = AgentState.MOVING
 
             fan.update(10, 1.0, [], mockObstacles, 0)
 
@@ -120,7 +121,7 @@ describe('Fan Class', () => {
         })
 
         test('should transition idle to moving after wait time', () => {
-            fan.state = 'idle'
+            fan.state = AgentState.IDLE
             fan.lastStateChange = 0
 
             fan.update(0.1, 1.0, [], mockObstacles, 10000) // 10 seconds later
@@ -129,7 +130,7 @@ describe('Fan Class', () => {
         })
 
         test('should not transition idle to moving before wait time', () => {
-            fan.state = 'idle'
+            fan.state = AgentState.IDLE
             fan.wanderTargetUpdateTime = Date.now() // Just updated, so shouldn't transition yet
             const initialState = fan.state
 
@@ -141,7 +142,7 @@ describe('Fan Class', () => {
 
     describe('startWandering', () => {
         test('should set random target and transition to moving', () => {
-            fan.state = 'idle'
+            fan.state = AgentState.IDLE
 
             fan.startWandering(mockObstacles, 1000)
 
@@ -204,7 +205,7 @@ describe('Fan Class', () => {
         })
 
         test('should draw fan with correct color based on state', () => {
-            fan.state = 'moving'
+            fan.state = AgentState.MOVING
 
             fan.draw(mockContext)
 
@@ -221,7 +222,7 @@ describe('Fan Class', () => {
 
         test('should use hungry color when hunger is high', () => {
             fan.hunger = 0.8
-            fan.state = 'moving'
+            fan.state = AgentState.MOVING
 
             fan.draw(mockContext)
 
@@ -237,7 +238,7 @@ describe('Fan Class', () => {
         })
 
         test('should draw leaving fans', () => {
-            fan.state = 'leaving'
+            fan.state = AgentState.LEAVING
 
             fan.draw(mockContext)
 
@@ -277,7 +278,7 @@ describe('Fan Class', () => {
 
     describe('state transitions', () => {
         test('should transition from idle to moving', () => {
-            fan.state = 'idle'
+            fan.state = AgentState.IDLE
             fan.lastStateChange = 0
 
             fan.update(0.1, 1.0, [], mockObstacles, 10000)
@@ -286,7 +287,7 @@ describe('Fan Class', () => {
         })
 
         test('should handle approaching_queue state', () => {
-            fan.state = 'approaching_queue'
+            fan.state = AgentState.APPROACHING_QUEUE
 
             fan.update(0.1, 1.0, [], mockObstacles, 1000)
 
@@ -295,7 +296,7 @@ describe('Fan Class', () => {
         })
 
         test('should handle in_queue_waiting state', () => {
-            fan.state = 'in_queue_waiting'
+            fan.state = AgentState.IN_QUEUE_WAITING
 
             fan.update(0.1, 1.0, [], mockObstacles, 1000)
 
@@ -303,7 +304,7 @@ describe('Fan Class', () => {
         })
 
         test('should handle in_queue_advancing state', () => {
-            fan.state = 'in_queue_advancing'
+            fan.state = AgentState.IN_QUEUE_ADVANCING
             fan.setTarget(200, 200, mockObstacles, 0)
 
             fan.update(0.1, 1.0, [], mockObstacles, 1000)
@@ -313,7 +314,7 @@ describe('Fan Class', () => {
         })
 
         test('should handle processing state', () => {
-            fan.state = 'processing'
+            fan.state = AgentState.PROCESSING
 
             fan.update(0.1, 1.0, [], mockObstacles, 1000)
 
@@ -329,7 +330,7 @@ describe('Fan Class', () => {
         })
 
         test('should handle leaving state', () => {
-            fan.state = 'leaving'
+            fan.state = AgentState.LEAVING
             fan.setTarget(100, 600, mockObstacles, 0)
 
             fan.update(0.1, 1.0, [], mockObstacles, 1000)
@@ -356,7 +357,7 @@ describe('Fan Class', () => {
         })
 
         test('should handle very high simulation speed', () => {
-            fan.state = 'moving'
+            fan.state = AgentState.MOVING
             const initialHunger = fan.hunger
 
             fan.update(0.1, 10.0, [], mockObstacles, 1000)

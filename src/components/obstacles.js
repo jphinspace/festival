@@ -2,6 +2,8 @@
  * Obstacles class - manages collision detection with static festival objects
  * Includes stages, food stalls, bus area, and security lines
  */
+import { AgentState } from '../utils/enums.js';
+
 export class Obstacles {
     constructor(config, width, height) {
         this.config = config;
@@ -149,10 +151,10 @@ export class Obstacles {
             // Allow fans in security process to pass through security obstacles
             // This includes: approaching, in queue, being checked, AND passed security (moving away)
             if (obs.type === 'security' && (
-                agent.state === 'in_queue' || 
-                agent.state === 'being_checked' || 
-                agent.state === 'approaching_queue' ||
-                agent.state === 'passed_security'
+                agent.state === AgentState.IN_QUEUE || 
+                agent.state === AgentState.BEING_CHECKED || 
+                agent.state === AgentState.APPROACHING_QUEUE ||
+                agent.state === AgentState.PASSED_SECURITY
             )) {
                 continue;
             }

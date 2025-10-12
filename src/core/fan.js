@@ -3,6 +3,7 @@
  * Extends the base Agent class with fan-specific behaviors
  */
 import { Agent } from './agent.js';
+import { AgentState, StagePreference, FanGoal } from '../utils/enums.js';
 
 export class Fan extends Agent {
     /**
@@ -33,19 +34,19 @@ export class Fan extends Agent {
         this.queuedAt = null;
         this.waitStartTime = null;
         this.targetFoodStall = null;
-        this.queueSide = null; // 'left' or 'right' for food stalls
+        this.queueSide = null; // QueueSide.LEFT or QueueSide.RIGHT for food stalls
         
         // Fan goal/intent tracking for debug tooltip
-        this.goal = 'exploring'; // What the fan is trying to accomplish
+        this.goal = FanGoal.EXPLORING;
         
-        // Stage preference: 'left', 'right', or 'none'
+        // Stage preference
         const rand = Math.random();
         if (rand < 0.4) {
-            this.stagePreference = 'left';
+            this.stagePreference = StagePreference.LEFT;
         } else if (rand < 0.8) {
-            this.stagePreference = 'right';
+            this.stagePreference = StagePreference.RIGHT;
         } else {
-            this.stagePreference = 'none'; // No preference, watches both
+            this.stagePreference = StagePreference.NONE;
         }
         
         // Show tracking
@@ -80,7 +81,7 @@ export class Fan extends Agent {
         // Only set target if we found a valid position
         if (!obstacles || obstacles.isValidPosition(targetX, targetY)) {
             this.setTarget(targetX, targetY, obstacles, simulationTime)
-            this.state = 'moving'
+            this.state = AgentState.MOVING
         }
     }
     
@@ -104,7 +105,7 @@ export class Fan extends Agent {
         }
         
         // Spread-out behavior: wander if idle and not watching a show
-        if (this.state === 'idle' && !this.currentShow && !this.inQueue && this.state !== 'leaving') {
+        if (this.state === AgentState.IDLE && !this.currentShow && !this.inQueue && this.state !== AgentState.LEAVING) {
             const now = simulationTime || Date.now(); // Use simulationTime if available
             
             // Update wander target every 5-10 seconds
@@ -120,15 +121,15 @@ export class Fan extends Agent {
      */
     draw(ctx) {
         // Update color based on state
-        if (this.state === 'in_queue_waiting' || this.state === 'in_queue_advancing' || this.state === 'approaching_queue') {
+        if (this.state === AgentState.IN_QUEUE_WAITING || this.state === AgentState.IN_QUEUE_ADVANCING || this.state === AgentState.APPROACHING_QUEUE) {
             this.color = this.config.COLORS.AGENT_IN_QUEUE;
-        } else if (this.state === 'being_checked' || this.state === 'processing') {
+        } else if (this.state === AgentState.BEING_CHECKED || this.state === AgentState.PROCESSING) {
             this.color = this.enhancedSecurity ? 
                 this.config.COLORS.AGENT_ENHANCED_SECURITY : 
                 this.config.COLORS.AGENT_BEING_CHECKED;
-        } else if (this.state === 'leaving') {
+        } else if (this.state === AgentState.LEAVING) {
             this.color = this.config.COLORS.AGENT_LEAVING;
-        } else if (this.state === 'moving' || this.state === 'idle') {
+        } else if (this.state === AgentState.MOVING || this.state === AgentState.IDLE) {
             this.color = this.config.COLORS.AGENT_ACTIVE;
         }
         

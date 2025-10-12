@@ -2,6 +2,8 @@
  * QueueManager - Shared queue management logic for both security and food queues
  * This ensures consistent behavior across all queue types
  */
+import { AgentState } from '../utils/enums.js';
+
 export class QueueManager {
     /**
      * Calculate Euclidean distance between two points
@@ -99,11 +101,11 @@ export class QueueManager {
             if (!isAtTarget) {
                 const updated = this.updateFanTarget(fan, targetPos, obstacles, forceUpdate, currentTime);
                 if (updated) {
-                    fan.state = 'in_queue_advancing';
+                    fan.state = AgentState.IN_QUEUE_ADVANCING;
                 }
-            } else if (fan.state === 'in_queue_advancing') {
+            } else if (fan.state === AgentState.IN_QUEUE_ADVANCING) {
                 // Fan reached their position, now waiting
-                fan.state = 'in_queue_waiting';
+                fan.state = AgentState.IN_QUEUE_WAITING;
             }
             
             fan.inQueue = true;
@@ -130,8 +132,8 @@ export class QueueManager {
             this.updateFanTarget(fan, targetPos, obstacles, forceUpdate, currentTime);
             
             fan.inQueue = false;
-            if (fan.state !== 'approaching_queue') {
-                fan.state = 'approaching_queue';
+            if (fan.state !== AgentState.APPROACHING_QUEUE) {
+                fan.state = AgentState.APPROACHING_QUEUE;
             }
         });
     }
@@ -228,7 +230,7 @@ export class QueueManager {
         
         // CRITICAL: Set state to approaching_queue BEFORE setTarget
         // so that setTarget() knows to generate waypoints
-        fan.state = 'approaching_queue';
+        fan.state = AgentState.APPROACHING_QUEUE;
         
         // Set target based on calculated position WITH obstacles for pathfinding
         const targetPos = getTargetPosition(position);
@@ -281,7 +283,7 @@ export class QueueManager {
         if (index !== -1) {
             approaching.splice(index, 1);
             queue.push(fan);
-            fan.state = 'in_queue';
+            fan.state = AgentState.IN_QUEUE;
             fan.inQueue = true;
             return true;
         }
