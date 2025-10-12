@@ -53,13 +53,13 @@ export class QueueManager {
      * @param {Object} targetPos - Target position {x, y}
      * @param {Obstacles} obstacles - Obstacles for pathfinding
      * @param {boolean} forceUpdate - Whether to bypass throttling
-     * @param {number} currentTime - Current timestamp
+     * @param {number} currentTime - Current timestamp (simulation time preferred)
      * @returns {boolean} Whether the target was updated
      */
     static updateFanTarget(fan, targetPos, obstacles, forceUpdate, currentTime) {
-        const timeSinceLastUpdate = currentTime - (fan.queueTargetUpdateTime || 0);
+        const timeSinceLastUpdate = currentTime - (fan.queueTargetUpdateTime || -Infinity);
         if (forceUpdate || timeSinceLastUpdate >= 125) {
-            fan.setTarget(targetPos.x, targetPos.y, obstacles);
+            fan.setTarget(targetPos.x, targetPos.y, obstacles, currentTime);
             fan.queueTargetUpdateTime = currentTime;
             return true;
         }
@@ -74,8 +74,9 @@ export class QueueManager {
      * @param {Object} frontPosition - {x, y} position of queue front for sorting
      * @param {Obstacles} obstacles - Obstacles for pathfinding (pass to setTarget)
      * @param {boolean} forceUpdate - If true, bypass throttling and update all targets immediately
+     * @param {number} simulationTime - Current simulation time in milliseconds
      */
-    static updatePositions(queue, approaching, getTargetPosition, frontPosition, obstacles = null, forceUpdate = false) {
+    static updatePositions(queue, approaching, getTargetPosition, frontPosition, obstacles = null, forceUpdate = false, simulationTime = 0) {
         // Sort main queue by distance to front
         queue.sort((a, b) => {
             const distA = this.getDistanceToPosition(a, frontPosition);
@@ -84,7 +85,7 @@ export class QueueManager {
         });
         
         // Update main queue fans with consecutive positions starting from 0
-        const currentTime = Date.now();
+        const currentTime = simulationTime || Date.now(); // Use simulationTime if available
         queue.forEach((fan, index) => {
             fan.queuePosition = index;
             const targetPos = getTargetPosition(index);

@@ -31,8 +31,9 @@ export class Agent {
      * @param {number} x - Target X position
      * @param {number} y - Target Y position
      * @param {Obstacles} obstacles - Optional obstacles manager for pathfinding
+     * @param {number} simulationTime - Optional simulation time (for timestamp initialization)
      */
-    setTarget(x, y, obstacles = null) {
+    setTarget(x, y, obstacles = null, simulationTime = 0) {
         // Check if target has changed significantly (more than 5 pixels)
         const targetChanged = !this.targetX || !this.targetY || 
             Math.abs(x - this.targetX) > 5 || Math.abs(y - this.targetY) > 5;
@@ -53,7 +54,7 @@ export class Agent {
         if (needsPathfinding) {
             this.staticWaypoints = this.calculateStaticWaypoints(x, y, obstacles);
             // Initialize update times for each waypoint
-            const currentTime = Date.now();
+            const currentTime = simulationTime || Date.now(); // Use simulationTime if available
             this.waypointUpdateTimes = this.staticWaypoints.map(() => currentTime);
             // Reset the timer so waypoints are recalculated on schedule (kept for compatibility)
             this.lastStaticWaypointUpdate = currentTime;
@@ -753,12 +754,13 @@ export class Agent {
      * @param {number} simulationSpeed - Speed multiplier for simulation
      * @param {Agent[]} otherAgents - Array of other agents for collision detection
      * @param {Obstacles} obstacles - Obstacles manager for static object collision
+     * @param {number} simulationTime - Current simulation time in milliseconds
      */
-    update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null) {
+    update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null, simulationTime = 0) {
         // Allow movement for moving, in_queue, passed_security, and approaching_queue states
         if ((this.state === 'moving' || this.state === 'in_queue' || this.state === 'passed_security' || this.state === 'approaching_queue') && this.targetX !== null) {
             // Update static waypoints at 125ms intervals, checking only waypoint[0]
-            const currentTime = Date.now();
+            const currentTime = simulationTime || Date.now(); // Use simulationTime if available
             const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? this.config.PERSONAL_SPACE : 0;
             
             // Ensure waypointUpdateTimes array is in sync with staticWaypoints

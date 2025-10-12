@@ -104,8 +104,9 @@ export class SecurityQueue {
      * Update positions for all fans in a specific queue
      * @param {number} queueIndex - Index of the queue to update (0 or 1)
      * @param {boolean} sortNeeded - Whether to sort the queue (only on join/leave events)
+     * @param {number} simulationTime - Current simulation time in milliseconds
      */
-    updateQueuePositions(queueIndex, sortNeeded = false) {
+    updateQueuePositions(queueIndex, sortNeeded = false, simulationTime = 0) {
         // Use shared QueueManager for consistent behavior
         const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X);
         const startY = this.height * this.config.QUEUE_START_Y;
@@ -124,7 +125,8 @@ export class SecurityQueue {
             },
             { x: queueX, y: startY },
             this.obstacles,  // Pass obstacles for pathfinding
-            sortNeeded       // Force update when sort is needed (fan joined/left)
+            sortNeeded,       // Force update when sort is needed (fan joined/left)
+            simulationTime
         );
     }
     
@@ -157,12 +159,12 @@ export class SecurityQueue {
                     fan.state = 'in_queue';
                     // inQueue is already true from addToQueue - consistent with food queues
                     // Update all queue positions and sort since someone joined
-                    this.updateQueuePositions(queueIndex, true);
+                    this.updateQueuePositions(queueIndex, true, simulationTime);
                 }
             }
             
             // Update positions for all fans after processing enters
-            this.updateQueuePositions(queueIndex, false);
+            this.updateQueuePositions(queueIndex, false, simulationTime);
             
             // If no one is being processed and queue has people, start processing
             if (this.processing[queueIndex] === null && queue.length > 0) {
@@ -200,7 +202,7 @@ export class SecurityQueue {
                         const spacing = this.config.QUEUE_SPACING;
                         const position = queue.length + entering.length - 1;
                         const entryY = startY + (position * spacing);
-                        fan.setTarget(queueX, entryY, this.obstacles); // Pass obstacles for pathfinding
+                        fan.setTarget(queueX, entryY, this.obstacles, simulationTime); // Pass obstacles and simulationTime for pathfinding
                         fan.state = 'approaching_queue';
                         fan.inQueue = false; // Not in actual queue yet
                     } else {
@@ -209,7 +211,7 @@ export class SecurityQueue {
                         const targetX = this.width * 0.5; // Center of festival
                         const targetY = this.height * 0.3; // Move to festival area (30% down from top)
                         fan.goal = 'exploring festival';
-                        fan.setTarget(targetX, targetY, this.obstacles); // Pass obstacles for pathfinding
+                        fan.setTarget(targetX, targetY, this.obstacles, simulationTime); // Pass obstacles and simulationTime for pathfinding
                         fan.state = 'passed_security'; // Set state after setTarget
                         fan.inQueue = false; // Clear queue status
                         fan.justPassedSecurity = true; // Mark to prevent immediate wandering
@@ -220,7 +222,7 @@ export class SecurityQueue {
                     this.processingStartTime[queueIndex] = null;
                     
                     // Update positions for remaining fans and sort since someone left
-                    this.updateQueuePositions(queueIndex, true);
+                    this.updateQueuePositions(queueIndex, true, simulationTime);
                 }
             }
         }
