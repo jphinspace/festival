@@ -4,27 +4,66 @@
  */
 export class QueueManager {
     /**
+     * Calculate Euclidean distance between two points
+     * @param {number} x1 - First point X coordinate
+     * @param {number} y1 - First point Y coordinate
+     * @param {number} x2 - Second point X coordinate
+     * @param {number} y2 - Second point Y coordinate
+     * @returns {number} Distance between the points
+     */
+    static calculateDistance(x1, y1, x2, y2) {
+        return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+    }
+
+    /**
+     * Get distance from a fan to a position
+     * @param {Fan} fan - Fan object with x, y coordinates
+     * @param {Object} position - Position object with x, y coordinates
+     * @returns {number} Distance from fan to position
+     */
+    static getDistanceToPosition(fan, position) {
+        return this.calculateDistance(fan.x, fan.y, position.x, position.y);
+    }
+
+    /**
      * Sort queues and approaching arrays by actual distance to target
      * @param {Array} queue - Main queue array
      * @param {Array} approaching - Fans approaching the queue  
      * @param {Object} frontPosition - {x, y} position of queue front
      */
     static sortByDistance(queue, approaching, frontPosition) {
-        const { x: frontX, y: frontY } = frontPosition;
-        
         // Sort main queue by distance to front
         queue.sort((a, b) => {
-            const distA = Math.sqrt(Math.pow(a.x - frontX, 2) + Math.pow(a.y - frontY, 2));
-            const distB = Math.sqrt(Math.pow(b.x - frontX, 2) + Math.pow(b.y - frontY, 2));
+            const distA = this.getDistanceToPosition(a, frontPosition);
+            const distB = this.getDistanceToPosition(b, frontPosition);
             return distA - distB;
         });
         
         // Sort approaching fans by distance to front
         approaching.sort((a, b) => {
-            const distA = Math.sqrt(Math.pow(a.x - frontX, 2) + Math.pow(a.y - frontY, 2));
-            const distB = Math.sqrt(Math.pow(b.x - frontX, 2) + Math.pow(b.y - frontY, 2));
+            const distA = this.getDistanceToPosition(a, frontPosition);
+            const distB = this.getDistanceToPosition(b, frontPosition);
             return distA - distB;
         });
+    }
+
+    /**
+     * Update a fan's target position with throttling
+     * @param {Fan} fan - Fan to update
+     * @param {Object} targetPos - Target position {x, y}
+     * @param {Obstacles} obstacles - Obstacles for pathfinding
+     * @param {boolean} forceUpdate - Whether to bypass throttling
+     * @param {number} currentTime - Current timestamp
+     * @returns {boolean} Whether the target was updated
+     */
+    static updateFanTarget(fan, targetPos, obstacles, forceUpdate, currentTime) {
+        const timeSinceLastUpdate = currentTime - (fan.queueTargetUpdateTime || 0);
+        if (forceUpdate || timeSinceLastUpdate >= 125) {
+            fan.setTarget(targetPos.x, targetPos.y, obstacles);
+            fan.queueTargetUpdateTime = currentTime;
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -39,8 +78,8 @@ export class QueueManager {
     static updatePositions(queue, approaching, getTargetPosition, frontPosition, obstacles = null, forceUpdate = false) {
         // Sort main queue by distance to front
         queue.sort((a, b) => {
-            const distA = Math.sqrt(Math.pow(a.x - frontPosition.x, 2) + Math.pow(a.y - frontPosition.y, 2));
-            const distB = Math.sqrt(Math.pow(b.x - frontPosition.x, 2) + Math.pow(b.y - frontPosition.y, 2));
+            const distA = this.getDistanceToPosition(a, frontPosition);
+            const distB = this.getDistanceToPosition(b, frontPosition);
             return distA - distB;
         });
         
@@ -51,11 +90,7 @@ export class QueueManager {
             const targetPos = getTargetPosition(index);
             
             // Throttle setTarget calls to once every 125ms per fan (unless forceUpdate is true)
-            const timeSinceLastUpdate = currentTime - (fan.queueTargetUpdateTime || 0);
-            if (forceUpdate || timeSinceLastUpdate >= 125) {
-                fan.setTarget(targetPos.x, targetPos.y, obstacles);
-                fan.queueTargetUpdateTime = currentTime;
-            }
+            this.updateFanTarget(fan, targetPos, obstacles, forceUpdate, currentTime);
             
             fan.inQueue = true;
             if (fan.state !== 'being_checked' && !fan.waitStartTime) {
@@ -65,12 +100,12 @@ export class QueueManager {
         
         // For approaching fans, always use distance-based ordering (same as security queues)
         approaching.forEach((fan) => {
-            const fanDist = Math.sqrt(Math.pow(fan.x - frontPosition.x, 2) + Math.pow(fan.y - frontPosition.y, 2));
+            const fanDist = this.getDistanceToPosition(fan, frontPosition);
             
             // Find where this fan fits based on distance
             let insertPosition = queue.length; // Default to end
             for (let i = 0; i < queue.length; i++) {
-                const queueFanDist = Math.sqrt(Math.pow(queue[i].x - frontPosition.x, 2) + Math.pow(queue[i].y - frontPosition.y, 2));
+                const queueFanDist = this.getDistanceToPosition(queue[i], frontPosition);
                 if (fanDist < queueFanDist) {
                     insertPosition = i;
                     break;
@@ -81,11 +116,7 @@ export class QueueManager {
             const targetPos = getTargetPosition(fan.queuePosition);
             
             // Throttle setTarget calls to once every 125ms per fan (unless forceUpdate is true)
-            const timeSinceLastUpdate = currentTime - (fan.queueTargetUpdateTime || 0);
-            if (forceUpdate || timeSinceLastUpdate >= 125) {
-                fan.setTarget(targetPos.x, targetPos.y, obstacles);
-                fan.queueTargetUpdateTime = currentTime;
-            }
+            this.updateFanTarget(fan, targetPos, obstacles, forceUpdate, currentTime);
             
             fan.inQueue = false;
             if (fan.state !== 'approaching_queue') {
@@ -105,10 +136,7 @@ export class QueueManager {
      */
     static findApproachingPosition(fan, queue, approaching, frontPosition) {
         // Calculate distance to front for this fan
-        const fanDistToFront = Math.sqrt(
-            Math.pow(fan.x - frontPosition.x, 2) + 
-            Math.pow(fan.y - frontPosition.y, 2)
-        );
+        const fanDistToFront = this.getDistanceToPosition(fan, frontPosition);
         
         // Combine all fans in the queue (both in_queue and approaching_queue)
         const allFansInQueue = [...queue, ...approaching.filter(f => f !== fan)];
@@ -118,14 +146,8 @@ export class QueueManager {
         const nearbyFans = [];
         
         allFansInQueue.forEach((otherFan) => {
-            const otherDistToFront = Math.sqrt(
-                Math.pow(otherFan.x - frontPosition.x, 2) + 
-                Math.pow(otherFan.y - frontPosition.y, 2)
-            );
-            const distToOther = Math.sqrt(
-                Math.pow(fan.x - otherFan.x, 2) + 
-                Math.pow(fan.y - otherFan.y, 2)
-            );
+            const otherDistToFront = this.getDistanceToPosition(otherFan, frontPosition);
+            const distToOther = this.calculateDistance(fan.x, fan.y, otherFan.x, otherFan.y);
             
             if (distToOther <= proximityThreshold) {
                 nearbyFans.push({

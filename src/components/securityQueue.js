@@ -40,6 +40,18 @@ export class SecurityQueue {
     }
 
     /**
+     * Get adjusted queue position for entering fans to prevent position 0 when queue is empty
+     * @param {number} position - Calculated position
+     * @param {number} queueIndex - Index of the queue (0 or 1)
+     * @returns {number} Adjusted position
+     */
+    getAdjustedQueuePosition(position, queueIndex) {
+        // For entering fans, ensure they don't get position 0 when queue is empty
+        return (this.queues[queueIndex].length === 0 && position === 0) ? 
+            Math.max(1, position) : position;
+    }
+
+    /**
      * Add a fan to one of the queues (fan chooses closest queue)
      * @param {Fan} fan - Fan to add to queue
      */
@@ -71,9 +83,7 @@ export class SecurityQueue {
             approachingList: approachingList,
             frontPosition: { x: queueX, y: startY },
             getTargetPosition: (pos) => {
-                // For entering fans, ensure they don't get position 0 when queue is empty
-                const adjustedPos = (queue.length === 0 && pos === 0) ? 
-                    Math.max(1, pos) : pos;
+                const adjustedPos = this.getAdjustedQueuePosition(pos, queueIndex);
                 return {
                     x: queueX,
                     y: startY + (adjustedPos * spacing)
@@ -106,9 +116,7 @@ export class SecurityQueue {
             this.queues[queueIndex],
             this.entering[queueIndex],
             (position) => {
-                // For entering fans, ensure they don't get position 0 when queue is empty
-                const adjustedPosition = (this.queues[queueIndex].length === 0 && position === 0) ? 
-                    Math.max(1, position) : position;
+                const adjustedPosition = this.getAdjustedQueuePosition(position, queueIndex);
                 return {
                     x: queueX,
                     y: startY + (adjustedPosition * spacing)
