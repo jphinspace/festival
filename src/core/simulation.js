@@ -150,7 +150,8 @@ export class Simulation {
             this.eventManager.rightConcertActive,
             this.eventManager.foodStalls,
             leftProgress,
-            rightProgress
+            rightProgress,
+            this.eventManager.obstacles
         );
     }
 
