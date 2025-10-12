@@ -369,11 +369,20 @@ describe('Simulation', () => {
         
         global.requestAnimationFrame = jest.fn()
         
-        // Add some agents
-        simulation.agents = [{}, {}, {}]
+        // Add some agents with mock update and draw methods
+        simulation.agents = [
+            { update: jest.fn(), draw: jest.fn(), type: 'fan' },
+            { update: jest.fn(), draw: jest.fn(), type: 'fan' },
+            { update: jest.fn(), draw: jest.fn(), type: 'fan' }
+        ]
         
         // First frame
         simulation.animate(0)
+        
+        // Render several frames to increment frameCount
+        simulation.animate(20)
+        simulation.animate(40)
+        simulation.animate(60)
         
         // After 1 second
         simulation.animate(1100)

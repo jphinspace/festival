@@ -80,6 +80,108 @@ export function calculateStaticWaypoints(startX, startY, targetX, targetY, obsta
  * @param {Object} config - Configuration object
  * @returns {Array} Array of {x, y} waypoint positions
  */
+/**
+ * Calculate score for a corner position
+ * @param {Object} corner - Corner position {x, y}
+ * @param {number} currentX - Current X position
+ * @param {number} currentY - Current Y position
+ * @param {number} targetX - Target X position
+ * @param {number} targetY - Target Y position
+ * @returns {number} Score for the corner (lower is better)
+ */
+function calculateCornerScore(corner, currentX, currentY, targetX, targetY) {
+    const distToCorner = Math.sqrt(Math.pow(corner.x - currentX, 2) + Math.pow(corner.y - currentY, 2))
+    const distFromCorner = Math.sqrt(Math.pow(targetX - corner.x, 2) + Math.pow(targetY - corner.y, 2))
+    
+    // Direction bonus: prefer corners that move us toward target
+    const toTargetDx = targetX - currentX
+    const toTargetDy = targetY - currentY
+    const toTargetDist = Math.sqrt(toTargetDx * toTargetDx + toTargetDy * toTargetDy)
+    
+    let directionBonus = 0
+    if (toTargetDist > 0) {
+        const toCornerDx = corner.x - currentX
+        const toCornerDy = corner.y - currentY
+        const toCornerDist = Math.sqrt(toCornerDx * toCornerDx + toCornerDy * toCornerDy)
+        
+        if (toCornerDist > 0) {
+            const alignment = (toCornerDx * toTargetDx + toCornerDy * toTargetDy) / (toCornerDist * toTargetDist)
+            directionBonus = (1 - alignment) * 100 // Penalty for going backward
+        }
+    }
+    
+    return distToCorner + distFromCorner + directionBonus
+}
+
+/**
+ * Find the best corner to route around an obstacle
+ * @param {Array} corners - Array of corner positions
+ * @param {number} currentX - Current X position
+ * @param {number} currentY - Current Y position
+ * @param {number} targetX - Target X position
+ * @param {number} targetY - Target Y position
+ * @param {Object} obstacles - Obstacles object
+ * @param {number} radius - Agent radius
+ * @param {number} personalSpaceBuffer - Personal space buffer
+ * @returns {Object|null} Best corner or null if none found
+ */
+function findBestCorner(corners, currentX, currentY, targetX, targetY, obstacles, radius, personalSpaceBuffer) {
+    let bestCorner = null
+    let bestScore = Infinity
+    
+    for (const corner of corners) {
+        // Check if corner is valid (not inside obstacle)
+        if (isPointInsideObstacle(corner.x, corner.y, obstacles, radius, personalSpaceBuffer)) {
+            continue
+        }
+        
+        // Check if we can reach this corner from current position
+        if (!isPathClear(currentX, currentY, corner.x, corner.y, obstacles, radius, personalSpaceBuffer)) {
+            continue
+        }
+        
+        // Calculate score
+        const score = calculateCornerScore(corner, currentX, currentY, targetX, targetY)
+        
+        if (score < bestScore) {
+            bestScore = score
+            bestCorner = corner
+        }
+    }
+    
+    return bestCorner
+}
+
+/**
+ * Get corner positions around an obstacle
+ * @param {Object} obstacle - Obstacle with x, y, width, height
+ * @param {number} totalBuffer - Total buffer distance around obstacle
+ * @returns {Array} Array of corner positions
+ */
+function getObstacleCorners(obstacle, totalBuffer) {
+    return [
+        { x: obstacle.x - totalBuffer, y: obstacle.y - totalBuffer }, // Top-left
+        { x: obstacle.x + obstacle.width + totalBuffer, y: obstacle.y - totalBuffer }, // Top-right
+        { x: obstacle.x - totalBuffer, y: obstacle.y + obstacle.height + totalBuffer }, // Bottom-left
+        { x: obstacle.x + obstacle.width + totalBuffer, y: obstacle.y + obstacle.height + totalBuffer } // Bottom-right
+    ]
+}
+
+/**
+ * Get mid-points along obstacle edges
+ * @param {Object} obstacle - Obstacle with x, y, width, height
+ * @param {number} totalBuffer - Total buffer distance around obstacle
+ * @returns {Array} Array of mid-point positions
+ */
+function getObstacleMidPoints(obstacle, totalBuffer) {
+    return [
+        { x: (obstacle.x + obstacle.x + obstacle.width) / 2, y: obstacle.y - totalBuffer }, // Top middle
+        { x: (obstacle.x + obstacle.x + obstacle.width) / 2, y: obstacle.y + obstacle.height + totalBuffer }, // Bottom middle
+        { x: obstacle.x - totalBuffer, y: (obstacle.y + obstacle.y + obstacle.height) / 2 }, // Left middle
+        { x: obstacle.x + obstacle.width + totalBuffer, y: (obstacle.y + obstacle.y + obstacle.height) / 2 } // Right middle
+    ]
+}
+
 function findPathAroundObstacles(startX, startY, targetX, targetY, obstacles, radius, personalSpaceBuffer, maxWaypoints, config) {
     const waypoints = []
     const bufferDistance = config.WAYPOINT_BUFFER_DISTANCE || 5
@@ -106,56 +208,10 @@ function findPathAroundObstacles(startX, startY, targetX, targetY, obstacles, ra
         const obstacle = blockingObstacles[0]
         
         // Calculate corner points around obstacle (with buffer)
-        const corners = [
-            { x: obstacle.x - totalBuffer, y: obstacle.y - totalBuffer }, // Top-left
-            { x: obstacle.x + obstacle.width + totalBuffer, y: obstacle.y - totalBuffer }, // Top-right
-            { x: obstacle.x - totalBuffer, y: obstacle.y + obstacle.height + totalBuffer }, // Bottom-left
-            { x: obstacle.x + obstacle.width + totalBuffer, y: obstacle.y + obstacle.height + totalBuffer } // Bottom-right
-        ]
+        const corners = getObstacleCorners(obstacle, totalBuffer)
         
         // Find best corner that provides clear path to and from it
-        let bestCorner = null
-        let bestScore = Infinity
-        
-        const toTargetDx = targetX - currentX
-        const toTargetDy = targetY - currentY
-        const toTargetDist = Math.sqrt(toTargetDx * toTargetDx + toTargetDy * toTargetDy)
-        
-        for (const corner of corners) {
-            // Check if corner is valid (not inside obstacle)
-            if (isPointInsideObstacle(corner.x, corner.y, obstacles, radius, personalSpaceBuffer)) {
-                continue
-            }
-            
-            // Check if we can reach this corner from current position
-            if (!isPathClear(currentX, currentY, corner.x, corner.y, obstacles, radius, personalSpaceBuffer)) {
-                continue
-            }
-            
-            // Calculate score (distance + direction bonus)
-            const distToCorner = Math.sqrt(Math.pow(corner.x - currentX, 2) + Math.pow(corner.y - currentY, 2))
-            const distFromCorner = Math.sqrt(Math.pow(targetX - corner.x, 2) + Math.pow(targetY - corner.y, 2))
-            
-            // Direction bonus: prefer corners that move us toward target
-            let directionBonus = 0
-            if (toTargetDist > 0) {
-                const toCornerDx = corner.x - currentX
-                const toCornerDy = corner.y - currentY
-                const toCornerDist = Math.sqrt(toCornerDx * toCornerDx + toCornerDy * toCornerDy)
-                
-                if (toCornerDist > 0) {
-                    const alignment = (toCornerDx * toTargetDx + toCornerDy * toTargetDy) / (toCornerDist * toTargetDist)
-                    directionBonus = (1 - alignment) * 100 // Penalty for going backward
-                }
-            }
-            
-            const score = distToCorner + distFromCorner + directionBonus
-            
-            if (score < bestScore) {
-                bestScore = score
-                bestCorner = corner
-            }
-        }
+        const bestCorner = findBestCorner(corners, currentX, currentY, targetX, targetY, obstacles, radius, personalSpaceBuffer)
         
         if (bestCorner) {
             waypoints.push(bestCorner)
@@ -163,12 +219,7 @@ function findPathAroundObstacles(startX, startY, targetX, targetY, obstacles, ra
             currentY = bestCorner.y
         } else {
             // No valid corner found - try mid-points along obstacle edges
-            const midPoints = [
-                { x: (obstacle.x + obstacle.x + obstacle.width) / 2, y: obstacle.y - totalBuffer }, // Top middle
-                { x: (obstacle.x + obstacle.x + obstacle.width) / 2, y: obstacle.y + obstacle.height + totalBuffer }, // Bottom middle
-                { x: obstacle.x - totalBuffer, y: (obstacle.y + obstacle.y + obstacle.height) / 2 }, // Left middle
-                { x: obstacle.x + obstacle.width + totalBuffer, y: (obstacle.y + obstacle.y + obstacle.height) / 2 } // Right middle
-            ]
+            const midPoints = getObstacleMidPoints(obstacle, totalBuffer)
             
             for (const midPoint of midPoints) {
                 if (!isPointInsideObstacle(midPoint.x, midPoint.y, obstacles, radius, personalSpaceBuffer) &&
