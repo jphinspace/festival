@@ -90,13 +90,23 @@ export class QueueManager {
             fan.queuePosition = index;
             const targetPos = getTargetPosition(index);
             
+            // Check if fan has reached their queue position
+            const distToTarget = this.getDistanceToPosition(fan, targetPos);
+            const isAtTarget = distToTarget < 5; // Within 5 pixels
+            
             // Throttle setTarget calls to once every 125ms per fan (unless forceUpdate is true)
-            this.updateFanTarget(fan, targetPos, obstacles, forceUpdate, currentTime);
+            // But only set target if fan is not at target already
+            if (!isAtTarget) {
+                const updated = this.updateFanTarget(fan, targetPos, obstacles, forceUpdate, currentTime);
+                if (updated) {
+                    fan.state = 'in_queue_advancing';
+                }
+            } else if (fan.state === 'in_queue_advancing') {
+                // Fan reached their position, now waiting
+                fan.state = 'in_queue_waiting';
+            }
             
             fan.inQueue = true;
-            if (fan.state !== 'being_checked' && !fan.waitStartTime) {
-                fan.state = 'in_queue';
-            }
         });
         
         // For approaching fans, always use distance-based ordering (same as security queues)

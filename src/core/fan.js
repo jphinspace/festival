@@ -56,7 +56,32 @@ export class Fan extends Agent {
         
         // Spread out behavior
         this.wanderTargetUpdateTime = 0; // Last time wander target was updated
-        this.justPassedSecurity = false; // Track if fan just passed security to prevent immediate wandering
+    }
+    
+    /**
+     * Start wandering to a random location (shared by idle and post-processing states)
+     * @param {Obstacles} obstacles - Obstacles manager for static object collision
+     * @param {number} simulationTime - Current simulation time in milliseconds
+     */
+    startWandering(obstacles, simulationTime) {
+        this.wanderTargetUpdateTime = simulationTime || Date.now()
+        
+        // Pick a random position to wander to (spread out)
+        // Try multiple times to find a valid position (not inside obstacles)
+        let targetX, targetY
+        let attempts = 0
+        const maxAttempts = 10
+        do {
+            targetX = Math.random() * (obstacles ? obstacles.width : 800)
+            targetY = Math.random() * (obstacles ? obstacles.height * 0.7 : 400)
+            attempts++
+        } while (obstacles && !obstacles.isValidPosition(targetX, targetY) && attempts < maxAttempts)
+        
+        // Only set target if we found a valid position
+        if (!obstacles || obstacles.isValidPosition(targetX, targetY)) {
+            this.setTarget(targetX, targetY, obstacles, simulationTime)
+            this.state = 'moving'
+        }
     }
     
     /**
@@ -79,27 +104,12 @@ export class Fan extends Agent {
         }
         
         // Spread-out behavior: wander if idle and not watching a show
-        // Don't wander if fan just passed security - let them be picked up by events (concerts, hunger)
-        if (this.state === 'idle' && !this.currentShow && !this.inQueue && this.state !== 'leaving' && !this.justPassedSecurity) {
+        if (this.state === 'idle' && !this.currentShow && !this.inQueue && this.state !== 'leaving') {
             const now = simulationTime || Date.now(); // Use simulationTime if available
+            
             // Update wander target every 5-10 seconds
             if (now - this.wanderTargetUpdateTime > 5000 + Math.random() * 5000) {
-                this.wanderTargetUpdateTime = now;
-                // Pick a random position to wander to (spread out)
-                // Try multiple times to find a valid position (not inside obstacles)
-                let targetX, targetY;
-                let attempts = 0;
-                const maxAttempts = 10;
-                do {
-                    targetX = Math.random() * (obstacles ? obstacles.width : 800);
-                    targetY = Math.random() * (obstacles ? obstacles.height * 0.7 : 400);
-                    attempts++;
-                } while (obstacles && !obstacles.isValidPosition(targetX, targetY) && attempts < maxAttempts);
-                
-                // Only set target if we found a valid position
-                if (!obstacles || obstacles.isValidPosition(targetX, targetY)) {
-                    this.setTarget(targetX, targetY, obstacles, simulationTime);
-                }
+                this.startWandering(obstacles, simulationTime)
             }
         }
     }
@@ -110,15 +120,15 @@ export class Fan extends Agent {
      */
     draw(ctx) {
         // Update color based on state
-        if (this.state === 'in_queue' || this.state === 'approaching_queue') {
+        if (this.state === 'in_queue_waiting' || this.state === 'in_queue_advancing' || this.state === 'approaching_queue') {
             this.color = this.config.COLORS.AGENT_IN_QUEUE;
-        } else if (this.state === 'being_checked') {
+        } else if (this.state === 'being_checked' || this.state === 'processing') {
             this.color = this.enhancedSecurity ? 
                 this.config.COLORS.AGENT_ENHANCED_SECURITY : 
                 this.config.COLORS.AGENT_BEING_CHECKED;
         } else if (this.state === 'leaving') {
             this.color = this.config.COLORS.AGENT_LEAVING;
-        } else if (this.state === 'moving' || this.state === 'passed_security') {
+        } else if (this.state === 'moving' || this.state === 'idle') {
             this.color = this.config.COLORS.AGENT_ACTIVE;
         }
         

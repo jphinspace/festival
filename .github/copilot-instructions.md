@@ -9,13 +9,18 @@ When given instructions:
 2. **Verify completion of EVERY component** - Check that each part of multi-part instructions is addressed
 3. **Update these instructions when told** - If instructed to modify `.github/copilot-instructions.md`, do so immediately
 4. **Never waste resources with back-and-forth** - User can undo changes if needed; proceed with confidence
-5. **No hedging or uncertainty** - Implement what is requested; user will provide feedback if changes are needed
+5. **No hedging or uncertainty** - Implement what is requested; user will provide feedback if changes is needed
+6. **No verbose filler** - Never use phrases like "Given the time constraints", "Due to complexity", "Let me create a comprehensive", etc.
+7. **Never defer work** - Do not use phrases like "follow-up work", "future updates", "addressed later", etc. Complete ALL work immediately
+8. **Be concise** - Get straight to the point without unnecessary preamble or justifications
 
 ### Why This Matters
 - Unnecessary confirmation requests waste user time
 - Follow-up questions waste API request limits
 - Hesitation wastes tokens and increases costs
 - Back-and-forth delays project progress
+- Verbose filler wastes token budget without adding value
+- Deferring work means instructions are not followed completely
 
 ### Verification Checklist (Use Every Time)
 Before responding to ANY instruction:
@@ -24,9 +29,47 @@ Before responding to ANY instruction:
 - [ ] Did I ask unnecessary confirmation questions?
 - [ ] Did I express uncertainty instead of implementing?
 - [ ] Did I make ALL the changes requested, not just some?
+- [ ] Did I use verbose filler phrases that waste tokens?
+- [ ] Did I defer any work to "follow-up" or "future"?
 
 ## Project Overview
 This is an HTML5-based agent simulation of a music festival featuring agent-based modeling. The simulation runs in real-time with interactive controls for various festival events. The codebase uses pure vanilla JavaScript (ES6 modules) with no external runtime dependencies.
+
+## MANDATORY: Test Coverage Standards
+
+**NON-NEGOTIABLE REQUIREMENTS**
+
+All code changes MUST meet these minimum coverage thresholds:
+- **Line Coverage**: ≥80% (MANDATORY)
+- **Branch Coverage**: 100% (MANDATORY)  
+- **Function Coverage**: ≥70% (target)
+- **Statement Coverage**: ≥80% (MANDATORY)
+
+### Enforcement Rules
+1. **No Exceptions**: Copilot cannot set lower coverage targets or make justifications for insufficient coverage
+2. **No Subjective Standards**: Terms like "excellent" or "good" coverage below 80%/100% are NOT acceptable
+3. **All Changes**: Every code change must include comprehensive tests meeting these standards
+4. **Pull Request Requirement**: Cannot merge without meeting coverage thresholds
+5. **No Workarounds**: Cannot skip tests, comment out coverage checks, or reduce thresholds
+
+### When Adding New Code
+- Write tests FIRST or immediately after implementation
+- Cover ALL code paths including edge cases and error conditions
+- Test boundary conditions and invalid inputs
+- Verify all branches (if/else, switch cases, ternaries, logical operators)
+- Mock external dependencies properly
+
+### Coverage Verification
+Run `npm test -- --coverage` to check coverage. The command will fail if thresholds are not met.
+
+### Why These Standards
+- 80% line coverage ensures most code is executed in tests
+- 100% branch coverage ensures all decision paths are tested
+- High coverage prevents regressions and catches bugs early
+- Comprehensive tests serve as documentation
+- Makes refactoring safer and faster
+
+**REMEMBER**: These are MINIMUM standards. Strive for higher coverage when practical.
 
 ## Debugging Philosophy
 
@@ -77,11 +120,12 @@ When debugging movement or collision issues in agent simulations:
 ### Key Components
 - **agent.js**: Base Agent class with collision detection and movement
 - **fan.js**: Fan subclass with hunger system, stage preferences, and behavior logic
+- **pathfinding.js**: Static waypoint calculation and obstacle avoidance
 - **simulation.js**: Simulation engine managing frame rate and delta time
 - **renderer.js**: Canvas rendering with visual feedback (timers, borders)
 - **eventManager.js**: Event handling, show management, and agent instantiation
-- **securityQueue.js**: Queue processing for security checks
-- **foodStall.js**: Food stall queue management
+- **securityQueue.js**: Queue processing for security checks with walk-up-to-process model
+- **foodStall.js**: Food stall queue management with walk-up-to-process model
 - **obstacles.js**: Collision detection for static objects (stages, stalls, bus)
 - **config.js**: Centralized configuration constants
 - **app.js**: Application entry point and UI event wiring
@@ -239,9 +283,45 @@ npm run test:coverage    # With coverage report
 
 ## Critical Implementation Rules
 1. **Shared Logic Must Be Truly Shared**: When told to refactor duplicate code, move ALL shared logic to the shared module, not just sorting
-2. **Pathfinding Must Actually Path-find**: Waypoint systems must calculate paths that avoid obstacles, not just move toward targets
-3. **Queue Positions Must Match Reality**: Queue position numbers must reflect actual physical proximity, updated every frame
+2. **Pathfinding System**: All static waypoint logic lives in pathfinding.js module. Agent.js imports and uses it via pure function calls
+3. **Queue Processing Model**: Queues use walk-up-to-process model where fans move to processing position after reaching queue front
 4. **Complete the Work**: When instructed to fix something, fix it completely - don't leave it "partially working"
+
+## Pathfinding System
+
+### Overview
+The simulation uses a two-tiered waypoint system:
+- **Static waypoints**: Route around fixed obstacles (stages, food stalls). Calculated when setting new target.
+- **Dynamic waypoints**: Avoid other moving fans. Recalculated every frame.
+
+### Static Waypoints (pathfinding.js)
+- Generated when fan starts moving to new destination
+- Always includes final destination as last waypoint (minimum 1 waypoint)
+- Uses up to 6 waypoints to navigate around obstacles
+- Randomization applied to prevent all fans taking identical routes:
+  - Radius increases for waypoints further from destination
+  - Final waypoint: 0 radius (exact destination)
+  - Previous waypoint: 1 fan diameter radius
+  - Earlier waypoints: 2, 3, 4... fan diameters
+- Progressive updates: First waypoint updated every 125 ticks at 1x speed
+- Waypoint removal: When fan reaches waypoint (within 10 pixels), remove it from list
+
+### States and Pathfinding
+- **Moving fans**: Use pathfinding (moving, approaching_queue, passed_security)
+- **Stationary fans**: No pathfinding (idle, in_queue, processing)
+- **Queue movement**: Uses simplified 1-waypoint pathfinding (straight to position)
+
+### Dynamic Waypoints (agent.js)
+- Calculated every frame for responsive fan avoidance
+- Uses 30-degree avoidance angle
+- Local knowledge limit (100 pixels detection distance)
+- Takes precedence over static waypoints when active
+
+### Walk-up-to-Process Model
+- **Security Queue**: Fan reaches queue front → walks to processing position → gets processed → either passes or returns to end of line
+- **Food Stalls**: Fan reaches queue front → walks to stall counter → gets processed → leaves
+- **Processing state**: Fans in 'processing' state are not in queue, have specific target positions
+- **Enhanced security**: Fans flagged for enhanced security walk to end of line after initial processing, using dynamic waypoints to avoid queued fans
 
 ## Resources
 - Main docs: `README.md`

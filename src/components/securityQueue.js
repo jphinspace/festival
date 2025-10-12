@@ -2,9 +2,10 @@
  * SecurityQueue class for managing fans entering the festival through security
  * Maintains two queues with processing logic for regular and enhanced security
  */
-import { QueueManager } from '../core/queueManager.js';
+import { QueueManager } from '../core/queueManager.js'
+import { QueuedProcessor } from '../core/queuedProcessor.js'
 
-export class SecurityQueue {
+export class SecurityQueue extends QueuedProcessor {
     /**
      * Create a new security queue
      * @param {Object} config - Configuration object
@@ -12,21 +13,21 @@ export class SecurityQueue {
      * @param {number} height - Canvas height
      */
     constructor(config, width, height) {
-        this.config = config;
-        this.width = width;
-        this.height = height;
+        super(config)
+        this.width = width
+        this.height = height
         
         // Two queues for the two lines
-        this.queues = [[], []];
+        this.queues = [[], []]
         
         // Track which fans are currently being processed at the front
-        this.processing = [null, null];
+        this.processing = [null, null]
         
         // Track when processing started for each queue
-        this.processingStartTime = [null, null];
+        this.processingStartTime = [null, null]
         
         // Track fans moving to the entry point (not yet in queue)
-        this.entering = [[], []];
+        this.entering = [[], []]
     }
 
     /**
@@ -131,11 +132,35 @@ export class SecurityQueue {
     }
     
     /**
-     * Set obstacles reference for pathfinding
-     * @param {Obstacles} obstacles - Obstacles manager
+     * Implement abstract method to check if security processing is complete
+     * @param {Fan} fan - Fan being processed
+     * @param {number} simulationTime - Current simulation time
+     * @param {number} processingStartTime - When processing started
+     * @returns {Object} {completed: boolean, action: string, data: Object}
      */
-    setObstacles(obstacles) {
-        this.obstacles = obstacles;
+    checkProcessingComplete(fan, simulationTime, processingStartTime) {
+        const elapsedTime = simulationTime - processingStartTime
+        const requiredTime = fan.enhancedSecurity ? 
+            this.config.ENHANCED_SECURITY_TIME : 
+            this.config.REGULAR_SECURITY_TIME
+        
+        if (elapsedTime >= requiredTime) {
+            if (fan.enhancedSecurity) {
+                return {
+                    completed: true,
+                    action: 'return_to_queue',
+                    data: { queueIndex: fan.queueIndex }
+                }
+            } else {
+                return {
+                    completed: true,
+                    action: 'release',
+                    data: {}
+                }
+            }
+        }
+        
+        return { completed: false, action: null, data: {} }
     }
 
     /**
@@ -144,85 +169,131 @@ export class SecurityQueue {
      */
     update(simulationTime) {
         for (let queueIndex = 0; queueIndex < 2; queueIndex++) {
-            const queue = this.queues[queueIndex];
-            const entering = this.entering[queueIndex];
+            const queue = this.queues[queueIndex]
+            const entering = this.entering[queueIndex]
             
             // Process fans entering the queue FIRST (before updating positions)
-            for (let i = entering.length - 1; i >= 0; i--) {
-                const fan = entering[i];
-                
-                // Check if fan has reached the entry point
-                if (fan.isNearTarget(5)) {
-                    // Move from entering to actual queue
-                    entering.splice(i, 1);
-                    queue.push(fan);
-                    fan.state = 'in_queue';
-                    // inQueue is already true from addToQueue - consistent with food queues
-                    // Update all queue positions and sort since someone joined
-                    this.updateQueuePositions(queueIndex, true, simulationTime);
-                }
-            }
+            this.processEntering(queue, entering, (forceUpdate, simTime) => {
+                this.updateQueuePositions(queueIndex, forceUpdate, simTime)
+            }, simulationTime)
             
             // Update positions for all fans after processing enters
-            this.updateQueuePositions(queueIndex, false, simulationTime);
+            this.updateQueuePositions(queueIndex, false, simulationTime)
             
-            // If no one is being processed and queue has people, start processing
-            if (this.processing[queueIndex] === null && queue.length > 0) {
-                const fan = queue[0];
-                
-                // Check if fan has reached the front of the queue
-                if (fan.isNearTarget(5)) {
-                    this.processing[queueIndex] = fan;
-                    this.processingStartTime[queueIndex] = simulationTime;
-                    fan.state = 'being_checked';
+            // Check if any returning fans have reached the end of line
+            if (this.processing[queueIndex] !== null) {
+                const processingFan = this.processing[queueIndex]
+                if (processingFan.returningToQueue === queueIndex) {
+                    // Calculate current end of line position
+                    const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X)
+                    const startY = this.height * this.config.QUEUE_START_Y
+                    const spacing = this.config.QUEUE_SPACING
+                    const currentEndPosition = queue.length + entering.length
+                    const currentEndY = startY + (currentEndPosition * spacing)
+                    
+                    // Check if line has changed since fan started returning
+                    const distToCurrentEnd = Math.sqrt(
+                        Math.pow(processingFan.targetX - queueX, 2) +
+                        Math.pow(processingFan.targetY - currentEndY, 2)
+                    )
+                    
+                    if (distToCurrentEnd > 10) {
+                        // Line has changed, update target to new end
+                        processingFan.setTarget(queueX, currentEndY, this.obstacles, simulationTime)
+                    } else if (processingFan.isNearTarget(10)) {
+                        // Reached end of line, add to entering list
+                        delete processingFan.returningToQueue
+                        entering.push(processingFan)
+                        processingFan.state = 'approaching_queue'
+                        processingFan.inQueue = true
+                        
+                        // Clear processing
+                        this.processing[queueIndex] = null
+                        this.processingStartTime[queueIndex] = null
+                        
+                        // Update positions for all fans
+                        this.updateQueuePositions(queueIndex, true, simulationTime)
+                    }
                 }
             }
             
-            // If someone is being processed, check if their time is up
+            // If no one is being processed and queue has people, start processing
+            const newProcessing = this.processFrontOfQueue(
+                queue,
+                entering,
+                () => {
+                    const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X)
+                    const startY = this.height * this.config.QUEUE_START_Y
+                    const processingY = startY - this.config.QUEUE_SPACING // One space in front of queue
+                    return { x: queueX, y: processingY }
+                },
+                this.processing[queueIndex],
+                simulationTime,
+                (fan, simTime) => {
+                    // Set processor-specific state
+                    this.processing[queueIndex] = fan
+                    this.processingStartTime[queueIndex] = simTime
+                }
+            )
+            
+            // Update queue positions if we started processing someone
+            if (newProcessing !== this.processing[queueIndex]) {
+                this.processing[queueIndex] = newProcessing
+                if (newProcessing !== null) {
+                    this.updateQueuePositions(queueIndex, true, simulationTime)
+                }
+            }
+            
+            // If someone is advancing to or being processed, update their state
             if (this.processing[queueIndex] !== null) {
-                const fan = this.processing[queueIndex];
-                const elapsedTime = simulationTime - this.processingStartTime[queueIndex];
-                const requiredTime = fan.enhancedSecurity ? 
-                    this.config.ENHANCED_SECURITY_TIME : 
-                    this.config.REGULAR_SECURITY_TIME;
+                const fan = this.processing[queueIndex]
                 
-                if (elapsedTime >= requiredTime) {
-                    // Remove from front of queue
-                    queue.shift();
+                // Skip if fan is returning to queue
+                if (fan.returningToQueue !== undefined) continue
+                
+                // Use base class to check for processing transition
+                this.checkProcessingTransition(fan)
+                
+                // Only check processing completion if fan is actually in processing state (not advancing)
+                if (fan.state === 'processing') {
+                    const result = this.checkProcessingComplete(fan, simulationTime, this.processingStartTime[queueIndex])
                     
-                    if (fan.enhancedSecurity) {
-                        // Send to back of the line - add to entering list
-                        fan.enhancedSecurity = false; // Only enhanced once
-                        fan.goal = 'security (re-check)';
-                        entering.push(fan);
-                        
-                        // Send to end of current queue (not a fixed position)
-                        const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X);
-                        const startY = this.height * this.config.QUEUE_START_Y;
-                        const spacing = this.config.QUEUE_SPACING;
-                        const position = queue.length + entering.length - 1;
-                        const entryY = startY + (position * spacing);
-                        fan.setTarget(queueX, entryY, this.obstacles, simulationTime); // Pass obstacles and simulationTime for pathfinding
-                        fan.state = 'approaching_queue';
-                        fan.inQueue = false; // Not in actual queue yet
-                    } else {
-                        // Allow into festival - move straight ahead to CENTER of festival
-                        // All fans should converge to center regardless of which queue they came from
-                        const targetX = this.width * 0.5; // Center of festival
-                        const targetY = this.height * 0.3; // Move to festival area (30% down from top)
-                        fan.goal = 'exploring festival';
-                        fan.setTarget(targetX, targetY, this.obstacles, simulationTime); // Pass obstacles and simulationTime for pathfinding
-                        fan.state = 'passed_security'; // Set state after setTarget
-                        fan.inQueue = false; // Clear queue status
-                        fan.justPassedSecurity = true; // Mark to prevent immediate wandering
+                    if (result.completed) {
+                        if (result.action === 'return_to_queue') {
+                            // Send to back of the line - fan needs to walk to end
+                            fan.enhancedSecurity = false // Only enhanced once
+                            fan.goal = 'security (re-check)'
+                            
+                            // Calculate end of line position
+                            const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X)
+                            const startY = this.height * this.config.QUEUE_START_Y
+                            const spacing = this.config.QUEUE_SPACING
+                            const endPosition = queue.length + entering.length
+                            const endY = startY + (endPosition * spacing)
+                            
+                            // Set target first (which might change state to moving)
+                            fan.inQueue = false
+                            fan.setTarget(queueX, endY, this.obstacles, simulationTime)
+                            
+                            // Then override state to returning_to_queue
+                            fan.state = 'returning_to_queue'
+                            fan.returningToQueue = queueIndex
+                            
+                            // Keep fan in processing until they reach end of line
+                            // Don't clear processing here - will be cleared when fan reaches end
+                        } else if (result.action === 'release') {
+                            // Allow into festival - fan wanders naturally using shared logic
+                            fan.goal = 'exploring festival'
+                            fan.inQueue = false
+                            
+                            // Start wandering immediately using shared function
+                            fan.startWandering(this.obstacles, simulationTime)
+                            
+                            // Clear processing
+                            this.processing[queueIndex] = null
+                            this.processingStartTime[queueIndex] = null
+                        }
                     }
-                    
-                    // Clear processing
-                    this.processing[queueIndex] = null;
-                    this.processingStartTime[queueIndex] = null;
-                    
-                    // Update positions for remaining fans and sort since someone left
-                    this.updateQueuePositions(queueIndex, true, simulationTime);
                 }
             }
         }

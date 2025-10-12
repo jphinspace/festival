@@ -52,27 +52,6 @@ export class Obstacles {
             height: this.height * 0.05
         });
 
-        // Security queue areas (left and right)
-        const queueWidth = this.width * 0.04;
-        const queueHeight = this.height * 0.15;
-        const queueY = this.height * 0.7;
-
-        this.obstacles.push({
-            type: 'security',
-            x: this.width * this.config.QUEUE_LEFT_X - queueWidth / 2,
-            y: queueY,
-            width: queueWidth,
-            height: queueHeight
-        });
-
-        this.obstacles.push({
-            type: 'security',
-            x: this.width * this.config.QUEUE_RIGHT_X - queueWidth / 2,
-            y: queueY,
-            width: queueWidth,
-            height: queueHeight
-        });
-
         // Security boundaries behind stages (prevent fans from going behind)
         // Left stage back boundary
         this.obstacles.push({

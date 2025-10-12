@@ -128,24 +128,35 @@ describe('SecurityQueue', () => {
         
         const startTime = 1000;
         
-        // Start processing fan1
-        securityQueue.update(startTime);
-        expect(fan1.state).toBe('being_checked');
+        // Start processing fan1 - should be walking to process position
+        securityQueue.update(startTime)
+        expect(fan1.state).toBe('in_queue_advancing')
         
-        // Keep fan at position during check
-        fan1.x = fan1.targetX;
-        fan1.y = fan1.targetY;
+        // Move fan to processing position and update - should transition to processing
+        fan1.x = fan1.targetX
+        fan1.y = fan1.targetY
+        securityQueue.update(startTime + 10)
+        expect(fan1.state).toBe('processing')
         
-        // After enhanced security time - fan1 should be sent to back (entering list)
-        securityQueue.update(startTime + mockConfig.ENHANCED_SECURITY_TIME + 100);
+        // After enhanced security time - fan1 should be sent to back (starts walking there)
+        securityQueue.update(startTime + mockConfig.ENHANCED_SECURITY_TIME + 100)
         
-        // Fan should be approaching queue again
-        expect(fan1.state).toBe('approaching_queue');
-        expect(fan1.enhancedSecurity).toBe(false); // Should not be enhanced again
-        expect(securityQueue.entering[queueIndex]).toContain(fan1);
+        // Fan should be returning to queue (walking to end of line)
+        expect(fan1.state).toBe('returning_to_queue')
+        expect(fan1.enhancedSecurity).toBe(false) // Should not be enhanced again
+        expect(fan1.returningToQueue).toBe(queueIndex)
+        
+        // Simulate fan reaching end of line
+        fan1.x = fan1.targetX
+        fan1.y = fan1.targetY
+        securityQueue.update(startTime + mockConfig.ENHANCED_SECURITY_TIME + 200)
+        
+        // Now fan should be in entering list
+        expect(fan1.state).toBe('approaching_queue')
+        expect(securityQueue.entering[queueIndex]).toContain(fan1)
         
         // Now fan2 should be at front (position 0)
-        expect(securityQueue.queues[queueIndex][0]).toBe(fan2);
+        expect(securityQueue.queues[queueIndex][0]).toBe(fan2)
     });
 
     test('should ensure enhanced security fan moves away from front when queue becomes empty', () => {
@@ -171,21 +182,35 @@ describe('SecurityQueue', () => {
         
         const startTime = 1000;
         
-        // Start processing
-        securityQueue.update(startTime);
-        expect(fan.state).toBe('being_checked');
+        // Start processing - should be walking to process position
+        securityQueue.update(startTime)
+        expect(fan.state).toBe('in_queue_advancing')
         
-        // Keep fan at position during check
-        fan.x = frontX;
-        fan.y = frontY;
+        // Fan should now have a processing position target
+        // Move fan to their NEW processing position
+        fan.x = fan.targetX
+        fan.y = fan.targetY
+        
+        // Update to transition to processing state
+        securityQueue.update(startTime + 10)
+        expect(fan.state).toBe('processing')
         
         // After enhanced security time - fan should be sent to back
-        securityQueue.update(startTime + mockConfig.ENHANCED_SECURITY_TIME + 100);
+        securityQueue.update(startTime + mockConfig.ENHANCED_SECURITY_TIME + 100)
         
-        // Fan should be in entering list with approaching_queue state
-        expect(fan.state).toBe('approaching_queue');
-        expect(securityQueue.entering[queueIndex]).toContain(fan);
-        expect(securityQueue.queues[queueIndex]).not.toContain(fan);
+        // Fan should be returning to queue (walking to end of line)
+        expect(fan.state).toBe('returning_to_queue')
+        expect(fan.returningToQueue).toBe(queueIndex)
+        
+        // Simulate fan reaching end of line
+        fan.x = fan.targetX
+        fan.y = fan.targetY
+        securityQueue.update(startTime + mockConfig.ENHANCED_SECURITY_TIME + 200)
+        
+        // Now fan should be in entering list with approaching_queue state
+        expect(fan.state).toBe('approaching_queue')
+        expect(securityQueue.entering[queueIndex]).toContain(fan)
+        expect(securityQueue.queues[queueIndex]).not.toContain(fan)
         
         // Critical test: fan's target should be different from front position
         // even though queue is now empty (to ensure they move away)
@@ -252,22 +277,19 @@ describe('SecurityQueue', () => {
         expect(securityQueue.entering[queueIndex]).toContain(fan2);
         
         // Simulate fan1 reaching their position and joining queue
-        // Fan needs to complete two-stage movement: vertical then lateral
-        fan1.x = fan1.targetX;
-        fan1.y = fan1.targetY;
-        securityQueue.update(1000); // Complete stage 1
+        fan1.x = fan1.targetX
+        fan1.y = fan1.targetY
+        securityQueue.update(1000)
         
-        // Now move to final target for stage 2
-        fan1.x = fan1.targetX;
-        fan1.y = fan1.targetY;
-        securityQueue.update(1000); // Complete stage 2 and join queue
-        
-        // Fan1 should now be in actual queue
-        expect(securityQueue.queues[queueIndex].length).toBe(1);
-        expect(securityQueue.entering[queueIndex]).not.toContain(fan1);
+        // Fan1 should now be in actual queue (since they're not at position 0 yet)
+        // OR if they were at position 0, they'd be immediately put into processing
+        const fan1InQueue = securityQueue.queues[queueIndex].includes(fan1)
+        const fan1Processing = securityQueue.processing[queueIndex] === fan1
+        expect(fan1InQueue || fan1Processing).toBe(true)
+        expect(securityQueue.entering[queueIndex]).not.toContain(fan1)
         
         // Fan2 should still be approaching
-        expect(securityQueue.entering[queueIndex]).toContain(fan2);
+        expect(securityQueue.entering[queueIndex]).toContain(fan2)
         
         // Update queue positions - fan2's target should be after fan1
         securityQueue.updateQueuePositions(queueIndex);

@@ -39,9 +39,9 @@ describe('Obstacles', () => {
         expect(busObstacles.length).toBe(1);
     });
 
-    test('should create security obstacles', () => {
+    test('should not create security obstacles (fence removed)', () => {
         const securityObstacles = obstacles.obstacles.filter(obs => obs.type === 'security');
-        expect(securityObstacles.length).toBe(2); // Left and right security lines
+        expect(securityObstacles.length).toBe(0); // Security fence has been removed
     });
 
     test('should create boundary obstacles', () => {
@@ -109,10 +109,8 @@ describe('Obstacles', () => {
         const boundaries = obstacles.getSecurityBoundaries();
         expect(boundaries.length).toBeGreaterThan(0);
         
-        // Should include security and boundary types
-        const hasSecurityType = boundaries.some(b => b.type === 'security');
+        // Should include boundary types (security fence obstacles were removed)
         const hasBoundaryType = boundaries.some(b => b.type === 'boundary');
-        expect(hasSecurityType).toBe(true);
         expect(hasBoundaryType).toBe(true);
     });
 

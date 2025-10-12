@@ -59,12 +59,20 @@ export class EventManager {
     /**
      * Update food stalls and their queues
      * @param {number} simulationTime - Current simulation time in milliseconds
+     * @param {Agent[]} agents - Array of all agents in the simulation
      */
-    updateFoodStalls(simulationTime) {
+    updateFoodStalls(simulationTime, agents) {
         this.foodStalls.forEach(stall => {
-            stall.processQueue(this.width, this.height, simulationTime);
-            stall.updateQueuePositions(this.width, this.height, false, simulationTime);
-        });
+            stall.processQueue(this.width, this.height, simulationTime)
+            stall.updateQueuePositions(this.width, this.height, false, simulationTime)
+            
+            // Check for fans being processed at this stall
+            for (const fan of agents) {
+                if (fan.processingAtStall === stall) {
+                    stall.checkAndProcessFan(fan, this.width, this.height, simulationTime)
+                }
+            }
+        })
     }
     
     /**
@@ -182,7 +190,6 @@ export class EventManager {
             
             if (shouldAttend) {
                 agent.currentShow = stage;
-                agent.justPassedSecurity = false; // Clear flag when assigned to event
                 
                 // Small percentage go up front (cluster tightly)
                 if (Math.random() < 0.2) {
@@ -219,8 +226,6 @@ export class EventManager {
                     if (agent.state !== 'passed_security' && agent.state !== 'idle' && agent.state !== 'moving') {
                         return;
                     }
-                    
-                    agent.justPassedSecurity = false; // Clear flag when getting food
                     
                     // Choose a food stall randomly (d4 roll) - each stall has different food
                     // Fans should distribute across all 4 stalls rather than all using one
@@ -336,7 +341,7 @@ export class EventManager {
     update(simulationTime, agents, simulationSpeed) {
         this.simulationTime = simulationTime;
         this.securityQueue.update(simulationTime);
-        this.updateFoodStalls(simulationTime);
+        this.updateFoodStalls(simulationTime, agents);
         this.handleHungryFans(agents);
         this.updateConcerts(simulationTime, agents);
     }
