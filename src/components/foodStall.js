@@ -1,9 +1,10 @@
 /**
  * FoodStall class - represents a food stall where fans can queue
  */
-import { QueueManager } from '../core/queueManager.js';
+import { QueueManager } from '../core/queueManager.js'
+import { QueuedProcessor } from '../core/queuedProcessor.js'
 
-export class FoodStall {
+export class FoodStall extends QueuedProcessor {
     /**
      * Create a new food stall
      * @param {number} x - X position
@@ -12,16 +13,16 @@ export class FoodStall {
      * @param {number} id - Unique identifier for this stall (1, 2, 3, 4)
      */
     constructor(x, y, config, id = 0) {
-        this.x = x;
-        this.y = y;
-        this.config = config;
-        this.id = id; // Unique identifier for this stall
-        this.width = 20;  // Narrower for vertical orientation
-        this.height = 30; // Taller for vertical orientation
-        this.leftQueue = [];  // Queue on left side
-        this.rightQueue = []; // Queue on right side
-        this.leftApproaching = [];  // Fans approaching left queue
-        this.rightApproaching = []; // Fans approaching right queue
+        super(config)
+        this.x = x
+        this.y = y
+        this.id = id // Unique identifier for this stall
+        this.width = 20  // Narrower for vertical orientation
+        this.height = 30 // Taller for vertical orientation
+        this.leftQueue = []  // Queue on left side
+        this.rightQueue = [] // Queue on right side
+        this.leftApproaching = []  // Fans approaching left queue
+        this.rightApproaching = [] // Fans approaching right queue
     }
 
     /**
@@ -190,9 +191,6 @@ export class FoodStall {
                 
                 // Check if fan has reached the front position
                 if (frontFan.isNearTarget(5)) {
-                    // Remove from queue and send to processing position
-                    queue.splice(0, 1)
-                    
                     // Calculate processing position (walk up to stall counter)
                     const spacing = 8
                     const processingX = side === 'left' ? 
@@ -200,16 +198,24 @@ export class FoodStall {
                         this.x + this.width + (spacing * 0.5)
                     const processingY = this.y + this.height / 2
                     
-                    // Fan advances to processing position (still moving in queue)
-                    frontFan.state = 'in_queue_advancing'
-                    frontFan.inQueue = true // Still in queue, just advancing to processing
-                    frontFan.waitStartTime = simulationTime
-                    frontFan.setTarget(processingX, processingY, this.obstacles, simulationTime)
-                    frontFan.processingAtStall = this // Keep reference to this stall
-                    frontFan.processingSide = side
+                    // Use base class to handle processing start
+                    const result = this.startProcessingFan(
+                        queue,
+                        approaching,
+                        () => ({ x: processingX, y: processingY }),
+                        null,
+                        simulationTime
+                    )
                     
-                    // Update remaining fans' positions
-                    this.updateQueuePositions(width, height, true, simulationTime)
+                    if (result.shouldStartProcessing) {
+                        const fan = result.fanToProcess
+                        fan.waitStartTime = simulationTime
+                        fan.processingAtStall = this // Keep reference to this stall
+                        fan.processingSide = side
+                        
+                        // Update remaining fans' positions
+                        this.updateQueuePositions(width, height, true, simulationTime)
+                    }
                 }
             }
         })
@@ -232,15 +238,8 @@ export class FoodStall {
             return false
         }
         
-        // If fan is advancing and has arrived at processing position, change to processing (stationary)
-        if (fan.state === 'in_queue_advancing' && fan.isNearTarget(5)) {
-            fan.state = 'processing'
-            fan.inQueue = false // No longer in queue, now being processed
-            // Clear waypoints - fan is now stationary
-            fan.staticWaypoints = []
-            fan.waypointUpdateTimes = []
-            fan.dynamicWaypoint = null
-        }
+        // Use base class to check for processing transition
+        this.checkProcessingTransition(fan)
         
         // Only check processing time if fan is actually in processing state (not advancing)
         if (fan.state === 'processing') {
@@ -252,7 +251,7 @@ export class FoodStall {
                 fan.hunger = Math.max(0, fan.hunger - this.config.HUNGER_DECREASE_AMOUNT)
                 fan.hasEatenFood = true // Mark as having eaten
                 
-                // Move to the side after eating
+                // Move to the side after eating (using shared wandering logic but with custom position)
                 const side = fan.processingSide
                 const moveDistance = 80 + Math.random() * 50 // Move 80-130 pixels to the side
                 let targetX, targetY
@@ -271,6 +270,7 @@ export class FoodStall {
                 targetX = Math.max(20, Math.min(width - 20, targetX))
                 targetY = Math.max(20, Math.min(height * 0.7, targetY))
                 
+                // Set target and transition directly to moving state
                 fan.setTarget(targetX, targetY, this.obstacles, simulationTime)
                 fan.state = 'moving'
                 

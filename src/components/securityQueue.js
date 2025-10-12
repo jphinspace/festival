@@ -2,9 +2,10 @@
  * SecurityQueue class for managing fans entering the festival through security
  * Maintains two queues with processing logic for regular and enhanced security
  */
-import { QueueManager } from '../core/queueManager.js';
+import { QueueManager } from '../core/queueManager.js'
+import { QueuedProcessor } from '../core/queuedProcessor.js'
 
-export class SecurityQueue {
+export class SecurityQueue extends QueuedProcessor {
     /**
      * Create a new security queue
      * @param {Object} config - Configuration object
@@ -12,21 +13,21 @@ export class SecurityQueue {
      * @param {number} height - Canvas height
      */
     constructor(config, width, height) {
-        this.config = config;
-        this.width = width;
-        this.height = height;
+        super(config)
+        this.width = width
+        this.height = height
         
         // Two queues for the two lines
-        this.queues = [[], []];
+        this.queues = [[], []]
         
         // Track which fans are currently being processed at the front
-        this.processing = [null, null];
+        this.processing = [null, null]
         
         // Track when processing started for each queue
-        this.processingStartTime = [null, null];
+        this.processingStartTime = [null, null]
         
         // Track fans moving to the entry point (not yet in queue)
-        this.entering = [[], []];
+        this.entering = [[], []]
     }
 
     /**
@@ -131,14 +132,6 @@ export class SecurityQueue {
     }
     
     /**
-     * Set obstacles reference for pathfinding
-     * @param {Obstacles} obstacles - Obstacles manager
-     */
-    setObstacles(obstacles) {
-        this.obstacles = obstacles;
-    }
-
-    /**
      * Process queues - handle fans at the front and those entering
      * @param {number} simulationTime - Current simulation time in milliseconds
      */
@@ -209,23 +202,26 @@ export class SecurityQueue {
                 
                 // Check if fan has reached the front of the queue (position 0)
                 if (fan.isNearTarget(5)) {
-                    // Remove from queue and send to processing position
-                    queue.shift()
-                    this.processing[queueIndex] = fan
-                    this.processingStartTime[queueIndex] = simulationTime
-                    
-                    // Calculate processing position - walk up to security guard
+                    // Use base class to handle processing start
                     const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X)
                     const startY = this.height * this.config.QUEUE_START_Y
                     const processingY = startY - this.config.QUEUE_SPACING // One space in front of queue
                     
-                    // Fan advances to processing position (still moving in queue)
-                    fan.state = 'in_queue_advancing'
-                    fan.inQueue = true // Still in queue, just advancing to processing
-                    fan.setTarget(queueX, processingY, this.obstacles, simulationTime)
+                    const result = this.startProcessingFan(
+                        queue,
+                        entering,
+                        () => ({ x: queueX, y: processingY }),
+                        this.processing[queueIndex],
+                        simulationTime
+                    )
                     
-                    // Update remaining fans' positions after removing front fan
-                    this.updateQueuePositions(queueIndex, true, simulationTime)
+                    if (result.shouldStartProcessing) {
+                        this.processing[queueIndex] = result.fanToProcess
+                        this.processingStartTime[queueIndex] = simulationTime
+                        
+                        // Update remaining fans' positions after removing front fan
+                        this.updateQueuePositions(queueIndex, true, simulationTime)
+                    }
                 }
             }
             
@@ -236,15 +232,8 @@ export class SecurityQueue {
                 // Skip if fan is returning to queue
                 if (fan.returningToQueue !== undefined) continue
                 
-                // If fan is advancing and has arrived at processing position, change to processing (stationary)
-                if (fan.state === 'in_queue_advancing' && fan.isNearTarget(5)) {
-                    fan.state = 'processing'
-                    fan.inQueue = false // No longer in queue, now being processed
-                    // Clear waypoints - fan is now stationary
-                    fan.staticWaypoints = []
-                    fan.waypointUpdateTimes = []
-                    fan.dynamicWaypoint = null
-                }
+                // Use base class to check for processing transition
+                this.checkProcessingTransition(fan)
                 
                 // Only check processing time if fan is actually in processing state (not advancing)
                 if (fan.state === 'processing') {
@@ -278,12 +267,13 @@ export class SecurityQueue {
                             // Keep fan in processing until they reach end of line
                             // Don't clear processing here - will be cleared when fan reaches end
                         } else {
-                            // Allow into festival - fan goes idle and will wander naturally
+                            // Allow into festival - fan wanders naturally using shared logic
                             fan.goal = 'exploring festival'
-                            fan.state = 'idle'
                             fan.inQueue = false
-                            fan.justPassedSecurity = true // Mark to prevent immediate wandering
-                            fan.justFinishedProcessing = true // Mark to skip idle waiting period
+                            fan.justPassedSecurity = true // Mark to prevent immediate re-wandering
+                            
+                            // Start wandering immediately using shared function
+                            fan.startWandering(this.obstacles, simulationTime)
                             
                             // Clear processing
                             this.processing[queueIndex] = null

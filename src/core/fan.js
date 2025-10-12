@@ -60,6 +60,32 @@ export class Fan extends Agent {
     }
     
     /**
+     * Start wandering to a random location (shared by idle and post-processing states)
+     * @param {Obstacles} obstacles - Obstacles manager for static object collision
+     * @param {number} simulationTime - Current simulation time in milliseconds
+     */
+    startWandering(obstacles, simulationTime) {
+        this.wanderTargetUpdateTime = simulationTime || Date.now()
+        
+        // Pick a random position to wander to (spread out)
+        // Try multiple times to find a valid position (not inside obstacles)
+        let targetX, targetY
+        let attempts = 0
+        const maxAttempts = 10
+        do {
+            targetX = Math.random() * (obstacles ? obstacles.width : 800)
+            targetY = Math.random() * (obstacles ? obstacles.height * 0.7 : 400)
+            attempts++
+        } while (obstacles && !obstacles.isValidPosition(targetX, targetY) && attempts < maxAttempts)
+        
+        // Only set target if we found a valid position
+        if (!obstacles || obstacles.isValidPosition(targetX, targetY)) {
+            this.setTarget(targetX, targetY, obstacles, simulationTime)
+            this.state = 'moving'
+        }
+    }
+    
+    /**
      * Update fan state, including hunger
      * @param {number} deltaTime - Time since last frame in seconds
      * @param {number} simulationSpeed - Speed multiplier for simulation
@@ -80,33 +106,12 @@ export class Fan extends Agent {
         
         // Spread-out behavior: wander if idle and not watching a show
         // Don't wander if fan just passed security - let them be picked up by events (concerts, hunger)
-        // If fan just transitioned from processing to idle, skip the waiting period and move immediately
         if (this.state === 'idle' && !this.currentShow && !this.inQueue && this.state !== 'leaving' && !this.justPassedSecurity) {
             const now = simulationTime || Date.now(); // Use simulationTime if available
             
-            // If fan just finished processing, they should move immediately
-            const shouldMoveImmediately = this.justFinishedProcessing
-            
-            // Update wander target every 5-10 seconds (or immediately if just finished processing)
-            if (shouldMoveImmediately || now - this.wanderTargetUpdateTime > 5000 + Math.random() * 5000) {
-                this.wanderTargetUpdateTime = now;
-                this.justFinishedProcessing = false; // Clear flag
-                
-                // Pick a random position to wander to (spread out)
-                // Try multiple times to find a valid position (not inside obstacles)
-                let targetX, targetY;
-                let attempts = 0;
-                const maxAttempts = 10;
-                do {
-                    targetX = Math.random() * (obstacles ? obstacles.width : 800);
-                    targetY = Math.random() * (obstacles ? obstacles.height * 0.7 : 400);
-                    attempts++;
-                } while (obstacles && !obstacles.isValidPosition(targetX, targetY) && attempts < maxAttempts);
-                
-                // Only set target if we found a valid position
-                if (!obstacles || obstacles.isValidPosition(targetX, targetY)) {
-                    this.setTarget(targetX, targetY, obstacles, simulationTime);
-                }
+            // Update wander target every 5-10 seconds
+            if (now - this.wanderTargetUpdateTime > 5000 + Math.random() * 5000) {
+                this.startWandering(obstacles, simulationTime)
             }
         }
     }
