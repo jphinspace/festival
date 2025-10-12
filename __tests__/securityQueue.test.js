@@ -397,22 +397,28 @@ describe('SecurityQueue', () => {
         
         const queueIndex = fan.queueIndex;
         
-        // Move through queue
+        // Use a controlled base time
+        const baseTime = 10000;
+        
+        // Move through queue - fan approaches entry point
         fan.x = fan.targetX;
         fan.y = fan.targetY;
-        securityQueue.update(1000);
+        securityQueue.update(baseTime);
         
-        // Move to queue (fan is now in actual queue)
+        // Ensure fan has moved to new target after joining queue
         fan.x = fan.targetX;
         fan.y = fan.targetY;
-        securityQueue.update(1010);
+        securityQueue.update(baseTime + 200); // 200ms later, well past throttle window
         
-        // Keep at position during processing
+        // Fan should now be in queue and being checked
+        expect(fan.state).toBe('being_checked');
+        
+        // Keep fan at target position during security check
         fan.x = fan.targetX;
         fan.y = fan.targetY;
         
-        // Process through security
-        securityQueue.update(1010 + mockConfig.REGULAR_SECURITY_TIME + 100);
+        // Process through security (wait for REGULAR_SECURITY_TIME to elapse)
+        securityQueue.update(baseTime + 200 + mockConfig.REGULAR_SECURITY_TIME + 10);
         
         // Fan should go to center of festival (0.5 * width)
         expect(fan.targetX).toBe(400); // 0.5 * 800

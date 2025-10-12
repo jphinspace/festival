@@ -223,8 +223,9 @@ export class QueueManager {
         const targetPos = getTargetPosition(position);
         fan.setTarget(targetPos.x, targetPos.y, obstacles);
         
-        // Initialize queue target update time so subsequent throttled updates know this was just set
-        fan.queueTargetUpdateTime = Date.now();
+        // Initialize queue target update time to ensure first update will work
+        // Use -Infinity to guarantee first update will pass throttle check regardless of timing
+        fan.queueTargetUpdateTime = -Infinity;
         
         return position;
     }
