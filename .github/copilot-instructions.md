@@ -28,6 +28,42 @@ Before responding to ANY instruction:
 ## Project Overview
 This is an HTML5-based agent simulation of a music festival featuring agent-based modeling. The simulation runs in real-time with interactive controls for various festival events. The codebase uses pure vanilla JavaScript (ES6 modules) with no external runtime dependencies.
 
+## MANDATORY: Test Coverage Standards
+
+**NON-NEGOTIABLE REQUIREMENTS**
+
+All code changes MUST meet these minimum coverage thresholds:
+- **Line Coverage**: ≥80% (MANDATORY)
+- **Branch Coverage**: 100% (MANDATORY)  
+- **Function Coverage**: ≥70% (target)
+- **Statement Coverage**: ≥80% (MANDATORY)
+
+### Enforcement Rules
+1. **No Exceptions**: Copilot cannot set lower coverage targets or make justifications for insufficient coverage
+2. **No Subjective Standards**: Terms like "excellent" or "good" coverage below 80%/100% are NOT acceptable
+3. **All Changes**: Every code change must include comprehensive tests meeting these standards
+4. **Pull Request Requirement**: Cannot merge without meeting coverage thresholds
+5. **No Workarounds**: Cannot skip tests, comment out coverage checks, or reduce thresholds
+
+### When Adding New Code
+- Write tests FIRST or immediately after implementation
+- Cover ALL code paths including edge cases and error conditions
+- Test boundary conditions and invalid inputs
+- Verify all branches (if/else, switch cases, ternaries, logical operators)
+- Mock external dependencies properly
+
+### Coverage Verification
+Run `npm test -- --coverage` to check coverage. The command will fail if thresholds are not met.
+
+### Why These Standards
+- 80% line coverage ensures most code is executed in tests
+- 100% branch coverage ensures all decision paths are tested
+- High coverage prevents regressions and catches bugs early
+- Comprehensive tests serve as documentation
+- Makes refactoring safer and faster
+
+**REMEMBER**: These are MINIMUM standards. Strive for higher coverage when practical.
+
 ## Debugging Philosophy
 
 ### Finding Mechanical/System Issues
