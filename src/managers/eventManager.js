@@ -59,14 +59,15 @@ export class EventManager {
     /**
      * Update food stalls and their queues
      * @param {number} simulationTime - Current simulation time in milliseconds
+     * @param {Agent[]} agents - Array of all agents in the simulation
      */
-    updateFoodStalls(simulationTime) {
+    updateFoodStalls(simulationTime, agents) {
         this.foodStalls.forEach(stall => {
             stall.processQueue(this.width, this.height, simulationTime)
             stall.updateQueuePositions(this.width, this.height, false, simulationTime)
             
             // Check for fans being processed at this stall
-            for (const fan of this.fans) {
+            for (const fan of agents) {
                 if (fan.processingAtStall === stall) {
                     stall.checkAndProcessFan(fan, this.width, this.height, simulationTime)
                 }
@@ -343,7 +344,7 @@ export class EventManager {
     update(simulationTime, agents, simulationSpeed) {
         this.simulationTime = simulationTime;
         this.securityQueue.update(simulationTime);
-        this.updateFoodStalls(simulationTime);
+        this.updateFoodStalls(simulationTime, agents);
         this.handleHungryFans(agents);
         this.updateConcerts(simulationTime, agents);
     }
