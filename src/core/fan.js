@@ -65,10 +65,11 @@ export class Fan extends Agent {
      * @param {number} simulationSpeed - Speed multiplier for simulation
      * @param {Agent[]} otherAgents - Array of other agents for collision detection
      * @param {Obstacles} obstacles - Obstacles manager for static object collision
+     * @param {number} simulationTime - Current simulation time in milliseconds
      */
-    update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null) {
+    update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null, simulationTime = 0) {
         // Update base agent behavior
-        super.update(deltaTime, simulationSpeed, otherAgents, obstacles);
+        super.update(deltaTime, simulationSpeed, otherAgents, obstacles, simulationTime);
         
         // Increase hunger over time (unless waiting at food stall)
         // Hunger now scales with simulation speed for consistent behavior
