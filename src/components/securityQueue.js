@@ -221,7 +221,7 @@ export class SecurityQueue {
                     
                     // Fan advances to processing position (still moving in queue)
                     fan.state = 'in_queue_advancing'
-                    fan.inQueue = false // Not in actual queue anymore but advancing to process
+                    fan.inQueue = true // Still in queue, just advancing to processing
                     fan.setTarget(queueX, processingY, this.obstacles, simulationTime)
                     
                     // Update remaining fans' positions after removing front fan
@@ -239,6 +239,7 @@ export class SecurityQueue {
                 // If fan is advancing and has arrived at processing position, change to processing (stationary)
                 if (fan.state === 'in_queue_advancing' && fan.isNearTarget(5)) {
                     fan.state = 'processing'
+                    fan.inQueue = false // No longer in queue, now being processed
                     // Clear waypoints - fan is now stationary
                     fan.staticWaypoints = []
                     fan.waypointUpdateTimes = []
@@ -282,6 +283,7 @@ export class SecurityQueue {
                             fan.state = 'idle'
                             fan.inQueue = false
                             fan.justPassedSecurity = true // Mark to prevent immediate wandering
+                            fan.justFinishedProcessing = true // Mark to skip idle waiting period
                             
                             // Clear processing
                             this.processing[queueIndex] = null

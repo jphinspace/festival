@@ -80,11 +80,18 @@ export class Fan extends Agent {
         
         // Spread-out behavior: wander if idle and not watching a show
         // Don't wander if fan just passed security - let them be picked up by events (concerts, hunger)
+        // If fan just transitioned from processing to idle, skip the waiting period and move immediately
         if (this.state === 'idle' && !this.currentShow && !this.inQueue && this.state !== 'leaving' && !this.justPassedSecurity) {
             const now = simulationTime || Date.now(); // Use simulationTime if available
-            // Update wander target every 5-10 seconds
-            if (now - this.wanderTargetUpdateTime > 5000 + Math.random() * 5000) {
+            
+            // If fan just finished processing, they should move immediately
+            const shouldMoveImmediately = this.justFinishedProcessing
+            
+            // Update wander target every 5-10 seconds (or immediately if just finished processing)
+            if (shouldMoveImmediately || now - this.wanderTargetUpdateTime > 5000 + Math.random() * 5000) {
                 this.wanderTargetUpdateTime = now;
+                this.justFinishedProcessing = false; // Clear flag
+                
                 // Pick a random position to wander to (spread out)
                 // Try multiple times to find a valid position (not inside obstacles)
                 let targetX, targetY;
@@ -118,7 +125,7 @@ export class Fan extends Agent {
                 this.config.COLORS.AGENT_BEING_CHECKED;
         } else if (this.state === 'leaving') {
             this.color = this.config.COLORS.AGENT_LEAVING;
-        } else if (this.state === 'moving' || this.state === 'passed_security' || this.state === 'idle') {
+        } else if (this.state === 'moving' || this.state === 'idle') {
             this.color = this.config.COLORS.AGENT_ACTIVE;
         }
         

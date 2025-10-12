@@ -202,7 +202,7 @@ export class FoodStall {
                     
                     // Fan advances to processing position (still moving in queue)
                     frontFan.state = 'in_queue_advancing'
-                    frontFan.inQueue = false
+                    frontFan.inQueue = true // Still in queue, just advancing to processing
                     frontFan.waitStartTime = simulationTime
                     frontFan.setTarget(processingX, processingY, this.obstacles, simulationTime)
                     frontFan.processingAtStall = this // Keep reference to this stall
@@ -235,6 +235,7 @@ export class FoodStall {
         // If fan is advancing and has arrived at processing position, change to processing (stationary)
         if (fan.state === 'in_queue_advancing' && fan.isNearTarget(5)) {
             fan.state = 'processing'
+            fan.inQueue = false // No longer in queue, now being processed
             // Clear waypoints - fan is now stationary
             fan.staticWaypoints = []
             fan.waypointUpdateTimes = []

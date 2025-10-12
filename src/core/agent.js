@@ -18,7 +18,7 @@ export class Agent {
         this.targetY = null
         this.staticWaypoints = [] // Waypoints for routing around static obstacles (stages, food stalls)
         this.dynamicWaypoint = null // Single waypoint for avoiding other fans
-        this.state = 'idle' // idle, moving, leaving, in_queue, approaching_queue, passed_security, processing
+        this.state = 'idle' // idle, moving, leaving, in_queue_waiting, in_queue_advancing, approaching_queue, processing, returning_to_queue
         this.config = config
         this.color = config.COLORS.AGENT_ACTIVE
         this.radius = config.AGENT_RADIUS
@@ -41,7 +41,7 @@ export class Agent {
         const needsPathfinding = obstacles && (
             this.state === 'moving' || 
             this.state === 'approaching_queue' || 
-            this.state === 'passed_security'
+            this.state === 'idle'
         )
         
         if (needsPathfinding) {
@@ -141,7 +141,7 @@ export class Agent {
      */
     isMoving() {
         return this.state === 'moving' || this.state === 'approaching_queue' || 
-               this.state === 'in_queue' || this.state === 'passed_security';
+               this.state === 'in_queue_advancing' || this.state === 'returning_to_queue';
     }
 
     /**
@@ -237,9 +237,9 @@ export class Agent {
      * @param {number} simulationTime - Current simulation time in milliseconds
      */
     update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null, simulationTime = 0) {
-        // Allow movement for moving, in_queue_advancing, passed_security, approaching_queue, and returning_to_queue states
-        // Note: in_queue_waiting and processing are stationary states
-        if ((this.state === 'moving' || this.state === 'in_queue_advancing' || this.state === 'passed_security' || this.state === 'approaching_queue' || this.state === 'returning_to_queue') && this.targetX !== null) {
+        // Allow movement for moving, in_queue_advancing, approaching_queue, and returning_to_queue states
+        // Note: in_queue_waiting, processing, and idle are stationary states
+        if ((this.state === 'moving' || this.state === 'in_queue_advancing' || this.state === 'approaching_queue' || this.state === 'returning_to_queue') && this.targetX !== null) {
             const currentTime = simulationTime || Date.now()
             const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? 
                 this.config.PERSONAL_SPACE : 0
@@ -342,7 +342,7 @@ export class Agent {
                     this.waypointUpdateTimes = []
                     
                     // Transition to idle when reaching target
-                    if (this.state === 'moving' || this.state === 'passed_security') {
+                    if (this.state === 'moving') {
                         this.state = 'idle'
                     }
                 }
