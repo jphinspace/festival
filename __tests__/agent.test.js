@@ -676,7 +676,8 @@ describe('Fan', () => {
                 checkCollision: jest.fn((x, y, radius, state, buffer) => {
                     // Capture the buffer used
                     return false
-                })
+                }),
+                resolveCollision: jest.fn()
             }
             
             agent.update(0.016, 1.0, [], obstacles, 0)
