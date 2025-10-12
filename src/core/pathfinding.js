@@ -44,12 +44,17 @@ export function calculateStaticWaypoints(startX, startY, targetX, targetY, obsta
             const waypointsFromEnd = path.length - 1 - i
             const randomRadius = waypointsFromEnd * (radius * 2) // diameter = radius * 2
             
+            // Use already-randomized previous waypoint if available
+            const prevWaypoint = i > 0 ? waypoints[i-1] : { x: startX, y: startY }
+            // Use original next waypoint since it hasn't been randomized yet
+            const nextWaypoint = i < path.length - 1 ? path[i+1] : { x: targetX, y: targetY }
+            
             const randomPoint = findRandomPointNearWaypoint(
                 waypoint.x, 
                 waypoint.y, 
                 randomRadius,
-                i > 0 ? path[i-1] : { x: startX, y: startY },
-                i < path.length - 1 ? path[i+1] : { x: targetX, y: targetY },
+                prevWaypoint,
+                nextWaypoint,
                 obstacles,
                 radius,
                 personalSpaceBuffer

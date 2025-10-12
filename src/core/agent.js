@@ -246,21 +246,30 @@ export class Agent {
                 this.config.PERSONAL_SPACE : 0
             const waypointReachDistance = this.config.WAYPOINT_REACH_DISTANCE || 10
             
-            // Check if waypoints need updating (only checks first waypoint)
+            // Check if waypoints need updating (only updates non-first waypoints)
             const needsWaypointUpdate = obstacles && 
                 Pathfinding.shouldUpdateWaypoints(this.waypointUpdateTimes, currentTime, this.config)
             
             // Update waypoints if needed
-            if (needsWaypointUpdate && this.targetX !== null && this.targetY !== null) {
-                // Recalculate entire path from current position
-                this.staticWaypoints = Pathfinding.calculateStaticWaypoints(
-                    this.x, this.y, this.targetX, this.targetY, 
+            if (needsWaypointUpdate && this.targetX !== null && this.targetY !== null && this.staticWaypoints.length > 1) {
+                // Keep first waypoint fixed, only update subsequent waypoints
+                const firstWaypoint = this.staticWaypoints[0]
+                const firstUpdateTime = this.waypointUpdateTimes[0]
+                
+                // Recalculate path from first waypoint to target
+                const updatedWaypoints = Pathfinding.calculateStaticWaypoints(
+                    firstWaypoint.x, firstWaypoint.y, this.targetX, this.targetY, 
                     obstacles, this.radius, personalSpaceBuffer, this.config
                 )
-                // Reset all waypoint update times
-                this.waypointUpdateTimes = Pathfinding.initializeWaypointUpdateTimes(
-                    this.staticWaypoints, currentTime, this.config
+                
+                // Replace waypoints but keep the first one fixed
+                this.staticWaypoints = [firstWaypoint, ...updatedWaypoints]
+                
+                // Reset update times but keep first waypoint's time
+                const newUpdateTimes = Pathfinding.initializeWaypointUpdateTimes(
+                    updatedWaypoints, currentTime, this.config
                 )
+                this.waypointUpdateTimes = [firstUpdateTime, ...newUpdateTimes]
             }
             
             // Determine next static waypoint or final target
