@@ -4,6 +4,9 @@
  */
 import * as Pathfinding from './pathfinding.js'
 import { AgentState } from '../utils/enums.js'
+import * as Geometry from '../utils/geometry.js'
+import * as StateChecks from '../utils/stateChecks.js'
+import * as TimeUtils from '../utils/timeUtils.js'
 
 export class Agent {
     /**
@@ -39,15 +42,11 @@ export class Agent {
         
         // Determine if this agent needs pathfinding based on state
         // Moving fans need pathfinding (but not stationary fans like those in_queue, processing, or idle)
-        const needsPathfinding = obstacles && (
-            this.state === AgentState.MOVING || 
-            this.state === AgentState.APPROACHING_QUEUE || 
-            this.state === AgentState.IDLE
-        )
+        const needsPathfinding = obstacles && StateChecks.needsPathfinding(this.state)
         
         if (needsPathfinding) {
             // Calculate static waypoints using pathfinding module
-            const personalSpaceBuffer = (this.state === AgentState.APPROACHING_QUEUE || this.state === AgentState.MOVING) ? 
+            const personalSpaceBuffer = StateChecks.shouldUsePersonalSpaceBuffer(this.state) ? 
                 this.config.PERSONAL_SPACE : 0
             
             this.staticWaypoints = Pathfinding.calculateStaticWaypoints(
@@ -121,9 +120,7 @@ export class Agent {
      * @returns {boolean} True if agents are too close
      */
     overlapsWith(other, allowMovingOverlap = false) {
-        const dx = this.x - other.x;
-        const dy = this.y - other.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const distance = Geometry.calculateDistance(this.x, this.y, other.x, other.y);
         const personalSpace = this.getPersonalSpace(other);
         
         // Allow temporary personal space overlap while moving (but not complete body overlap)
@@ -141,8 +138,7 @@ export class Agent {
      * @returns {boolean} True if agent is in a moving state
      */
     isMoving() {
-        return this.state === AgentState.MOVING || this.state === AgentState.APPROACHING_QUEUE || 
-               this.state === AgentState.IN_QUEUE_ADVANCING || this.state === AgentState.RETURNING_TO_QUEUE;
+        return StateChecks.isMovingState(this.state);
     }
 
     /**
@@ -151,9 +147,7 @@ export class Agent {
      * @param {Agent} other - Another agent to resolve collision with
      */
     resolveOverlap(other) {
-        const dx = this.x - other.x;
-        const dy = this.y - other.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const distance = Geometry.calculateDistance(this.x, this.y, other.x, other.y);
         
         // Use stricter distance for pushing (only push if bodies actually overlap)
         const minDistance = this.radius + other.radius;
@@ -161,8 +155,9 @@ export class Agent {
         if (distance < minDistance && distance > 0) {
             // Calculate push direction
             const pushDistance = (minDistance - distance) / 2;
-            const pushX = (dx / distance) * pushDistance;
-            const pushY = (dy / distance) * pushDistance;
+            const normalized = Geometry.normalizeVector(this.x - other.x, this.y - other.y);
+            const pushX = normalized.x * pushDistance;
+            const pushY = normalized.y * pushDistance;
             
             // Push both agents apart
             this.x += pushX;
@@ -183,40 +178,36 @@ export class Agent {
     findAvoidancePosition(targetDx, targetDy, moveDistance, obstacles) {
         if (!obstacles) return null
         
-        const distance = Math.sqrt(targetDx * targetDx + targetDy * targetDy)
+        const distance = Geometry.calculateDistanceFromDeltas(targetDx, targetDy)
         if (distance === 0) return null
         
-        const dirX = targetDx / distance
-        const dirY = targetDy / distance
+        const normalized = Geometry.normalizeVector(targetDx, targetDy)
+        const dirX = normalized.x
+        const dirY = normalized.y
         
         // Perpendicular direction for side-stepping
-        const perpX = -dirY
-        const perpY = dirX
+        const perp = Geometry.calculatePerpendicularVector(dirX, dirY)
+        const perpX = perp.x
+        const perpY = perp.y
         
         // Use personal space buffer for food stalls when approaching_queue or moving
-        const personalSpaceBuffer = (this.state === AgentState.APPROACHING_QUEUE || this.state === AgentState.MOVING) ? 
+        const personalSpaceBuffer = StateChecks.shouldUsePersonalSpaceBuffer(this.state) ? 
             this.config.PERSONAL_SPACE : 0
         
         // Try multiple avoidance strategies in order of preference
         const strategies = [
             // 1. Try moving at an angle (30 degrees) to the right
-            { x: this.x + (dirX * 0.866 + perpX * 0.5) * moveDistance, 
-              y: this.y + (dirY * 0.866 + perpY * 0.5) * moveDistance },
+            Geometry.positionWithAngularOffset(this.x, this.y, dirX, dirY, moveDistance, -30),
             // 2. Try moving at an angle (30 degrees) to the left
-            { x: this.x + (dirX * 0.866 - perpX * 0.5) * moveDistance, 
-              y: this.y + (dirY * 0.866 - perpY * 0.5) * moveDistance },
+            Geometry.positionWithAngularOffset(this.x, this.y, dirX, dirY, moveDistance, 30),
             // 3. Try moving at steeper angle (60 degrees) to the right
-            { x: this.x + (dirX * 0.5 + perpX * 0.866) * moveDistance, 
-              y: this.y + (dirY * 0.5 + perpY * 0.866) * moveDistance },
+            Geometry.positionWithAngularOffset(this.x, this.y, dirX, dirY, moveDistance, -60),
             // 4. Try moving at steeper angle (60 degrees) to the left
-            { x: this.x + (dirX * 0.5 - perpX * 0.866) * moveDistance, 
-              y: this.y + (dirY * 0.5 - perpY * 0.866) * moveDistance },
+            Geometry.positionWithAngularOffset(this.x, this.y, dirX, dirY, moveDistance, 60),
             // 5. Try moving perpendicular right
-            { x: this.x + perpX * moveDistance, 
-              y: this.y + perpY * moveDistance },
+            Geometry.moveInDirection(this.x, this.y, perpX, perpY, moveDistance),
             // 6. Try moving perpendicular left
-            { x: this.x - perpX * moveDistance, 
-              y: this.y - perpY * moveDistance }
+            Geometry.moveInDirection(this.x, this.y, -perpX, -perpY, moveDistance)
         ]
         
         // Try each strategy
@@ -283,10 +274,7 @@ export class Agent {
         const waypoint = this.staticWaypoints[0]
         
         // Check if we've reached this waypoint
-        const distToWaypoint = Math.sqrt(
-            Math.pow(waypoint.x - this.x, 2) + 
-            Math.pow(waypoint.y - this.y, 2)
-        )
+        const distToWaypoint = Geometry.calculateDistance(this.x, this.y, waypoint.x, waypoint.y)
         
         if (distToWaypoint < waypointReachDistance) {
             // Remove reached waypoint
@@ -308,9 +296,9 @@ export class Agent {
     update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null, simulationTime = 0) {
         // Allow movement for moving, in_queue_advancing, approaching_queue, and returning_to_queue states
         // Note: in_queue_waiting, processing, and idle are stationary states
-        if ((this.state === AgentState.MOVING || this.state === AgentState.IN_QUEUE_ADVANCING || this.state === AgentState.APPROACHING_QUEUE || this.state === AgentState.RETURNING_TO_QUEUE) && this.targetX !== null) {
+        if (StateChecks.canMove(this.state) && this.targetX !== null) {
             const currentTime = simulationTime || Date.now()
-            const personalSpaceBuffer = (this.state === AgentState.APPROACHING_QUEUE || this.state === AgentState.MOVING) ? 
+            const personalSpaceBuffer = StateChecks.shouldUsePersonalSpaceBuffer(this.state) ? 
                 this.config.PERSONAL_SPACE : 0
             const waypointReachDistance = this.config.WAYPOINT_REACH_DISTANCE || 10
             
@@ -345,20 +333,17 @@ export class Agent {
             
             const dx = currentTargetX - this.x
             const dy = currentTargetY - this.y
-            const distance = Math.sqrt(dx * dx + dy * dy)
+            const distance = Geometry.calculateDistanceFromDeltas(dx, dy)
             
             // Frame-independent movement using delta time
-            const moveDistance = this.config.AGENT_SPEED * deltaTime * simulationSpeed
+            const moveDistance = TimeUtils.calculateMovementDistance(this.config.AGENT_SPEED, deltaTime, simulationSpeed)
             
             if (distance < moveDistance) {
                 this.x = currentTargetX
                 this.y = currentTargetY
                 
                 // Check if we've reached the final destination
-                const distToFinalTarget = Math.sqrt(
-                    Math.pow(this.targetX - this.x, 2) + 
-                    Math.pow(this.targetY - this.y, 2)
-                )
+                const distToFinalTarget = Geometry.calculateDistance(this.x, this.y, this.targetX, this.targetY)
                 
                 if (distToFinalTarget < waypointReachDistance && this.staticWaypoints.length === 0) {
                     // Reached final destination
@@ -370,14 +355,16 @@ export class Agent {
                     this.waypointUpdateTimes = []
                     
                     // Transition to idle when reaching target
-                    if (this.state === AgentState.MOVING) {
+                    if (StateChecks.shouldTransitionToIdle(this.state)) {
                         this.state = AgentState.IDLE
                     }
                 }
             } else {
                 // Calculate next position
-                let nextX = this.x + (dx / distance) * moveDistance
-                let nextY = this.y + (dy / distance) * moveDistance
+                const normalized = Geometry.normalizeVector(dx, dy)
+                const nextPos = Geometry.moveInDirection(this.x, this.y, normalized.x, normalized.y, moveDistance)
+                let nextX = nextPos.x
+                let nextY = nextPos.y
                 
                 // Check if next position collides with obstacle
                 if (obstacles && obstacles.checkCollision(nextX, nextY, this.radius, this.state, personalSpaceBuffer)) {
@@ -428,8 +415,6 @@ export class Agent {
      */
     isNearTarget(threshold = 10) {
         if (this.targetX === null || this.targetY === null) return true;
-        const dx = this.targetX - this.x;
-        const dy = this.targetY - this.y;
-        return Math.sqrt(dx * dx + dy * dy) < threshold;
+        return Geometry.isWithinDistance(this.x, this.y, this.targetX, this.targetY, threshold);
     }
 }

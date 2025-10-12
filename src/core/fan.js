@@ -4,6 +4,9 @@
  */
 import { Agent } from './agent.js';
 import { AgentState, StagePreference, FanGoal } from '../utils/enums.js';
+import * as AgentUtils from '../utils/agentUtils.js';
+import * as StateChecks from '../utils/stateChecks.js';
+import * as TimeUtils from '../utils/timeUtils.js';
 
 export class Fan extends Agent {
     /**
@@ -100,16 +103,20 @@ export class Fan extends Agent {
         // Increase hunger over time (unless waiting at food stall)
         // Hunger now scales with simulation speed for consistent behavior
         if (!this.waitStartTime) {
-            this.hunger = Math.min(1.0, this.hunger + 
-                this.config.HUNGER_INCREASE_RATE * deltaTime * simulationSpeed);
+            const hungerIncrease = AgentUtils.calculateHungerIncrease(
+                this.config.HUNGER_INCREASE_RATE, 
+                deltaTime, 
+                simulationSpeed
+            );
+            this.hunger = Math.min(1.0, this.hunger + hungerIncrease);
         }
         
         // Spread-out behavior: wander if idle and not watching a show
-        if (this.state === AgentState.IDLE && !this.currentShow && !this.inQueue && this.state !== AgentState.LEAVING) {
+        if (StateChecks.shouldWander(this.state, this.currentShow, this.inQueue)) {
             const now = simulationTime || Date.now(); // Use simulationTime if available
             
             // Update wander target every 5-10 seconds
-            if (now - this.wanderTargetUpdateTime > 5000 + Math.random() * 5000) {
+            if (TimeUtils.shouldTriggerRandomInterval(now, this.wanderTargetUpdateTime, 5000, 10000)) {
                 this.startWandering(obstacles, simulationTime)
             }
         }

@@ -2,6 +2,8 @@
 import { Fan } from './fan.js';
 import { Renderer } from '../components/renderer.js';
 import { EventManager } from '../managers/eventManager.js';
+import * as TimeUtils from '../utils/timeUtils.js';
+import * as Geometry from '../utils/geometry.js';
 
 export class Simulation {
     constructor(canvas, config) {
@@ -65,9 +67,7 @@ export class Simulation {
         for (let i = this.agents.length - 1; i >= 0; i--) {
             const agent = this.agents[i];
             if (agent.type === 'fan') {
-                const dx = agent.x - x;
-                const dy = agent.y - y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
+                const distance = Geometry.calculateDistance(agent.x, agent.y, x, y);
                 if (distance <= agent.radius + threshold) {
                     return agent;
                 }
@@ -92,9 +92,10 @@ export class Simulation {
     }
 
     setSimulationSpeed(speed) {
-        this.simulationSpeed = Math.max(
+        this.simulationSpeed = Geometry.clamp(
+            speed,
             this.config.MIN_SIMULATION_SPEED,
-            Math.min(this.config.MAX_SIMULATION_SPEED, speed)
+            this.config.MAX_SIMULATION_SPEED
         );
     }
 
@@ -125,7 +126,7 @@ export class Simulation {
     update(deltaTime) {
         if (!this.paused) {
             // Update simulation time (in milliseconds, scaled by simulation speed)
-            this.simulationTime += deltaTime * 1000 * this.simulationSpeed;
+            this.simulationTime += TimeUtils.calculateSimulationTimeIncrement(deltaTime, this.simulationSpeed);
             
             // Update event manager (process security queue and food stalls)
             this.eventManager.update(this.simulationTime, this.agents, this.simulationSpeed);
@@ -164,12 +165,11 @@ export class Simulation {
             this.fpsUpdateTime = currentTime;
         }
         
-        const deltaTime = (currentTime - this.lastFrameTime) / 1000;
+        const deltaTime = TimeUtils.calculateDeltaTime(currentTime, this.lastFrameTime);
         this.lastFrameTime = currentTime;
         
         // Cap frame rate to MAX_FPS
-        const timeSinceLastRender = currentTime - this.lastRenderTime;
-        if (timeSinceLastRender < this.targetFrameTime) {
+        if (TimeUtils.shouldSkipFrame(currentTime, this.lastRenderTime, this.targetFrameTime)) {
             requestAnimationFrame(this.animate.bind(this));
             return;
         }
@@ -182,7 +182,7 @@ export class Simulation {
         
         // Update FPS counter
         this.frameCount++;
-        if (currentTime - this.fpsUpdateTime >= 1000) {
+        if (TimeUtils.shouldUpdateFPS(currentTime, this.fpsUpdateTime)) {
             this.currentFPS = this.frameCount;
             this.frameCount = 0;
             this.fpsUpdateTime = currentTime;
