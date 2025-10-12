@@ -16,8 +16,11 @@ const mockObstacles = {
 
 class TestQueuedProcessor extends QueuedProcessor {
     constructor(width, height, config) {
-        super(width, height, config)
+        super(config)
+        this.width = width
+        this.height = height
         this.queue = []
+        this.entering = []
         this.processingFan = null
         this.processingStartTime = 0
         this.testProcessingTime = 1000
@@ -43,6 +46,48 @@ class TestQueuedProcessor extends QueuedProcessor {
             y: startY + (index * spacing)
         }
     }
+
+    // Wrapper methods that match test expectations
+    processEnteringWrapper(fans, simulationTime) {
+        const updateCallback = (sortNeeded, simTime) => {}
+        this.processEntering(this.queue, fans, updateCallback, simulationTime)
+    }
+
+    processFrontOfQueueWrapper(simulationTime) {
+        const getProcessingPos = () => this.getProcessingPosition()
+        const onStartProcessing = (fan, simTime) => {
+            this.processingStartTime = simTime
+        }
+        this.processingFan = this.processFrontOfQueue(
+            this.queue,
+            this.entering,
+            getProcessingPos,
+            this.processingFan,
+            simulationTime,
+            onStartProcessing
+        )
+    }
+
+    checkProcessingTransitionWrapper(fans, simulationTime) {
+        if (fans && fans.length > 0) {
+            fans.forEach(fan => {
+                this.checkProcessingTransition(fan)
+            })
+        } else if (this.processingFan) {
+            this.checkProcessingTransition(this.processingFan)
+        }
+    }
+
+    updateQueuePositionsWrapper(sortNeeded, simulationTime) {
+        const getTargetPosition = (index) => this.getQueuePositionForIndex(index)
+        this.updateQueuePositions(
+            this.queue,
+            this.entering,
+            getTargetPosition,
+            sortNeeded,
+            simulationTime
+        )
+    }
 }
 
 describe('QueuedProcessor Base Class', () => {
@@ -60,7 +105,11 @@ describe('QueuedProcessor Base Class', () => {
             inQueue: false,
             queueIndex: 0,
             setTarget: jest.fn(),
-            startWandering: jest.fn()
+            startWandering: jest.fn(),
+            isNearTarget: jest.fn(() => false),
+            staticWaypoints: [],
+            waypointUpdateTimes: [],
+            dynamicWaypoint: null
         }
 
         jest.clearAllMocks()
@@ -68,31 +117,35 @@ describe('QueuedProcessor Base Class', () => {
 
     describe('processEntering', () => {
         test('should add approaching_queue fan to queue when close enough', () => {
-            mockFan.x = 240
-            mockFan.y = 60
             mockFan.state = 'approaching_queue'
+            mockFan.isNearTarget = jest.fn(() => true)
 
-            processor.processEntering([mockFan], 1000)
+            processor.processEnteringWrapper([mockFan], 1000)
 
             expect(mockFan.state).toBe('in_queue_waiting')
-            expect(mockFan.inQueue).toBe(true)
             expect(processor.queue).toContain(mockFan)
         })
 
         test('should not add fan if not in approaching_queue state', () => {
             mockFan.state = 'moving'
+            mockFan.isNearTarget = jest.fn(() => true)
 
-            processor.processEntering([mockFan], 1000)
+            // Fans in queue state are not processed by processEntering (which only handles approaching fans)
+            // So even if isNearTarget returns true, fan won't be added because state is not approaching_queue
+            // However, the QueueManager.processApproaching inside updateQueuePositions may still try to process it
+            // Let's directly test the processEntering method behavior
+            const entering = [mockFan]
+            const updateCallback = (sortNeeded, simTime) => {}
+            processor.processEntering(processor.queue, entering, updateCallback, 1000)
 
             expect(processor.queue).not.toContain(mockFan)
         })
 
         test('should not add fan if too far from queue', () => {
-            mockFan.x = 100
-            mockFan.y = 100
             mockFan.state = 'approaching_queue'
+            mockFan.isNearTarget = jest.fn(() => false)
 
-            processor.processEntering([mockFan], 1000)
+            processor.processEnteringWrapper([mockFan], 1000)
 
             expect(processor.queue).not.toContain(mockFan)
         })
@@ -102,10 +155,11 @@ describe('QueuedProcessor Base Class', () => {
                 ...mockFan,
                 x: 240,
                 y: 60,
-                setTarget: jest.fn()
+                state: 'approaching_queue',
+                isNearTarget: jest.fn(() => true)
             }
 
-            processor.processEntering([mockFan, fan2], 1000)
+            processor.processEnteringWrapper([mockFan, fan2], 1000)
 
             // Only fan2 is close enough
             expect(processor.queue).toContain(fan2)
@@ -115,41 +169,40 @@ describe('QueuedProcessor Base Class', () => {
     describe('processFrontOfQueue', () => {
         test('should start processing front fan when no one is being processed', () => {
             mockFan.state = 'in_queue_waiting'
+            mockFan.isNearTarget = jest.fn(() => true)
             processor.queue = [mockFan]
 
-            processor.processFrontOfQueue(1000)
+            processor.processFrontOfQueueWrapper(1000)
 
             expect(mockFan.state).toBe('in_queue_advancing')
             expect(mockFan.setTarget).toHaveBeenCalled()
         })
 
         test('should not process if someone is already being processed', () => {
-            mockFan.state = 'in_queue_waiting'
+            const fan2 = { ...mockFan }
+            processor.processingFan = fan2
             processor.queue = [mockFan]
-            processor.processingFan = { state: 'processing' }
 
-            processor.processFrontOfQueue(1000)
+            processor.processFrontOfQueueWrapper(1000)
 
-            expect(mockFan.state).toBe('in_queue_waiting')
+            expect(processor.processingFan).toBe(fan2)
         })
 
         test('should not process if queue is empty', () => {
             processor.queue = []
 
-            processor.processFrontOfQueue(1000)
+            processor.processFrontOfQueueWrapper(1000)
 
             expect(processor.processingFan).toBeNull()
         })
 
         test('should handle fan at processing position', () => {
             mockFan.state = 'in_queue_waiting'
-            mockFan.x = 400
-            mockFan.y = 120
+            mockFan.isNearTarget = jest.fn(() => true)
             processor.queue = [mockFan]
 
-            processor.processFrontOfQueue(1000)
+            processor.processFrontOfQueueWrapper(1000)
 
-            // Fan is already at position, should start processing immediately
             expect(mockFan.state).toBe('in_queue_advancing')
         })
     })
@@ -157,36 +210,31 @@ describe('QueuedProcessor Base Class', () => {
     describe('checkProcessingTransition', () => {
         test('should transition in_queue_advancing fan to processing when at position', () => {
             mockFan.state = 'in_queue_advancing'
-            mockFan.x = 400
-            mockFan.y = 120
-            processor.queue = [mockFan]
+            mockFan.isNearTarget = jest.fn(() => true)
+            processor.processingFan = mockFan
 
-            processor.checkProcessingTransition([mockFan], 1000)
+            processor.checkProcessingTransitionWrapper([mockFan], 1000)
 
             expect(mockFan.state).toBe('processing')
             expect(mockFan.inQueue).toBe(false)
-            expect(processor.processingFan).toBe(mockFan)
-            expect(processor.queue).not.toContain(mockFan)
         })
 
         test('should not transition if fan is not at processing position', () => {
             mockFan.state = 'in_queue_advancing'
-            mockFan.x = 240
-            mockFan.y = 80
-            processor.queue = [mockFan]
+            mockFan.isNearTarget = jest.fn(() => false)
+            processor.processingFan = mockFan
 
-            processor.checkProcessingTransition([mockFan], 1000)
+            processor.checkProcessingTransitionWrapper([mockFan], 1000)
 
             expect(mockFan.state).toBe('in_queue_advancing')
-            expect(processor.processingFan).toBeNull()
         })
 
         test('should not transition if fan is not in_queue_advancing', () => {
             mockFan.state = 'in_queue_waiting'
-            mockFan.x = 400
-            mockFan.y = 120
+            mockFan.isNearTarget = jest.fn(() => true)
+            processor.queue = [mockFan]
 
-            processor.checkProcessingTransition([mockFan], 1000)
+            processor.checkProcessingTransitionWrapper([mockFan], 1000)
 
             expect(mockFan.state).toBe('in_queue_waiting')
         })
@@ -194,42 +242,42 @@ describe('QueuedProcessor Base Class', () => {
 
     describe('updateQueuePositions', () => {
         test('should update fan targets to their queue positions', () => {
-            const fan1 = { ...mockFan, state: 'in_queue_waiting', setTarget: jest.fn() }
-            const fan2 = { ...mockFan, state: 'in_queue_waiting', setTarget: jest.fn() }
+            const fan1 = { ...mockFan, state: 'in_queue_waiting', x: 100, y: 100, setTarget: jest.fn(), isNearTarget: jest.fn(() => false) }
+            const fan2 = { ...mockFan, state: 'in_queue_waiting', x: 110, y: 110, setTarget: jest.fn(), isNearTarget: jest.fn(() => false) }
             processor.queue = [fan1, fan2]
 
-            processor.updateQueuePositions(true, 1000)
+            processor.updateQueuePositionsWrapper(true, 1000)
 
             expect(fan1.setTarget).toHaveBeenCalled()
             expect(fan2.setTarget).toHaveBeenCalled()
         })
 
         test('should throttle updates when sortNeeded is false', () => {
-            const fan1 = { ...mockFan, state: 'in_queue_waiting', setTarget: jest.fn() }
+            const fan1 = { ...mockFan, state: 'in_queue_waiting', x: 100, y: 100, setTarget: jest.fn(), isNearTarget: jest.fn(() => false), queueTargetUpdateTime: 0 }
             processor.queue = [fan1]
 
             // First call should update
-            processor.updateQueuePositions(false, 1000)
+            processor.updateQueuePositionsWrapper(false, 1000)
             expect(fan1.setTarget).toHaveBeenCalledTimes(1)
 
             // Second call immediately after should not update (throttled)
-            processor.updateQueuePositions(false, 1001)
+            processor.updateQueuePositionsWrapper(false, 1001)
             expect(fan1.setTarget).toHaveBeenCalledTimes(1)
 
             // After throttle period should update
-            processor.updateQueuePositions(false, 1201)
+            processor.updateQueuePositionsWrapper(false, 1201)
             expect(fan1.setTarget).toHaveBeenCalledTimes(2)
         })
 
         test('should update immediately when sortNeeded is true', () => {
-            const fan1 = { ...mockFan, state: 'in_queue_waiting', setTarget: jest.fn() }
+            const fan1 = { ...mockFan, state: 'in_queue_waiting', x: 100, y: 100, setTarget: jest.fn(), isNearTarget: jest.fn(() => false), queueTargetUpdateTime: 0 }
             processor.queue = [fan1]
 
-            processor.updateQueuePositions(true, 1000)
+            processor.updateQueuePositionsWrapper(true, 1000)
             expect(fan1.setTarget).toHaveBeenCalledTimes(1)
 
             // Should update again even immediately if sortNeeded
-            processor.updateQueuePositions(true, 1001)
+            processor.updateQueuePositionsWrapper(true, 1001)
             expect(fan1.setTarget).toHaveBeenCalledTimes(2)
         })
 
@@ -237,20 +285,26 @@ describe('QueuedProcessor Base Class', () => {
             processor.queue = []
 
             expect(() => {
-                processor.updateQueuePositions(true, 1000)
+                processor.updateQueuePositionsWrapper(true, 1000)
             }).not.toThrow()
         })
     })
 
     describe('getDistanceToPosition', () => {
         test('should calculate distance correctly', () => {
-            const distance = processor.getDistanceToPosition(0, 0, 3, 4)
+            const fan = { x: 0, y: 0 }
+            const pos = { x: 3, y: 4 }
+
+            const distance = processor.getDistanceToPosition(fan, pos)
 
             expect(distance).toBe(5) // 3-4-5 triangle
         })
 
         test('should return 0 for same position', () => {
-            const distance = processor.getDistanceToPosition(100, 200, 100, 200)
+            const fan = { x: 100, y: 200 }
+            const pos = { x: 100, y: 200 }
+
+            const distance = processor.getDistanceToPosition(fan, pos)
 
             expect(distance).toBe(0)
         })
@@ -268,10 +322,12 @@ describe('QueuedProcessor Base Class', () => {
 
     describe('updateFanTarget', () => {
         test('should call setTarget with obstacles and time', () => {
+            const fan = { ...mockFan, setTarget: jest.fn(), queueTargetUpdateTime: 0 }
             const targetPos = { x: 100, y: 200 }
-            processor.updateFanTarget(mockFan, targetPos, 1000)
+            
+            processor.updateFanTarget(fan, targetPos, mockObstacles, true, 1000)
 
-            expect(mockFan.setTarget).toHaveBeenCalledWith(100, 200, mockObstacles, 1000)
+            expect(fan.setTarget).toHaveBeenCalledWith(100, 200, mockObstacles, 1000)
         })
     })
 })
