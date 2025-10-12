@@ -130,4 +130,296 @@ describe('Obstacles', () => {
         // Position inside stage should be invalid
         expect(obstacles.isValidPosition(40, 90)).toBe(false);
     });
+
+    describe('checkCollision with all agent states', () => {
+        test('should use default agentState when not provided', () => {
+            // Call with only x, y, radius (uses default agentState='idle')
+            const result = obstacles.checkCollision(400, 300, 5);
+            expect(result).toBe(false); // Open space, no collision
+        });
+
+        test('should use default personalSpaceBuffer when not provided', () => {
+            const foodStalls = [{
+                x: 200,
+                y: 200,
+                width: 30,
+                height: 30
+            }];
+            obstacles.setFoodStalls(foodStalls);
+            
+            // Call without personalSpaceBuffer parameter (uses default 0)
+            const result = obstacles.checkCollision(195, 215, 3, 'approaching_queue');
+            expect(result).toBe(false); // Should not collide without buffer
+        });
+
+        test('should allow being_checked state through security obstacles', () => {
+            obstacles.obstacles.push({
+                type: 'security',
+                x: 100,
+                y: 100,
+                width: 50,
+                height: 50
+            });
+            
+            const result = obstacles.checkCollision(125, 125, 3, 'being_checked');
+            expect(result).toBe(false);
+        });
+
+        test('should allow approaching_queue state through security obstacles', () => {
+            obstacles.obstacles.push({
+                type: 'security',
+                x: 100,
+                y: 100,
+                width: 50,
+                height: 50
+            });
+            
+            const result = obstacles.checkCollision(125, 125, 3, 'approaching_queue');
+            expect(result).toBe(false);
+        });
+
+        test('should allow passed_security state through security obstacles', () => {
+            obstacles.obstacles.push({
+                type: 'security',
+                x: 100,
+                y: 100,
+                width: 50,
+                height: 50
+            });
+            
+            const result = obstacles.checkCollision(125, 125, 3, 'passed_security');
+            expect(result).toBe(false);
+        });
+
+        test('should skip bus collision for any state', () => {
+            const result = obstacles.checkCollision(400, 528, 3, 'idle');
+            expect(result).toBe(false); // Bus area should not collide
+        });
+
+        test('should apply personal space buffer for food stalls in approaching_queue state', () => {
+            const foodStalls = [{
+                x: 200,
+                y: 200,
+                width: 30,
+                height: 30
+            }];
+            obstacles.setFoodStalls(foodStalls);
+            
+            // Position just outside food stall but within buffer
+            const result = obstacles.checkCollision(195, 215, 3, 'approaching_queue', 10);
+            expect(result).toBe(true); // Should collide due to buffer
+        });
+
+        test('should apply personal space buffer for food stalls in moving state', () => {
+            const foodStalls = [{
+                x: 200,
+                y: 200,
+                width: 30,
+                height: 30
+            }];
+            obstacles.setFoodStalls(foodStalls);
+            
+            const result = obstacles.checkCollision(195, 215, 3, 'moving', 10);
+            expect(result).toBe(true); // Should collide due to buffer
+        });
+
+        test('should not apply personal space buffer for food stalls in other states', () => {
+            const foodStalls = [{
+                x: 200,
+                y: 200,
+                width: 30,
+                height: 30
+            }];
+            obstacles.setFoodStalls(foodStalls);
+            
+            // Position just outside food stall - no buffer applied
+            const result = obstacles.checkCollision(195, 215, 3, 'idle', 10);
+            expect(result).toBe(false); // Should not collide without buffer
+        });
+    });
+
+    describe('resolveCollision with different agent states', () => {
+        test('should allow being_checked state through security obstacles', () => {
+            obstacles.obstacles.push({
+                type: 'security',
+                x: 100,
+                y: 100,
+                width: 50,
+                height: 50
+            });
+            
+            const agent = {
+                x: 125,
+                y: 125,
+                radius: 3,
+                state: 'being_checked'
+            };
+            
+            const originalX = agent.x;
+            obstacles.resolveCollision(agent);
+            expect(agent.x).toBe(originalX);
+        });
+
+        test('should allow approaching_queue state through security obstacles', () => {
+            obstacles.obstacles.push({
+                type: 'security',
+                x: 100,
+                y: 100,
+                width: 50,
+                height: 50
+            });
+            
+            const agent = {
+                x: 125,
+                y: 125,
+                radius: 3,
+                state: 'approaching_queue'
+            };
+            
+            const originalX = agent.x;
+            obstacles.resolveCollision(agent);
+            expect(agent.x).toBe(originalX);
+        });
+
+        test('should allow passed_security state through security obstacles', () => {
+            obstacles.obstacles.push({
+                type: 'security',
+                x: 100,
+                y: 100,
+                width: 50,
+                height: 50
+            });
+            
+            const agent = {
+                x: 125,
+                y: 125,
+                radius: 3,
+                state: 'passed_security'
+            };
+            
+            const originalX = agent.x;
+            obstacles.resolveCollision(agent);
+            expect(agent.x).toBe(originalX);
+        });
+
+        test('should skip bus collision during resolveCollision', () => {
+            const agent = {
+                x: 400,
+                y: 528,
+                radius: 3,
+                state: 'idle'
+            };
+            
+            const originalX = agent.x;
+            obstacles.resolveCollision(agent);
+            expect(agent.x).toBe(originalX); // Should not be pushed
+        });
+
+        test('should handle agent exactly at closest point (distance = 0)', () => {
+            // Create a custom obstacle where agent is exactly at closest point
+            obstacles.obstacles = [{
+                type: 'stage',
+                x: 100,
+                y: 100,
+                width: 50,
+                height: 50
+            }];
+            
+            const agent = {
+                x: 125, // Exactly inside the obstacle
+                y: 125,
+                radius: 30, // Large radius to ensure collision
+                state: 'idle'
+            };
+            
+            const originalX = agent.x;
+            obstacles.resolveCollision(agent);
+            expect(agent.x).not.toBe(originalX); // Should be pushed
+        });
+
+        test('should push agent in default direction when distance is exactly 0', () => {
+            // Create obstacle and position agent such that:
+            // closestX = agent.x and closestY = agent.y (distanceX = distanceY = 0)
+            // This happens when agent is exactly on the rectangle
+            obstacles.obstacles = [{
+                type: 'stage',
+                x: 100,
+                y: 100,
+                width: 50,
+                height: 50
+            }];
+            
+            const agent = {
+                x: 100, // Exactly at left edge of obstacle
+                y: 125, // In the middle vertically
+                radius: 10,
+                state: 'idle'
+            };
+            
+            obstacles.resolveCollision(agent);
+            // Agent should be pushed by its radius in X direction (default)
+            expect(agent.x).toBe(110); // 100 + 10
+        });
+
+        test('should handle distance > 0 branch in resolveCollision', () => {
+            obstacles.obstacles = [{
+                type: 'stage',
+                x: 100,
+                y: 100,
+                width: 50,
+                height: 50
+            }];
+            
+            const agent = {
+                x: 98, // Close but not exactly at edge
+                y: 125,
+                radius: 10,
+                state: 'idle'
+            };
+            
+            const originalX = agent.x;
+            obstacles.resolveCollision(agent);
+            // Agent should be pushed away (distance > 0 branch)
+            expect(agent.x).not.toBe(originalX);
+            expect(agent.x).toBeLessThan(originalX); // Pushed to the left
+        });
+    });
+
+    describe('isValidPosition with all obstacle types', () => {
+        test('should return false for position inside boundary', () => {
+            const result = obstacles.isValidPosition(20, 180, 0);
+            expect(result).toBe(false); // Inside left boundary
+        });
+
+        test('should return true for position inside security obstacle', () => {
+            obstacles.obstacles.push({
+                type: 'security',
+                x: 300,
+                y: 300,
+                width: 50,
+                height: 50
+            });
+            
+            const result = obstacles.isValidPosition(325, 325, 0);
+            expect(result).toBe(true); // Security obstacles are not checked
+        });
+
+        test('should return true for position inside bus area', () => {
+            const result = obstacles.isValidPosition(400, 528, 0);
+            expect(result).toBe(true); // Bus area is not checked
+        });
+
+        test('should return false for position within buffer of food stall', () => {
+            const foodStalls = [{
+                x: 200,
+                y: 200,
+                width: 30,
+                height: 30
+            }];
+            obstacles.setFoodStalls(foodStalls);
+            
+            const result = obstacles.isValidPosition(195, 200, 10);
+            expect(result).toBe(false); // Within buffer
+        });
+    });
 });
