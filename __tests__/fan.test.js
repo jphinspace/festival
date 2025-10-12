@@ -172,6 +172,65 @@ describe('Fan Class', () => {
             expect(fan.targetY).toBeGreaterThanOrEqual(0)
             expect(fan.targetY).toBeLessThanOrEqual(mockObstacles.height * 0.7)
         })
+
+        test('should retry finding valid position when obstacles block initial choice', () => {
+            const mockObstaclesWithCollisions = {
+                ...mockObstacles,
+                isValidPosition: jest.fn()
+                    .mockReturnValueOnce(false)
+                    .mockReturnValueOnce(false)
+                    .mockReturnValueOnce(false)
+                    .mockReturnValueOnce(true), // After 3 fails in loop, 4th call in if check succeeds
+                width: 800,
+                height: 600
+            }
+
+            fan.startWandering(mockObstaclesWithCollisions, 1000)
+
+            // Should retry until finding valid position
+            expect(mockObstaclesWithCollisions.isValidPosition.mock.calls.length).toBeGreaterThanOrEqual(4)
+            expect(fan.state).toBe(AgentState.MOVING)
+        })
+
+        test('should not set target when no valid position found after max attempts', () => {
+            const mockObstaclesWithAllCollisions = {
+                ...mockObstacles,
+                isValidPosition: jest.fn().mockReturnValue(false),
+                width: 800,
+                height: 600
+            }
+
+            const initialX = fan.targetX
+            const initialY = fan.targetY
+            const initialState = fan.state
+
+            fan.startWandering(mockObstaclesWithAllCollisions, 1000)
+
+            // Should have tried 10 times
+            expect(mockObstaclesWithAllCollisions.isValidPosition.mock.calls.length).toBeGreaterThanOrEqual(10)
+            // State should not change since no valid position found
+            expect(fan.state).toBe(initialState)
+        })
+
+        test('should work without obstacles (null check branch)', () => {
+            fan.startWandering(null, 1000)
+
+            expect(fan.targetX).toBeDefined()
+            expect(fan.targetY).toBeDefined()
+            expect(fan.state).toBe(AgentState.MOVING)
+        })
+    })
+
+    describe('update with default parameters', () => {
+        test('should handle update with default parameters', () => {
+            fan.state = AgentState.MOVING
+            const initialHunger = fan.hunger
+
+            // Call with no otherAgents, obstacles, or simulationTime
+            fan.update(1, 1.0)
+
+            expect(fan.hunger).toBeGreaterThan(initialHunger)
+        })
     })
 
     // goToFoodStall method doesn't exist in Fan class - tests removed

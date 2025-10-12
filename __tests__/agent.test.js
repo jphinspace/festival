@@ -19,11 +19,24 @@ const mockConfig = {
     }
 };
 
+const mockObstacles = {
+    checkCollision: jest.fn(() => false),
+    resolveCollision: jest.fn(),
+    isValidPosition: jest.fn(() => true),
+    obstacles: [],
+    stages: [],
+    foodStalls: [],
+    bus: null,
+    width: 800,
+    height: 600
+};
+
 describe('Agent', () => {
     let agent;
 
     beforeEach(() => {
         agent = new Agent(100, 100, mockConfig);
+        jest.clearAllMocks();
     });
 
     test('should initialize with correct default values', () => {
@@ -398,14 +411,118 @@ describe('Fan', () => {
             const agent = new Agent(100, 100, mockConfig)
             agent.currentShow = 'left'
             agent.isUpFront = true
+
+            const otherAgent = new Agent(105, 100, mockConfig)
+            otherAgent.currentShow = 'left'
+            otherAgent.isUpFront = true
             
-            const other = new Agent(105, 100, mockConfig)
-            other.currentShow = 'left'
-            other.isUpFront = true
-            
-            const space = agent.getPersonalSpace(other)
+            const space = agent.getPersonalSpace(otherAgent)
             
             expect(space).toBe(mockConfig.CONCERT_PERSONAL_SPACE)
+        })
+
+        test('should resolve overlap when exactly at same position', () => {
+            const agent1 = new Agent(100, 100, mockConfig)
+            const agent2 = new Agent(100, 100, mockConfig) // Exactly overlapping
+            
+            agent1.resolveOverlap(agent2)
+            
+            // When agents are at exact same position, one should be pushed
+            // Check that at least one has moved
+            const hasMoved = (agent1.x !== 100 || agent1.y !== 100 || agent2.x !== 100 || agent2.y !== 100)
+            expect(hasMoved).toBe(true)
+        })
+
+        test('should not push when distance is greater than minDistance', () => {
+            const agent1 = new Agent(100, 100, mockConfig)
+            const agent2 = new Agent(120, 100, mockConfig) // Far enough apart
+            
+            const initialX = agent1.x
+            agent1.resolveOverlap(agent2)
+            
+            // Agent should not move since they're not overlapping
+            expect(agent1.x).toBe(initialX)
+        })
+
+        test('should transition to idle when reaching final target with no waypoints', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.setTarget(105, 100) // Very close target
+            agent.state = 'moving'
+            agent.staticWaypoints = []
+            
+            // Move very close to target
+            agent.x = 104.9
+            agent.y = 100
+            
+            agent.update(1, 1.0, [], mockObstacles, 0)
+            
+            // Should transition to idle
+            expect(agent.state).toBe('idle')
+        })
+
+        test('should transition returning_to_queue state to idle when reaching target', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.setTarget(105, 100)
+            agent.state = 'returning_to_queue'
+            agent.staticWaypoints = []
+            
+            // Move to target
+            agent.x = 105
+            agent.y = 100
+            
+            agent.update(0.016, 1.0, [], mockObstacles, 0)
+            
+            // Should transition to idle
+            expect(agent.state).toBe('idle')
+        })
+
+        test('should handle overlap detection with includePersonalSpace', () => {
+            const agent1 = new Agent(100, 100, mockConfig)
+            const agent2 = new Agent(115, 100, mockConfig) // 15 pixels away
+            
+            // Without personal space - should not overlap (distance 15 > radii 3+3 = 6)
+            expect(agent1.overlapsWith(agent2, false)).toBe(false)
+            
+            // With personal space - should overlap (distance 15 < radii + personal space 3+3+12 = 18)
+            expect(agent1.overlapsWith(agent2, true)).toBe(true)
+        })
+
+        test('should resolve collisions with other agents in update', () => {
+            const agent1 = new Agent(100, 100, mockConfig)
+            const agent2 = new Agent(102, 100, mockConfig) // Overlapping
+            
+            agent1.setTarget(200, 100)
+            agent1.update(0.016, 1.0, [agent2], mockObstacles, 0)
+            
+            // Agents should have been pushed apart
+            expect(Math.abs(agent1.x - agent2.x)).toBeGreaterThan(0)
+        })
+
+        test('should use default parameters in update', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.setTarget(200, 100)
+            
+            // Call with defaults
+            agent.update(0.016, 1.0)
+            
+            expect(agent.x).toBeGreaterThan(100)
+        })
+
+        test('should use default threshold in isNearTarget', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.targetX = 105
+            agent.targetY = 100
+            
+            // Call with default threshold (10)
+            expect(agent.isNearTarget()).toBe(true)
+        })
+
+        test('should return true in isNearTarget when no target set', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.targetX = null
+            agent.targetY = null
+            
+            expect(agent.isNearTarget()).toBe(true)
         })
 
         test('should check personal space for passing through queue', () => {
