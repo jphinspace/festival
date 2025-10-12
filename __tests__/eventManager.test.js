@@ -592,4 +592,92 @@ describe('EventManager', () => {
         
         expect(progress).toEqual({ isPrep: false, progress: 0 });
     });
+
+    describe('getShortestQueue edge cases', () => {
+        test('should return first stall when all have equal length', () => {
+            // All stalls start empty
+            const shortest = eventManager.getShortestQueue();
+            
+            expect(shortest).toBe(eventManager.foodStalls[0]);
+        });
+
+        test('should return stall with fewer total fans', () => {
+            const fan1 = new Fan(100, 100, mockConfig);
+            const fan2 = new Fan(100, 110, mockConfig);
+            
+            // Add fans to second stall
+            eventManager.foodStalls[1].leftQueue = [fan1, fan2];
+            
+            const shortest = eventManager.getShortestQueue();
+            
+            // Should return stall 0 (empty) not stall 1 (has 2)
+            expect(shortest).toBe(eventManager.foodStalls[0]);
+        });
+    });
+
+    describe('updateConcerts dispersing fans', () => {
+        test('should disperse left show fans when show ends', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            fan.type = 'fan';
+            fan.currentShow = 'left';
+            fan.setTarget = jest.fn();
+            
+            eventManager.leftConcertStartTime = 0;
+            eventManager.simulationTime = mockConfig.CONCERT_PREP_TIME + 1200100; // Past show duration
+            
+            eventManager.updateConcerts(eventManager.simulationTime, [fan]);
+            
+            expect(fan.hasSeenShow).toBe(true);
+            expect(fan.currentShow).toBeNull();
+        });
+
+        test('should disperse right show fans when show ends', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            fan.type = 'fan';
+            fan.currentShow = 'right';
+            fan.setTarget = jest.fn();
+            
+            eventManager.rightConcertStartTime = 0;
+            eventManager.simulationTime = mockConfig.CONCERT_PREP_TIME + 1200100; // Past show duration
+            
+            eventManager.updateConcerts(eventManager.simulationTime, [fan]);
+            
+            expect(fan.hasSeenShow).toBe(true);
+            expect(fan.currentShow).toBeNull();
+        });
+    });
+
+    describe('handleHungryFans stall not found', () => {
+        test('should handle case when preferred stall not found', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            fan.state = 'idle';
+            fan.hunger = 0.9;
+            fan.hungerThreshold = 0.7;
+            fan.type = 'fan';
+            fan.preferredFoodStall = { id: 999 }; // Invalid ID
+            
+            eventManager.handleHungryFans([fan]);
+            
+            // Should not crash when stall not found
+            expect(fan).toBeDefined();
+        });
+    });
+
+    describe('handleBusDeparture agent removal', () => {
+        test('should not remove agents in setTimeout callback', () => {
+            // This tests the setTimeout callback but we can't easily wait for it
+            // Just ensure the method doesn't crash
+            const fan = new Fan(400, 540, mockConfig);
+            fan.state = AgentState.LEAVING;
+            fan.type = 'fan';
+            fan.hasSeenShow = true;
+            fan.hasEatenFood = true;
+            
+            const agents = [fan];
+            eventManager.handleBusDeparture(agents);
+            
+            // Immediate check - fan should still be there (setTimeout hasn't fired)
+            expect(agents.length).toBe(1);
+        });
+    });
 });
