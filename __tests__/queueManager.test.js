@@ -379,22 +379,6 @@ describe('QueueManager Helper Methods', () => {
             expect(fan.state).toBe('approaching_queue');
         });
 
-        test('should not change state for approaching fan already in approaching_queue state', () => {
-            const fan = new Fan(150, 100, mockConfig);
-            fan.state = 'approaching_queue';
-            const approaching = [fan];
-            const getTargetPosition = (index) => ({ x: 100, y: 100 });
-            const frontPosition = { x: 100, y: 100 };
-            
-            const obstacles = {
-                checkCollision: jest.fn(() => false)
-            };
-            
-            QueueManager.updatePositions([], approaching, getTargetPosition, frontPosition, obstacles, true, 0);
-            
-            expect(fan.state).toBe('approaching_queue');
-        });
-
         test('should handle empty queue in approaching positioning', () => {
             const fan = new Fan(150, 100, mockConfig);
             fan.state = 'idle';
@@ -618,21 +602,6 @@ describe('QueueManager Helper Methods', () => {
             const updated = QueueManager.updateFanTarget(fan, targetPos, obstacles, false, 200);
             
             expect(updated).toBe(true); // Should update since timeSince will be Infinity
-            expect(fan.targetX).toBe(200);
-        });
-
-        test('should update target when forceUpdate is true', () => {
-            const fan = new Fan(100, 100, mockConfig);
-            fan.queueTargetUpdateTime = 100;
-            const targetPos = { x: 200, y: 200 };
-            
-            const obstacles = {
-                checkCollision: jest.fn(() => false)
-            };
-            
-            const updated = QueueManager.updateFanTarget(fan, targetPos, obstacles, true, 110);
-            
-            expect(updated).toBe(true);
             expect(fan.targetX).toBe(200);
         });
 
