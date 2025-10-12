@@ -130,4 +130,184 @@ describe('Obstacles', () => {
         // Position inside stage should be invalid
         expect(obstacles.isValidPosition(40, 90)).toBe(false);
     });
+
+    test('should allow fans being checked through security obstacles', () => {
+        const collision = obstacles.checkCollision(360, 420, 5, 'being_checked');
+        expect(collision).toBe(false);
+    });
+
+    test('should allow fans approaching queue through security obstacles', () => {
+        const collision = obstacles.checkCollision(360, 420, 5, 'approaching_queue');
+        expect(collision).toBe(false);
+    });
+
+    test('should allow fans who passed security through security obstacles', () => {
+        const collision = obstacles.checkCollision(360, 420, 5, 'passed_security');
+        expect(collision).toBe(false);
+    });
+
+    test('should allow fans through bus area', () => {
+        // Bus area position
+        const busX = width * 0.5;
+        const busY = height * 0.9;
+        const collision = obstacles.checkCollision(busX, busY, 5, 'idle');
+        expect(collision).toBe(false);
+    });
+
+    test('should apply personal space buffer for food stalls when approaching queue', () => {
+        const mockFoodStalls = [
+            { x: 400, y: 150, width: 20, height: 30 }
+        ];
+        obstacles.setFoodStalls(mockFoodStalls);
+        
+        // Position just outside food stall with buffer should collide
+        const collision = obstacles.checkCollision(390, 165, 5, 'approaching_queue', 15);
+        expect(collision).toBe(true);
+    });
+
+    test('should apply personal space buffer for food stalls when moving', () => {
+        const mockFoodStalls = [
+            { x: 400, y: 150, width: 20, height: 30 }
+        ];
+        obstacles.setFoodStalls(mockFoodStalls);
+        
+        // Position just outside food stall with buffer should collide
+        const collision = obstacles.checkCollision(390, 165, 5, 'moving', 15);
+        expect(collision).toBe(true);
+    });
+
+    test('should resolve collision for agent in security queue', () => {
+        const mockAgent = {
+            x: 360,
+            y: 420,
+            radius: 5,
+            state: 'in_queue'
+        };
+
+        const initialX = mockAgent.x;
+        const initialY = mockAgent.y;
+
+        obstacles.resolveCollision(mockAgent);
+
+        // Agent should not be pushed away since they're in security queue
+        expect(mockAgent.x).toBe(initialX);
+        expect(mockAgent.y).toBe(initialY);
+    });
+
+    test('should resolve collision for agent being checked', () => {
+        const mockAgent = {
+            x: 360,
+            y: 420,
+            radius: 5,
+            state: 'being_checked'
+        };
+
+        const initialX = mockAgent.x;
+
+        obstacles.resolveCollision(mockAgent);
+
+        // Agent should not be pushed away since they're being checked
+        expect(mockAgent.x).toBe(initialX);
+    });
+
+    test('should resolve collision for agent approaching queue', () => {
+        const mockAgent = {
+            x: 360,
+            y: 420,
+            radius: 5,
+            state: 'approaching_queue'
+        };
+
+        const initialX = mockAgent.x;
+
+        obstacles.resolveCollision(mockAgent);
+
+        // Agent should not be pushed away since they're approaching queue
+        expect(mockAgent.x).toBe(initialX);
+    });
+
+    test('should resolve collision for agent who passed security', () => {
+        const mockAgent = {
+            x: 360,
+            y: 420,
+            radius: 5,
+            state: 'passed_security'
+        };
+
+        const initialX = mockAgent.x;
+
+        obstacles.resolveCollision(mockAgent);
+
+        // Agent should not be pushed away since they passed security
+        expect(mockAgent.x).toBe(initialX);
+    });
+
+    test('should handle agent at exact closest point', () => {
+        const mockAgent = {
+            x: 40,
+            y: 90,
+            radius: 5,
+            state: 'idle'
+        };
+
+        // Position agent exactly at obstacle edge
+        mockAgent.x = 40;
+        mockAgent.y = 90;
+
+        obstacles.resolveCollision(mockAgent);
+
+        // Agent should be pushed in default direction
+        expect(mockAgent.x).toBeGreaterThan(40);
+    });
+
+    test('should handle agent at zero distance from obstacle', () => {
+        const mockAgent = {
+            x: 40,
+            y: 90,
+            radius: 10,
+            state: 'idle'
+        };
+
+        obstacles.resolveCollision(mockAgent);
+
+        // Agent should be pushed away
+        expect(mockAgent.x).not.toBe(40);
+    });
+
+    test('should validate position with custom buffer', () => {
+        const mockFoodStalls = [
+            { x: 400, y: 150, width: 20, height: 30 }
+        ];
+        obstacles.setFoodStalls(mockFoodStalls);
+        
+        // Position just outside food stall (within default buffer) should be invalid
+        expect(obstacles.isValidPosition(390, 165, 20)).toBe(false);
+        
+        // Position outside buffer should be valid
+        expect(obstacles.isValidPosition(370, 165, 10)).toBe(true);
+    });
+
+    test('should ignore bus obstacles in isValidPosition', () => {
+        // Bus area should not affect validity
+        const busX = width * 0.5;
+        const busY = height * 0.9;
+        expect(obstacles.isValidPosition(busX, busY)).toBe(true);
+    });
+
+    test('should replace old food stalls when setting new ones', () => {
+        const mockFoodStalls1 = [
+            { x: 400, y: 150, width: 20, height: 30 }
+        ];
+        obstacles.setFoodStalls(mockFoodStalls1);
+        
+        expect(obstacles.obstacles.filter(obs => obs.type === 'foodStall').length).toBe(1);
+        
+        const mockFoodStalls2 = [
+            { x: 400, y: 150, width: 20, height: 30 },
+            { x: 400, y: 250, width: 20, height: 30 }
+        ];
+        obstacles.setFoodStalls(mockFoodStalls2);
+        
+        expect(obstacles.obstacles.filter(obs => obs.type === 'foodStall').length).toBe(2);
+    });
 });

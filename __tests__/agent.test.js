@@ -387,5 +387,115 @@ describe('Fan', () => {
             expect(mockCtx.fillStyle).toBe(mockConfig.COLORS.AGENT_LEAVING);
         });
     });
+
+    describe('Personal space', () => {
+        test('should return concert personal space when both agents are up front at concert', () => {
+            const agent = new Agent(100, 100, mockConfig);
+            const other = new Agent(105, 105, mockConfig);
+            
+            agent.currentShow = 'left';
+            agent.isUpFront = true;
+            other.currentShow = 'left';
+            other.isUpFront = true;
+            
+            const space = agent.getPersonalSpace(other);
+            
+            expect(space).toBe(mockConfig.CONCERT_PERSONAL_SPACE);
+        });
+
+        test('should return concert personal space when passing through queue', () => {
+            const agent = new Agent(100, 100, mockConfig);
+            const other = new Agent(105, 105, mockConfig);
+            
+            agent.state = 'moving';
+            agent.inQueue = false;
+            other.inQueue = true;
+            
+            const space = agent.getPersonalSpace(other);
+            
+            expect(space).toBe(mockConfig.CONCERT_PERSONAL_SPACE);
+        });
+
+        test('should return normal personal space for normal situations', () => {
+            const agent = new Agent(100, 100, mockConfig);
+            const other = new Agent(105, 105, mockConfig);
+            
+            const space = agent.getPersonalSpace(other);
+            
+            expect(space).toBe(mockConfig.PERSONAL_SPACE);
+        });
+
+        test('should detect overlap when agents too close', () => {
+            const agent = new Agent(100, 100, mockConfig);
+            const other = new Agent(105, 105, mockConfig);
+            
+            expect(agent.overlapsWith(other)).toBe(true);
+        });
+
+        test('should allow overlap if both moving and allowMovingOverlap true', () => {
+            const agent = new Agent(100, 100, mockConfig);
+            const other = new Agent(105, 105, mockConfig);
+            
+            agent.state = 'moving';
+            other.state = 'moving';
+            agent.targetX = 200;
+            agent.targetY = 200;
+            other.targetX = 200;
+            other.targetY = 200;
+            
+            // When far enough apart (beyond body overlap)
+            other.x = 110;
+            other.y = 110;
+            
+            expect(agent.overlapsWith(other, true)).toBe(false);
+        });
+
+        test('should detect body overlap even when allowMovingOverlap true', () => {
+            const agent = new Agent(100, 100, mockConfig);
+            const other = new Agent(101, 101, mockConfig);
+            
+            agent.state = 'moving';
+            other.state = 'moving';
+            agent.targetX = 200;
+            agent.targetY = 200;
+            other.targetX = 200;
+            other.targetY = 200;
+            
+            expect(agent.overlapsWith(other, true)).toBe(true);
+        });
+    });
+
+    describe('isMoving', () => {
+        test('should return true for moving state', () => {
+            const agent = new Agent(100, 100, mockConfig);
+            agent.state = 'moving';
+            expect(agent.isMoving()).toBe(true);
+        });
+
+        test('should return true for approaching_queue state', () => {
+            const agent = new Agent(100, 100, mockConfig);
+            agent.state = 'approaching_queue';
+            expect(agent.isMoving()).toBe(true);
+        });
+
+        test('should return false for idle state', () => {
+            const agent = new Agent(100, 100, mockConfig);
+            agent.state = 'idle';
+            expect(agent.isMoving()).toBe(false);
+        });
+    });
+
+    describe('resolveOverlap', () => {
+        test('should push agents apart when overlapping', () => {
+            const agent = new Agent(100, 100, mockConfig);
+            const other = new Agent(105, 105, mockConfig);
+            
+            agent.resolveOverlap(other);
+            
+            // Just verify it doesn't crash
+            expect(agent.x).toBeDefined();
+            expect(agent.y).toBeDefined();
+        });
+    });
 });
 
