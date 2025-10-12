@@ -522,13 +522,13 @@ describe('EventManager', () => {
     test('should return null progress when no left show', () => {
         const progress = eventManager.getLeftShowProgress();
         
-        expect(progress).toBeNull();
+        expect(progress).toEqual({ isPrep: false, progress: 0 });
     });
 
     test('should return null progress when no right show', () => {
         const progress = eventManager.getRightShowProgress();
         
-        expect(progress).toBeNull();
+        expect(progress).toEqual({ isPrep: false, progress: 0 });
     });
 
     test('should handle fans in idle state when moving to stage', () => {

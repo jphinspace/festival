@@ -313,4 +313,377 @@ describe('Fan', () => {
         })
     })
 
+    describe('Additional coverage tests', () => {
+        test('should find avoidance position with 30 degree right angle', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            const obstacles = {
+                checkCollision: jest.fn((x, y) => {
+                    // First position is blocked, second is free
+                    return false
+                })
+            }
+            
+            agent.state = 'moving'
+            const pos = agent.findAvoidancePosition(10, 0, 5, obstacles)
+            
+            expect(pos).not.toBeNull()
+            expect(obstacles.checkCollision).toHaveBeenCalled()
+        })
+
+        test('should find avoidance position with multiple attempts', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            let callCount = 0
+            const obstacles = {
+                checkCollision: jest.fn((x, y) => {
+                    // First 3 positions are blocked, 4th is free
+                    callCount++
+                    return callCount <= 3
+                })
+            }
+            
+            agent.state = 'moving'
+            const pos = agent.findAvoidancePosition(10, 0, 5, obstacles)
+            
+            expect(pos).not.toBeNull()
+            expect(callCount).toBeGreaterThan(3)
+        })
+
+        test('should return null when all avoidance positions blocked', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            const obstacles = {
+                checkCollision: jest.fn(() => true) // All positions blocked
+            }
+            
+            agent.state = 'moving'
+            const pos = agent.findAvoidancePosition(10, 0, 5, obstacles)
+            
+            expect(pos).toBeNull()
+        })
+
+        test('should return null when no obstacles provided', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            const pos = agent.findAvoidancePosition(10, 0, 5, null)
+            
+            expect(pos).toBeNull()
+        })
+
+        test('should return null when target distance is zero', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            const obstacles = {
+                checkCollision: jest.fn(() => false)
+            }
+            
+            const pos = agent.findAvoidancePosition(0, 0, 5, obstacles)
+            
+            expect(pos).toBeNull()
+        })
+
+        test('should use personal space buffer when approaching queue', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'approaching_queue'
+            
+            let bufferUsed = 0
+            const obstacles = {
+                checkCollision: jest.fn((x, y, radius, state, buffer) => {
+                    bufferUsed = buffer
+                    return false
+                })
+            }
+            
+            agent.findAvoidancePosition(10, 0, 5, obstacles)
+            
+            expect(bufferUsed).toBe(mockConfig.PERSONAL_SPACE)
+        })
+
+        test('should check personal space for concert crowd', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.currentShow = 'left'
+            agent.isUpFront = true
+            
+            const other = new Agent(105, 100, mockConfig)
+            other.currentShow = 'left'
+            other.isUpFront = true
+            
+            const space = agent.getPersonalSpace(other)
+            
+            expect(space).toBe(mockConfig.CONCERT_PERSONAL_SPACE)
+        })
+
+        test('should check personal space for passing through queue', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'moving'
+            agent.inQueue = false
+            
+            const other = new Agent(105, 100, mockConfig)
+            other.state = 'in_queue_waiting'
+            other.inQueue = true
+            
+            const space = agent.getPersonalSpace(other)
+            
+            expect(space).toBe(mockConfig.CONCERT_PERSONAL_SPACE)
+        })
+
+        test('should check personal space for agent in queue passing other', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'in_queue_waiting'
+            agent.inQueue = true
+            
+            const other = new Agent(105, 100, mockConfig)
+            other.state = 'moving'
+            other.inQueue = false
+            
+            const space = agent.getPersonalSpace(other)
+            
+            expect(space).toBe(mockConfig.CONCERT_PERSONAL_SPACE)
+        })
+
+        test('should check normal personal space for other situations', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'idle'
+            
+            const other = new Agent(105, 100, mockConfig)
+            other.state = 'idle'
+            
+            const space = agent.getPersonalSpace(other)
+            
+            expect(space).toBe(mockConfig.PERSONAL_SPACE)
+        })
+
+        test('should check if agent is moving in approaching_queue state', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'approaching_queue'
+            
+            expect(agent.isMoving()).toBe(true)
+        })
+
+        test('should check if agent is moving in in_queue_advancing state', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'in_queue_advancing'
+            
+            expect(agent.isMoving()).toBe(true)
+        })
+
+        test('should check if agent is moving in returning_to_queue state', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'returning_to_queue'
+            
+            expect(agent.isMoving()).toBe(true)
+        })
+
+        test('should check if agent is not moving in idle state', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'idle'
+            
+            expect(agent.isMoving()).toBe(false)
+        })
+
+        test('should allow overlap with allowMovingOverlap when both moving', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'moving'
+            
+            const other = new Agent(106, 100, mockConfig) // Within personal space
+            other.state = 'moving'
+            
+            // With allowMovingOverlap = true, should only check body overlap
+            const overlaps = agent.overlapsWith(other, true)
+            
+            // 6 pixels apart, radius 3 each = no body overlap
+            expect(overlaps).toBe(false)
+        })
+
+        test('should detect body overlap with allowMovingOverlap when both moving', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'moving'
+            
+            const other = new Agent(104, 100, mockConfig) // Within body radius
+            other.state = 'moving'
+            
+            // With allowMovingOverlap = true, should detect body overlap
+            const overlaps = agent.overlapsWith(other, true)
+            
+            // 4 pixels apart, radius 3 each = body overlap
+            expect(overlaps).toBe(true)
+        })
+
+        test('should handle state in_queue in getPersonalSpace', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'in_queue'
+            agent.inQueue = false
+            
+            const other = new Agent(105, 100, mockConfig)
+            other.state = 'moving'
+            other.inQueue = false
+            
+            const space = agent.getPersonalSpace(other)
+            
+            // Should use concert personal space when passing through
+            expect(space).toBe(mockConfig.CONCERT_PERSONAL_SPACE)
+        })
+
+        test('should handle state approaching_queue in getPersonalSpace', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'moving'
+            agent.inQueue = false
+            
+            const other = new Agent(105, 100, mockConfig)
+            other.state = 'approaching_queue'
+            other.inQueue = false
+            
+            const space = agent.getPersonalSpace(other)
+            
+            // Should use concert personal space when passing through
+            expect(space).toBe(mockConfig.CONCERT_PERSONAL_SPACE)
+        })
+
+        test('should update agent in returning_to_queue state', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'returning_to_queue'
+            agent.setTarget(200, 100)
+            
+            const initialX = agent.x
+            agent.update(0.016, 1.0, [])
+            
+            expect(agent.x).toBeGreaterThan(initialX)
+        })
+
+        test('should update agent in in_queue_advancing state', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'in_queue_advancing'
+            agent.setTarget(200, 100)
+            
+            const initialX = agent.x
+            agent.update(0.016, 1.0, [])
+            
+            expect(agent.x).toBeGreaterThan(initialX)
+        })
+
+        test('should use avoidance position when obstacle blocks path', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'moving'
+            agent.setTarget(200, 100)
+            
+            let checkCount = 0
+            const obstacles = {
+                checkCollision: jest.fn((x, y) => {
+                    checkCount++
+                    // Block the direct path, allow avoidance
+                    return checkCount === 1
+                }),
+                resolveCollision: jest.fn()
+            }
+            
+            agent.update(0.016, 1.0, [], obstacles, 0)
+            
+            // Should have tried to find avoidance position
+            expect(obstacles.checkCollision).toHaveBeenCalled()
+        })
+
+        test('should stay in place when no avoidance position found', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'moving'
+            agent.setTarget(200, 100)
+            agent.x = 100
+            agent.y = 100
+            
+            const obstacles = {
+                checkCollision: jest.fn(() => true), // All positions blocked
+                resolveCollision: jest.fn()
+            }
+            
+            agent.update(0.016, 1.0, [], obstacles, 0)
+            
+            // Agent should not have moved much (or at all)
+            expect(agent.x).toBeLessThan(105)
+        })
+
+        test('should resolve overlap with other agents during update', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'moving'
+            agent.setTarget(200, 100)
+            
+            const other = new Agent(105, 100, mockConfig)
+            other.state = 'moving'
+            
+            const initialDistance = Math.sqrt(
+                Math.pow(agent.x - other.x, 2) + 
+                Math.pow(agent.y - other.y, 2)
+            )
+            
+            agent.update(0.016, 1.0, [other])
+            
+            // Agents should have been pushed apart if overlapping
+            const finalDistance = Math.sqrt(
+                Math.pow(agent.x - other.x, 2) + 
+                Math.pow(agent.y - other.y, 2)
+            )
+            
+            // Distance should increase or stay the same
+            expect(finalDistance).toBeGreaterThanOrEqual(initialDistance - 1) // Allow small tolerance
+        })
+
+        test('should call resolveCollision on obstacles during update', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'moving'
+            agent.setTarget(200, 100)
+            
+            const obstacles = {
+                checkCollision: jest.fn(() => false),
+                resolveCollision: jest.fn()
+            }
+            
+            agent.update(0.016, 1.0, [], obstacles, 0)
+            
+            expect(obstacles.resolveCollision).toHaveBeenCalledWith(agent)
+        })
+
+        test('should draw agent to canvas', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            
+            const ctx = {
+                fillStyle: '',
+                beginPath: jest.fn(),
+                arc: jest.fn(),
+                fill: jest.fn()
+            }
+            
+            agent.draw(ctx)
+            
+            expect(ctx.fillStyle).toBe(mockConfig.COLORS.AGENT_ACTIVE)
+            expect(ctx.beginPath).toHaveBeenCalled()
+            expect(ctx.arc).toHaveBeenCalledWith(100, 100, 3, 0, Math.PI * 2)
+            expect(ctx.fill).toHaveBeenCalled()
+        })
+
+        test('should use dynamic waypoint when available', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'moving'
+            agent.setTarget(300, 100)
+            agent.dynamicWaypoint = { x: 150, y: 100 }
+            
+            const initialX = agent.x
+            agent.update(0.016, 1.0, [])
+            
+            // Should move toward dynamic waypoint
+            expect(agent.x).toBeGreaterThan(initialX)
+        })
+
+        test('should handle personal space buffer in idle state', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'idle'
+            agent.setTarget(200, 100)
+            
+            const obstacles = {
+                checkCollision: jest.fn((x, y, radius, state, buffer) => {
+                    // Capture the buffer used
+                    return false
+                })
+            }
+            
+            agent.update(0.016, 1.0, [], obstacles, 0)
+            
+            // Should complete without error
+            expect(agent.x).toBeGreaterThan(100)
+        })
+    })
+
 });

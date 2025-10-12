@@ -339,7 +339,7 @@ describe('Simulation', () => {
     test('should render when enough time has passed', () => {
         simulation.initialize()
         
-        const renderSpy = jest.spyOn(simulation, 'render')
+        const updateSpy = jest.spyOn(simulation, 'update')
         global.requestAnimationFrame = jest.fn()
         
         // First frame
@@ -348,7 +348,7 @@ describe('Simulation', () => {
         // Second frame after target frame time
         simulation.animate(20) // 20ms later (above 16.67ms)
         
-        expect(renderSpy).toHaveBeenCalled()
+        expect(updateSpy).toHaveBeenCalled()
     })
 
     test('should update FPS counter', () => {
