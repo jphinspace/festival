@@ -1,6 +1,7 @@
 // Unit tests for QueueManager class
 import { QueueManager } from '../src/core/queueManager.js';
 import { Fan } from '../src/core/fan.js';
+import { jest } from '@jest/globals';
 
 const mockConfig = {
     AGENT_RADIUS: 3,
@@ -235,6 +236,57 @@ describe('QueueManager Helper Methods', () => {
 
             expect(result).toBe(false);
             expect(queue).toHaveLength(0);
+        });
+    });
+
+    describe('processApproaching', () => {
+        test('should call updateCallback when fan joins queue', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            fan.targetX = 100;
+            fan.targetY = 100;
+            fan.x = 98;
+            fan.y = 98;
+
+            const approaching = [fan];
+            const queue = [];
+            const updateCallback = jest.fn();
+
+            QueueManager.processApproaching(queue, approaching, updateCallback, 10);
+
+            expect(updateCallback).toHaveBeenCalled();
+            expect(queue).toHaveLength(1);
+        });
+
+        test('should not call updateCallback when fan does not join queue', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            fan.targetX = 100;
+            fan.targetY = 100;
+            fan.x = 150; // Too far
+            fan.y = 150;
+
+            const approaching = [fan];
+            const queue = [];
+            const updateCallback = jest.fn();
+
+            QueueManager.processApproaching(queue, approaching, updateCallback, 10);
+
+            expect(updateCallback).not.toHaveBeenCalled();
+            expect(queue).toHaveLength(0);
+        });
+
+        test('should work without updateCallback', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            fan.targetX = 100;
+            fan.targetY = 100;
+            fan.x = 98;
+            fan.y = 98;
+
+            const approaching = [fan];
+            const queue = [];
+
+            QueueManager.processApproaching(queue, approaching, null, 10);
+
+            expect(queue).toHaveLength(1);
         });
     });
 });
