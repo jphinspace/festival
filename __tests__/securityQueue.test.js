@@ -393,36 +393,47 @@ describe('SecurityQueue', () => {
     test('should make fans go straight up after passing security, not dart to side', () => {
         const fan = new Fan(360, 420, mockConfig);
         fan.enhancedSecurity = false;
-        securityQueue.addToQueue(fan);
         
+        // Use a very large simulation time to ensure it's always greater than any initialization time
+        const baseTime = 10000000;
+        
+        // Add fan to queue
+        securityQueue.addToQueue(fan);
         const queueIndex = fan.queueIndex;
         
-        // Use a controlled base time
-        const baseTime = 10000;
+        // Explicitly reset timing to ensure deterministic behavior independent of addToQueue
+        fan.queueTargetUpdateTime = 0;
+        fan.waypointUpdateTimes = [];
+        fan.wanderTargetUpdateTime = 0;
         
-        // Move through queue - fan approaches entry point
+        // Move fan to initial target (entry point)
         fan.x = fan.targetX;
         fan.y = fan.targetY;
+        
+        // First update: fan enters the actual queue
         securityQueue.update(baseTime);
         
-        // Ensure fan has moved to new target after joining queue
+        // Move fan to new queue position
         fan.x = fan.targetX;
         fan.y = fan.targetY;
-        securityQueue.update(baseTime + 200); // 200ms later, well past throttle window
         
-        // Fan should now be in queue and being checked
+        // Second update: fan moves to front and starts being checked (use large time delta)
+        securityQueue.update(baseTime + 1000);
+        
+        // Verify fan is being checked
         expect(fan.state).toBe('being_checked');
         
         // Keep fan at target position during security check
         fan.x = fan.targetX;
         fan.y = fan.targetY;
         
-        // Process through security (wait for REGULAR_SECURITY_TIME to elapse)
-        securityQueue.update(baseTime + 200 + mockConfig.REGULAR_SECURITY_TIME + 10);
+        // Process through security - ensure enough time has passed
+        const completionTime = baseTime + 1000 + mockConfig.REGULAR_SECURITY_TIME + 100;
+        securityQueue.update(completionTime);
         
-        // Fan should go to center of festival (0.5 * width)
-        expect(fan.targetX).toBe(400); // 0.5 * 800
-        // Target Y should be towards festival (0.3 * height = 0.3 * 600 = 180)
+        // Fan should go to center of festival (0.5 * width = 400)
+        // and move towards festival area (0.3 * height = 180)
+        expect(fan.targetX).toBe(400);
         expect(fan.targetY).toBe(180);
         expect(fan.state).toBe('passed_security');
     });
