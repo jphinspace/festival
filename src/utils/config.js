@@ -36,11 +36,19 @@ export const CONFIG = {
     FOOD_STALL_COUNT: 4,
     FOOD_STALL_X: 0.5, // Center between the two stages
     
+    // Pathfinding settings
+    MAX_STATIC_WAYPOINTS: 6, // Maximum number of static waypoints to generate
+    WAYPOINT_REACH_DISTANCE: 10, // Distance (in pixels) to consider a waypoint reached
+    BASE_WAYPOINT_UPDATE_INTERVAL: 125, // Base interval (in ticks) for waypoint updates at 1x speed
+    WAYPOINT_UPDATE_RANDOMNESS: 50, // Random tick variance added to waypoint update intervals
+    WAYPOINT_BUFFER_DISTANCE: 5, // Extra buffer (in pixels) around obstacles for waypoint placement
+    
     // Performance settings
     MAX_FPS: 60,
     DEFAULT_SIMULATION_SPEED: 40.0, // Rescaled: old 20x is now 1x, so 40x is new default
     MIN_SIMULATION_SPEED: 4.0, // Rescaled: 0.1x * 40 = 4.0x
     MAX_SIMULATION_SPEED: 80.0, // Rescaled: 2x * 40 = 80x
+    TICKS_PER_SECOND: 1000, // Simulation ticks per second at 1x speed
     
     // Visual settings
     COLORS: {
