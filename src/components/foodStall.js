@@ -182,54 +182,98 @@ export class FoodStall {
                 approaching,
                 () => this.updateQueuePositions(width, height, true, simulationTime),
                 10  // Threshold
-            );
+            )
             
             // Process the fan at the front of the queue
             if (queue.length > 0) {
-                const frontFan = queue[0];
+                const frontFan = queue[0]
                 
                 // Check if fan has reached the front position
                 if (frontFan.isNearTarget(5)) {
-                    // Start waiting if not already
-                    if (!frontFan.waitStartTime) {
-                        frontFan.waitStartTime = simulationTime;
-                        // Keep state as 'in_queue' NOT 'idle' - idle state breaks queue processing
-                        frontFan.state = 'in_queue';
-                    }
+                    // Remove from queue and start processing
+                    queue.splice(0, 1)
                     
-                    // Check if wait time is complete
-                    if (simulationTime - frontFan.waitStartTime >= this.config.FOOD_WAIT_TIME) {
-                        // Decrease hunger and remove from queue
-                        frontFan.hunger = Math.max(0, frontFan.hunger - this.config.HUNGER_DECREASE_AMOUNT);
-                        frontFan.hasEatenFood = true; // Mark as having eaten
-                        this.removeFromQueue(frontFan);
-                        
-                        // Move to the side after eating (perpendicular to stall)
-                        // Determine which side based on queue side
-                        // Increase distance to better respect personal space of queued fans
-                        const moveDistance = 80 + Math.random() * 50; // Move 80-130 pixels to the side
-                        let targetX, targetY;
-                        
-                        if (side === 'left') {
-                            // If on left queue, move further left
-                            targetX = this.x - moveDistance;
-                            targetY = this.y + (Math.random() - 0.5) * 60; // More vertical randomness
-                        } else {
-                            // If on right queue, move further right
-                            targetX = this.x + this.width + moveDistance;
-                            targetY = this.y + (Math.random() - 0.5) * 60; // More vertical randomness
-                        }
-                        
-                        // Clamp to canvas bounds
-                        targetX = Math.max(20, Math.min(width - 20, targetX));
-                        targetY = Math.max(20, Math.min(height * 0.7, targetY));
-                        
-                        frontFan.setTarget(targetX, targetY, this.obstacles, simulationTime); // Pass obstacles and simulationTime for routing
-                        frontFan.state = 'moving'; // Set state to moving so they leave
-                    }
+                    // Calculate processing position (walk up to stall counter)
+                    const spacing = 8
+                    const processingX = side === 'left' ? 
+                        this.x - (spacing * 0.5) :  // Half spacing from stall
+                        this.x + this.width + (spacing * 0.5)
+                    const processingY = this.y + this.height / 2
+                    
+                    // Set fan to processing state
+                    frontFan.state = 'processing'
+                    frontFan.inQueue = false
+                    frontFan.waitStartTime = simulationTime
+                    frontFan.setTarget(processingX, processingY, this.obstacles, simulationTime)
+                    frontFan.processingAtStall = this // Keep reference to this stall
+                    frontFan.processingSide = side
+                    
+                    // Update remaining fans' positions
+                    this.updateQueuePositions(width, height, true, simulationTime)
+                } else if (!frontFan.processingAtStall) {
+                    // Fan is at front but hasn't reached position yet - they'll keep moving forward
                 }
             }
-        });
+        })
+        
+        // Check for fans currently being processed (not in queue anymore)
+        // We need to find them by checking all fans for processingAtStall === this
+        // This will be handled in the main simulation loop or we track them separately
+    }
+    
+    /**
+     * Check if a fan is done processing and handle their completion
+     * @param {Fan} fan - Fan to check
+     * @param {number} width - Canvas width
+     * @param {number} height - Canvas height
+     * @param {number} simulationTime - Current simulation time
+     * @returns {boolean} True if fan was processed
+     */
+    checkAndProcessFan(fan, width, height, simulationTime) {
+        if (fan.processingAtStall !== this || fan.state !== 'processing') {
+            return false
+        }
+        
+        // Check if fan has reached processing position and waited long enough
+        if (fan.isNearTarget(5) && 
+            fan.waitStartTime && 
+            simulationTime - fan.waitStartTime >= this.config.FOOD_WAIT_TIME) {
+            
+            // Decrease hunger and complete processing
+            fan.hunger = Math.max(0, fan.hunger - this.config.HUNGER_DECREASE_AMOUNT)
+            fan.hasEatenFood = true // Mark as having eaten
+            
+            // Move to the side after eating
+            const side = fan.processingSide
+            const moveDistance = 80 + Math.random() * 50 // Move 80-130 pixels to the side
+            let targetX, targetY
+            
+            if (side === 'left') {
+                // If on left queue, move further left
+                targetX = this.x - moveDistance
+                targetY = this.y + (Math.random() - 0.5) * 60
+            } else {
+                // If on right queue, move further right
+                targetX = this.x + this.width + moveDistance
+                targetY = this.y + (Math.random() - 0.5) * 60
+            }
+            
+            // Clamp to canvas bounds
+            targetX = Math.max(20, Math.min(width - 20, targetX))
+            targetY = Math.max(20, Math.min(height * 0.7, targetY))
+            
+            fan.setTarget(targetX, targetY, this.obstacles, simulationTime)
+            fan.state = 'moving'
+            
+            // Clean up processing references
+            delete fan.processingAtStall
+            delete fan.processingSide
+            delete fan.waitStartTime
+            
+            return true
+        }
+        
+        return false
     }
 
     /**

@@ -19,11 +19,21 @@ const mockConfig = {
 };
 
 describe('FoodStall', () => {
-    let foodStall;
+    let foodStall
+    let mockObstacles
 
     beforeEach(() => {
-        foodStall = new FoodStall(100, 100, mockConfig);
-    });
+        foodStall = new FoodStall(100, 100, mockConfig)
+        
+        // Create mock obstacles
+        mockObstacles = {
+            obstacles: [],
+            checkCollision: () => false,
+            resolveCollision: () => {}
+        }
+        
+        foodStall.setObstacles(mockObstacles)
+    })
 
     test('should initialize with correct properties', () => {
         expect(foodStall.x).toBe(100);
@@ -119,44 +129,80 @@ describe('FoodStall', () => {
     });
 
     test('should process queue and decrease hunger after wait time', () => {
-        const fan = new Fan(92, 115, mockConfig); // Position at front of left queue
-        fan.hunger = 0.8;
-        fan.targetX = 92;
-        fan.targetY = 115;
-        fan.state = 'idle';
+        const fan = new Fan(92, 115, mockConfig) // Position at front of left queue
+        fan.hunger = 0.8
+        fan.targetX = 92
+        fan.targetY = 115
+        fan.state = 'in_queue'
         
-        foodStall.addToQueue(fan);
+        // Manually add fan to queue (bypass entering phase for test)
+        foodStall.leftQueue.push(fan)
+        fan.inQueue = true
+        fan.targetFoodStall = foodStall
+        fan.queueSide = 'left'
         
-        // Simulate fan reaching front and starting wait
-        const simulationTime = 2000; // 2000ms simulation time
-        fan.waitStartTime = simulationTime - 1001; // 1001ms ago (past wait time)
+        const simulationTime = 2000
         
-        foodStall.processQueue(800, 600, simulationTime);
+        // Fan reaches front position
+        fan.x = fan.targetX
+        fan.y = fan.targetY
         
-        expect(fan.hunger).toBeLessThan(0.8);
-        expect(fan.inQueue).toBe(false);
-    });
+        // Process queue - fan should be removed and start processing
+        foodStall.processQueue(800, 600, simulationTime)
+        
+        // Fan should now be in processing state with a processing position target
+        expect(fan.state).toBe('processing')
+        expect(fan.processingAtStall).toBe(foodStall)
+        
+        // Simulate fan reaching processing position
+        fan.x = fan.targetX
+        fan.y = fan.targetY
+        
+        // Set wait start time manually and wait long enough
+        fan.waitStartTime = simulationTime - 1001 // 1001ms ago (past wait time)
+        
+        // Check and process the fan
+        foodStall.checkAndProcessFan(fan, 800, 600, simulationTime)
+        
+        expect(fan.hunger).toBeLessThan(0.8)
+        expect(fan.inQueue).toBe(false)
+        expect(fan.state).toBe('moving')
+    })
 
     test('should set fan state to moving after getting food', () => {
-        const fan = new Fan(92, 115, mockConfig); // Position at front of left queue
-        fan.hunger = 0.8;
-        fan.targetX = 92;
-        fan.targetY = 115;
-        fan.state = 'idle';
+        const fan = new Fan(92, 115, mockConfig)
+        fan.hunger = 0.8
+        fan.targetX = 92
+        fan.targetY = 115
+        fan.state = 'in_queue'
         
-        foodStall.addToQueue(fan);
+        // Manually add fan to queue
+        foodStall.leftQueue.push(fan)
+        fan.inQueue = true
+        fan.targetFoodStall = foodStall
+        fan.queueSide = 'left'
         
-        // Simulate fan reaching front and starting wait
-        const simulationTime = 2000;
-        fan.waitStartTime = simulationTime - 1001; // Past wait time
+        const simulationTime = 2000
         
-        foodStall.processQueue(800, 600, simulationTime);
+        // Fan reaches front position
+        fan.x = fan.targetX
+        fan.y = fan.targetY
         
-        // Fan should have state set to 'moving' so they leave the food stall area
-        expect(fan.state).toBe('moving');
-        expect(fan.targetX).toBeDefined();
-        expect(fan.targetY).toBeDefined();
-    });
+        // Process queue - fan moves to processing
+        foodStall.processQueue(800, 600, simulationTime)
+        expect(fan.state).toBe('processing')
+        
+        // Fan reaches processing position
+        fan.x = fan.targetX
+        fan.y = fan.targetY
+        fan.waitStartTime = simulationTime - 1001
+        
+        // Complete processing
+        foodStall.checkAndProcessFan(fan, 800, 600, simulationTime)
+        
+        expect(fan.state).toBe('moving')
+        expect(fan.hunger).toBeLessThan(0.8)
+    })
 
     test('should not reserve slots - fans join at end of current queue', () => {
         // Add first fan
@@ -176,13 +222,15 @@ describe('FoodStall', () => {
         expect(foodStall.leftQueue.length + foodStall.rightQueue.length).toBe(0);
         
         // Simulate fan1 reaching their position
-        fan1.x = fan1.targetX;
-        fan1.y = fan1.targetY;
-        foodStall.processQueue(800, 600, 1000);
+        fan1.x = fan1.targetX
+        fan1.y = fan1.targetY
+        foodStall.processQueue(800, 600, 1000)
         
-        // Now fan1 should be in queue, fan2 still approaching
-        expect(foodStall.leftQueue.length + foodStall.rightQueue.length).toBe(1);
-        expect(foodStall.leftApproaching.length + foodStall.rightApproaching.length).toBe(1);
+        // fan1 should have joined queue and immediately started processing (since they were at position 0)
+        // So they won't be in the queue anymore, they'll be in processing state
+        expect(fan1.state).toBe('processing')
+        expect(fan1.processingAtStall).toBe(foodStall)
+        expect(foodStall.leftApproaching.length + foodStall.rightApproaching.length).toBe(1)
         
         // Add third fan - should go to end even though line grew
         const fan3 = new Fan(70, 70, mockConfig);
@@ -205,43 +253,45 @@ describe('FoodStall', () => {
     });
 
     test('should only process fans who are geographically at front', () => {
-        const fan1 = new Fan(50, 50, mockConfig);
-        const fan2 = new Fan(60, 60, mockConfig);
+        const fan1 = new Fan(50, 50, mockConfig)
+        const fan2 = new Fan(60, 60, mockConfig)
         
         // Manually add both to the actual queue
-        foodStall.leftQueue.push(fan1, fan2);
-        fan1.inQueue = true;
-        fan2.inQueue = true;
-        fan1.targetFoodStall = foodStall;
-        fan2.targetFoodStall = foodStall;
-        fan1.queueSide = 'left';
-        fan2.queueSide = 'left';
+        foodStall.leftQueue.push(fan1, fan2)
+        fan1.inQueue = true
+        fan2.inQueue = true
+        fan1.targetFoodStall = foodStall
+        fan2.targetFoodStall = foodStall
+        fan1.queueSide = 'left'
+        fan2.queueSide = 'left'
         
         // Set positions based on geographic location
         // fan2 is closer to stall (x=60 > x=50), so will be sorted to position 0
-        foodStall.updateQueuePositions(800, 600, true);
+        foodStall.updateQueuePositions(800, 600, true, 0)
         
         // fan1 is far from target, fan2 is also far
-        fan1.hunger = 0.8;
-        fan2.hunger = 0.8;
+        fan1.hunger = 0.8
+        fan2.hunger = 0.8
         
-        const simulationTime = 1000;
-        foodStall.processQueue(800, 600, simulationTime);
+        const simulationTime = 1000
+        foodStall.processQueue(800, 600, simulationTime)
         
-        // Neither should have started waiting since they're not at target
-        expect(fan1.waitStartTime).toBeFalsy();
-        expect(fan2.waitStartTime).toBeFalsy();
+        // Neither should have moved to processing since they're not at target
+        expect(fan1.processingAtStall).toBeFalsy()
+        expect(fan2.processingAtStall).toBeFalsy()
         
-        // Now move fan2 (who is geographically closer) to their target position
-        fan2.x = fan2.targetX;
-        fan2.y = fan2.targetY;
+        // Now move fan2 (who is geographically closer/at front) to their target position
+        fan2.x = fan2.targetX
+        fan2.y = fan2.targetY
         
-        foodStall.processQueue(800, 600, simulationTime + 100);
+        foodStall.processQueue(800, 600, simulationTime + 100)
         
-        // fan2 should start waiting (they're at front and at target)
-        expect(fan2.waitStartTime).toBeTruthy();
-        expect(fan1.waitStartTime).toBeFalsy();
-    });
+        // fan2 should move to processing state (they're at front and reached target)
+        expect(fan2.state).toBe('processing')
+        expect(fan2.processingAtStall).toBe(foodStall)
+        expect(fan1.state).toBe('in_queue')
+        expect(fan1.processingAtStall).toBeFalsy()
+    })
 
     test('should reorder left queue based on physical position - closer fans move forward', () => {
         // Create three fans at different X positions
@@ -265,7 +315,7 @@ describe('FoodStall', () => {
         expect(foodStall.leftQueue[0]).toBe(fan1);
         
         // Update queue positions - should reorder by X (higher X = closer for left queue)
-        foodStall.updateQueuePositions(800, 600, true);
+        foodStall.updateQueuePositions(800, 600, true, 0);
         
         // After update: fan3 should be at front (highest X = closest)
         expect(foodStall.leftQueue[0]).toBe(fan3);
@@ -295,7 +345,7 @@ describe('FoodStall', () => {
         expect(foodStall.rightQueue[0]).toBe(fan1);
         
         // Update queue positions - should reorder by X (lower X = closer for right queue)
-        foodStall.updateQueuePositions(800, 600, true);
+        foodStall.updateQueuePositions(800, 600, true, 0);
         
         // After update: fan3 should be at front (lowest X = closest)
         expect(foodStall.rightQueue[0]).toBe(fan3);

@@ -62,9 +62,16 @@ export class EventManager {
      */
     updateFoodStalls(simulationTime) {
         this.foodStalls.forEach(stall => {
-            stall.processQueue(this.width, this.height, simulationTime);
-            stall.updateQueuePositions(this.width, this.height, false, simulationTime);
-        });
+            stall.processQueue(this.width, this.height, simulationTime)
+            stall.updateQueuePositions(this.width, this.height, false, simulationTime)
+            
+            // Check for fans being processed at this stall
+            for (const fan of this.fans) {
+                if (fan.processingAtStall === stall) {
+                    stall.checkAndProcessFan(fan, this.width, this.height, simulationTime)
+                }
+            }
+        })
     }
     
     /**
