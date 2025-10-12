@@ -239,7 +239,7 @@ describe('Obstacles', () => {
     });
 
     describe('resolveCollision with different agent states', () => {
-        test('should allow being_checked state through security obstacles', () => {
+        test('should allow security states to pass through security obstacles', () => {
             obstacles.obstacles.push({
                 type: 'security',
                 x: 100,
@@ -248,58 +248,21 @@ describe('Obstacles', () => {
                 height: 50
             });
             
-            const agent = {
-                x: 125,
-                y: 125,
-                radius: 3,
-                state: 'being_checked'
-            };
+            // Test all security-allowed states
+            const securityStates = ['being_checked', 'approaching_queue', 'passed_security', 'in_queue'];
             
-            const originalX = agent.x;
-            obstacles.resolveCollision(agent);
-            expect(agent.x).toBe(originalX);
-        });
-
-        test('should allow approaching_queue state through security obstacles', () => {
-            obstacles.obstacles.push({
-                type: 'security',
-                x: 100,
-                y: 100,
-                width: 50,
-                height: 50
+            securityStates.forEach(state => {
+                const agent = {
+                    x: 125,
+                    y: 125,
+                    radius: 3,
+                    state: state
+                };
+                
+                const originalX = agent.x;
+                obstacles.resolveCollision(agent);
+                expect(agent.x).toBe(originalX); // Should not be pushed
             });
-            
-            const agent = {
-                x: 125,
-                y: 125,
-                radius: 3,
-                state: 'approaching_queue'
-            };
-            
-            const originalX = agent.x;
-            obstacles.resolveCollision(agent);
-            expect(agent.x).toBe(originalX);
-        });
-
-        test('should allow passed_security state through security obstacles', () => {
-            obstacles.obstacles.push({
-                type: 'security',
-                x: 100,
-                y: 100,
-                width: 50,
-                height: 50
-            });
-            
-            const agent = {
-                x: 125,
-                y: 125,
-                radius: 3,
-                state: 'passed_security'
-            };
-            
-            const originalX = agent.x;
-            obstacles.resolveCollision(agent);
-            expect(agent.x).toBe(originalX);
         });
 
         test('should skip bus collision during resolveCollision', () => {
