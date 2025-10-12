@@ -219,9 +219,9 @@ export class SecurityQueue {
                     const startY = this.height * this.config.QUEUE_START_Y
                     const processingY = startY - this.config.QUEUE_SPACING // One space in front of queue
                     
-                    // Fan walks to processing position (not stationary yet)
-                    fan.state = 'walking_to_process'
-                    fan.inQueue = false
+                    // Fan advances to processing position (still moving in queue)
+                    fan.state = 'in_queue_advancing'
+                    fan.inQueue = false // Not in actual queue anymore but advancing to process
                     fan.setTarget(queueX, processingY, this.obstacles, simulationTime)
                     
                     // Update remaining fans' positions after removing front fan
@@ -229,25 +229,23 @@ export class SecurityQueue {
                 }
             }
             
-            // If someone is walking to or being processed, update their state
+            // If someone is advancing to or being processed, update their state
             if (this.processing[queueIndex] !== null) {
                 const fan = this.processing[queueIndex]
                 
                 // Skip if fan is returning to queue
                 if (fan.returningToQueue !== undefined) continue
                 
-                // If fan is walking to process position and has arrived, change to processing
-                if (fan.state === 'walking_to_process' && fan.isNearTarget(5)) {
+                // If fan is advancing and has arrived at processing position, change to processing (stationary)
+                if (fan.state === 'in_queue_advancing' && fan.isNearTarget(5)) {
                     fan.state = 'processing'
-                    // Clear target and waypoints - fan is now stationary
-                    fan.targetX = fan.x
-                    fan.targetY = fan.y
+                    // Clear waypoints - fan is now stationary
                     fan.staticWaypoints = []
                     fan.waypointUpdateTimes = []
                     fan.dynamicWaypoint = null
                 }
                 
-                // Only check processing time if fan is actually in processing state (not walking)
+                // Only check processing time if fan is actually in processing state (not advancing)
                 if (fan.state === 'processing') {
                     const elapsedTime = simulationTime - this.processingStartTime[queueIndex]
                     const requiredTime = fan.enhancedSecurity ? 
@@ -279,13 +277,9 @@ export class SecurityQueue {
                             // Keep fan in processing until they reach end of line
                             // Don't clear processing here - will be cleared when fan reaches end
                         } else {
-                            // Allow into festival - move straight ahead to CENTER of festival
-                            // All fans should converge to center regardless of which queue they came from
-                            const targetX = this.width * 0.5 // Center of festival
-                            const targetY = this.height * 0.3 // Move to festival area (30% down from top)
+                            // Allow into festival - fan goes idle and will wander naturally
                             fan.goal = 'exploring festival'
-                            fan.setTarget(targetX, targetY, this.obstacles, simulationTime)
-                            fan.state = 'passed_security'
+                            fan.state = 'idle'
                             fan.inQueue = false
                             fan.justPassedSecurity = true // Mark to prevent immediate wandering
                             

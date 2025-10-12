@@ -110,15 +110,15 @@ export class Fan extends Agent {
      */
     draw(ctx) {
         // Update color based on state
-        if (this.state === 'in_queue' || this.state === 'approaching_queue') {
+        if (this.state === 'in_queue_waiting' || this.state === 'in_queue_advancing' || this.state === 'approaching_queue') {
             this.color = this.config.COLORS.AGENT_IN_QUEUE;
-        } else if (this.state === 'being_checked') {
+        } else if (this.state === 'being_checked' || this.state === 'processing') {
             this.color = this.enhancedSecurity ? 
                 this.config.COLORS.AGENT_ENHANCED_SECURITY : 
                 this.config.COLORS.AGENT_BEING_CHECKED;
         } else if (this.state === 'leaving') {
             this.color = this.config.COLORS.AGENT_LEAVING;
-        } else if (this.state === 'moving' || this.state === 'passed_security') {
+        } else if (this.state === 'moving' || this.state === 'passed_security' || this.state === 'idle') {
             this.color = this.config.COLORS.AGENT_ACTIVE;
         }
         

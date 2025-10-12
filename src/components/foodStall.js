@@ -200,8 +200,8 @@ export class FoodStall {
                         this.x + this.width + (spacing * 0.5)
                     const processingY = this.y + this.height / 2
                     
-                    // Fan walks to processing position (not stationary yet)
-                    frontFan.state = 'walking_to_process'
+                    // Fan advances to processing position (still moving in queue)
+                    frontFan.state = 'in_queue_advancing'
                     frontFan.inQueue = false
                     frontFan.waitStartTime = simulationTime
                     frontFan.setTarget(processingX, processingY, this.obstacles, simulationTime)
@@ -232,18 +232,16 @@ export class FoodStall {
             return false
         }
         
-        // If fan is walking to processing position and has arrived, change to processing
-        if (fan.state === 'walking_to_process' && fan.isNearTarget(5)) {
+        // If fan is advancing and has arrived at processing position, change to processing (stationary)
+        if (fan.state === 'in_queue_advancing' && fan.isNearTarget(5)) {
             fan.state = 'processing'
-            // Clear target and waypoints - fan is now stationary
-            fan.targetX = fan.x
-            fan.targetY = fan.y
+            // Clear waypoints - fan is now stationary
             fan.staticWaypoints = []
             fan.waypointUpdateTimes = []
             fan.dynamicWaypoint = null
         }
         
-        // Only check processing time if fan is actually in processing state (not walking)
+        // Only check processing time if fan is actually in processing state (not advancing)
         if (fan.state === 'processing') {
             // Check if fan has waited long enough
             if (fan.waitStartTime && 

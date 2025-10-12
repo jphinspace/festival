@@ -151,7 +151,7 @@ describe('FoodStall', () => {
         foodStall.processQueue(800, 600, simulationTime)
         
         // Fan should be walking to process position
-        expect(fan.state).toBe('walking_to_process')
+        expect(fan.state).toBe('in_queue_advancing')
         expect(fan.processingAtStall).toBe(foodStall)
         
         // Simulate fan reaching processing position
@@ -194,7 +194,7 @@ describe('FoodStall', () => {
         
         // Process queue - fan starts walking to processing
         foodStall.processQueue(800, 600, simulationTime)
-        expect(fan.state).toBe('walking_to_process')
+        expect(fan.state).toBe('in_queue_advancing')
         
         // Fan reaches processing position
         fan.x = fan.targetX
@@ -237,7 +237,7 @@ describe('FoodStall', () => {
         
         // fan1 should have joined queue and immediately started walking to processing (since they were at position 0)
         // So they won't be in the queue anymore, they'll be walking to processing
-        expect(fan1.state).toBe('walking_to_process')
+        expect(fan1.state).toBe('in_queue_advancing')
         expect(fan1.processingAtStall).toBe(foodStall)
         expect(foodStall.leftApproaching.length + foodStall.rightApproaching.length).toBe(1)
         
@@ -295,10 +295,11 @@ describe('FoodStall', () => {
         
         foodStall.processQueue(800, 600, simulationTime + 100)
         
-        // fan2 should start walking to processing (they're at front and reached target)
-        expect(fan2.state).toBe('walking_to_process')
+        // fan2 should start advancing to processing (they're at front and reached target)
+        expect(fan2.state).toBe('in_queue_advancing')
         expect(fan2.processingAtStall).toBe(foodStall)
-        expect(fan1.state).toBe('in_queue')
+        // fan1 should be advancing to their queue position (they're far from target)
+        expect(fan1.state).toBe('in_queue_advancing')
         expect(fan1.processingAtStall).toBeFalsy()
     })
 

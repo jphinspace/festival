@@ -64,11 +64,11 @@ export class Agent {
             this.waypointUpdateTimes = []
         }
         
-        // Set state to moving (unless already in a queue/processing/walking state)
-        if (this.state !== 'in_queue' && 
+        // Set state to moving (unless already in a queue/processing/advancing/waiting state)
+        if (this.state !== 'in_queue_waiting' && 
             this.state !== 'approaching_queue' && 
             this.state !== 'processing' &&
-            this.state !== 'walking_to_process') {
+            this.state !== 'in_queue_advancing') {
             this.state = 'moving'
         }
         
@@ -237,8 +237,9 @@ export class Agent {
      * @param {number} simulationTime - Current simulation time in milliseconds
      */
     update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null, simulationTime = 0) {
-        // Allow movement for moving, in_queue, passed_security, approaching_queue, returning_to_queue, and walking_to_process states
-        if ((this.state === 'moving' || this.state === 'in_queue' || this.state === 'passed_security' || this.state === 'approaching_queue' || this.state === 'returning_to_queue' || this.state === 'walking_to_process') && this.targetX !== null) {
+        // Allow movement for moving, in_queue_advancing, passed_security, approaching_queue, and returning_to_queue states
+        // Note: in_queue_waiting and processing are stationary states
+        if ((this.state === 'moving' || this.state === 'in_queue_advancing' || this.state === 'passed_security' || this.state === 'approaching_queue' || this.state === 'returning_to_queue') && this.targetX !== null) {
             const currentTime = simulationTime || Date.now()
             const personalSpaceBuffer = (this.state === 'approaching_queue' || this.state === 'moving') ? 
                 this.config.PERSONAL_SPACE : 0

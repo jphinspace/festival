@@ -130,7 +130,7 @@ describe('SecurityQueue', () => {
         
         // Start processing fan1 - should be walking to process position
         securityQueue.update(startTime)
-        expect(fan1.state).toBe('walking_to_process')
+        expect(fan1.state).toBe('in_queue_advancing')
         
         // Move fan to processing position and update - should transition to processing
         fan1.x = fan1.targetX
@@ -184,7 +184,7 @@ describe('SecurityQueue', () => {
         
         // Start processing - should be walking to process position
         securityQueue.update(startTime)
-        expect(fan.state).toBe('walking_to_process')
+        expect(fan.state).toBe('in_queue_advancing')
         
         // Fan should now have a processing position target
         // Move fan to their NEW processing position
