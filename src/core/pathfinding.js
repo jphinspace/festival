@@ -115,6 +115,30 @@ function calculateCornerScore(corner, currentX, currentY, targetX, targetY) {
 }
 
 /**
+ * Check if a corner is valid for pathfinding
+ * @param {Object} corner - Corner position {x, y}
+ * @param {number} currentX - Current X position
+ * @param {number} currentY - Current Y position
+ * @param {Object} obstacles - Obstacles object
+ * @param {number} radius - Agent radius
+ * @param {number} personalSpaceBuffer - Personal space buffer
+ * @returns {Object} {valid: boolean, reason: string}
+ */
+export function isCornerValid(corner, currentX, currentY, obstacles, radius, personalSpaceBuffer) {
+    // Check if corner is inside an obstacle
+    if (isPointInsideObstacle(corner.x, corner.y, obstacles, radius, personalSpaceBuffer)) {
+        return { valid: false, reason: 'inside_obstacle' }
+    }
+    
+    // Check if we can reach this corner from current position
+    if (!isPathClear(currentX, currentY, corner.x, corner.y, obstacles, radius, personalSpaceBuffer)) {
+        return { valid: false, reason: 'path_blocked' }
+    }
+    
+    return { valid: true, reason: null }
+}
+
+/**
  * Find the best corner to route around an obstacle
  * @param {Array} corners - Array of corner positions
  * @param {number} currentX - Current X position
@@ -131,13 +155,9 @@ function findBestCorner(corners, currentX, currentY, targetX, targetY, obstacles
     let bestScore = Infinity
     
     for (const corner of corners) {
-        // Check if corner is valid (not inside obstacle)
-        if (isPointInsideObstacle(corner.x, corner.y, obstacles, radius, personalSpaceBuffer)) {
-            continue
-        }
-        
-        // Check if we can reach this corner from current position
-        if (!isPathClear(currentX, currentY, corner.x, corner.y, obstacles, radius, personalSpaceBuffer)) {
+        // Check if corner is valid using extracted validation function
+        const validation = isCornerValid(corner, currentX, currentY, obstacles, radius, personalSpaceBuffer)
+        if (!validation.valid) {
             continue
         }
         

@@ -1,5 +1,5 @@
 // Test for pathfinding module
-import { calculateStaticWaypoints, calculateDynamicFanAvoidance } from '../src/core/pathfinding.js'
+import { calculateStaticWaypoints, calculateDynamicFanAvoidance, isCornerValid } from '../src/core/pathfinding.js'
 import { jest } from '@jest/globals'
 
 const mockConfig = {
@@ -991,6 +991,57 @@ describe('Pathfinding Module', () => {
             
             // Should still return something (may be empty or have waypoints)
             expect(waypoints).toBeDefined()
+        })
+    })
+
+    describe('isCornerValid', () => {
+        test('should return invalid when corner is inside obstacle', () => {
+            mockObstacles.obstacles = [
+                { x: 100, y: 100, width: 50, height: 50, type: 'stage' }
+            ]
+            
+            const corner = { x: 125, y: 125 } // Inside obstacle
+            const result = isCornerValid(corner, 50, 50, mockObstacles, 3, 0)
+            
+            expect(result.valid).toBe(false)
+            expect(result.reason).toBe('inside_obstacle')
+        })
+
+        test('should return invalid when path to corner is blocked', () => {
+            mockObstacles.obstacles = [
+                { x: 75, y: 75, width: 50, height: 50, type: 'stage' }
+            ]
+            
+            const corner = { x: 200, y: 200 } // Valid position
+            const result = isCornerValid(corner, 50, 50, mockObstacles, 3, 0) // But path is blocked
+            
+            expect(result.valid).toBe(false)
+            expect(result.reason).toBe('path_blocked')
+        })
+
+        test('should return valid when corner is reachable', () => {
+            mockObstacles.obstacles = [
+                { x: 300, y: 300, width: 50, height: 50, type: 'stage' } // Far away
+            ]
+            
+            const corner = { x: 150, y: 150 }
+            const result = isCornerValid(corner, 50, 50, mockObstacles, 3, 0)
+            
+            expect(result.valid).toBe(true)
+            expect(result.reason).toBeNull()
+        })
+
+        test('should respect personal space buffer', () => {
+            mockObstacles.obstacles = [
+                { x: 100, y: 100, width: 20, height: 20, type: 'foodStall' }
+            ]
+            
+            // Corner just outside obstacle but within buffer
+            const corner = { x: 125, y: 100 }
+            const result = isCornerValid(corner, 50, 50, mockObstacles, 3, 10) // 10px buffer
+            
+            // Should be invalid due to buffer
+            expect(result.valid).toBe(false)
         })
     })
 })
