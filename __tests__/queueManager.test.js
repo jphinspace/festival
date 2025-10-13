@@ -790,4 +790,59 @@ describe('QueueManager Helper Methods', () => {
             expect(queue.length).toBe(1);
         });
     });
+
+    describe('shouldJoinQueue default parameter', () => {
+        test('should use default threshold of 5 when not provided', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            fan.targetX = 103;
+            fan.targetY = 103; // Within default threshold of 5
+            
+            const result = QueueManager.shouldJoinQueue(fan);
+            
+            expect(result).toBe(true);
+        });
+
+        test('should respect custom threshold when provided', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            fan.targetX = 103;
+            fan.targetY = 103; // Distance ~4.24
+            
+            // Should be true with default (5)
+            expect(QueueManager.shouldJoinQueue(fan)).toBe(true);
+            
+            // Should be false with threshold of 3
+            expect(QueueManager.shouldJoinQueue(fan, 3)).toBe(false);
+        });
+    });
+
+    describe('updatePositions default parameters', () => {
+        test('should use defaults when optional params not provided', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            fan.state = 'in_queue_waiting';
+            const queue = [fan];
+            const getTargetPosition = (index) => ({ x: 100, y: 100 });
+            const frontPosition = { x: 100, y: 100 };
+            
+            // Call with only required params (obstacles, forceUpdate, simulationTime default to null, false, 0)
+            QueueManager.updatePositions(queue, [], getTargetPosition, frontPosition);
+            
+            expect(fan.state).toBe('in_queue_waiting');
+        });
+    });
+
+    describe('findApproachingPosition with undefined queuePosition check', () => {
+        test('should handle closestAhead with undefined queuePosition', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            const nearbyFan = new Fan(70, 70, mockConfig); // Within proximity, closer to front
+            nearbyFan.queuePosition = undefined; // Explicitly undefined
+            const queue = [nearbyFan];
+            const approaching = [];
+            const frontPosition = { x: 0, y: 0 };
+
+            const position = QueueManager.findApproachingPosition(fan, queue, approaching, frontPosition);
+
+            // Should fallback to end of queue since queuePosition is undefined
+            expect(position).toBe(1);
+        });
+    });
 });

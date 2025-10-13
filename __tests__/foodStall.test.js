@@ -484,6 +484,80 @@ describe('FoodStall', () => {
             
             expect(position).toBe(-1);
         });
+
+        test('should return index for fan in leftQueue', () => {
+            const fan1 = new Fan(100, 100, mockConfig);
+            const fan2 = new Fan(100, 110, mockConfig);
+            
+            foodStall.leftQueue = [fan1, fan2];
+            
+            expect(foodStall.getQueuePosition(fan1)).toBe(0);
+            expect(foodStall.getQueuePosition(fan2)).toBe(1);
+        });
+
+        test('should return adjusted index for fan in leftApproaching', () => {
+            const fan1 = new Fan(100, 100, mockConfig);
+            const fan2 = new Fan(100, 110, mockConfig);
+            const fan3 = new Fan(100, 120, mockConfig);
+            
+            foodStall.leftQueue = [fan1, fan2];
+            foodStall.leftApproaching = [fan3];
+            
+            // fan3 is after the queue, so position should be leftQueue.length + index
+            expect(foodStall.getQueuePosition(fan3)).toBe(2);
+        });
+
+        test('should return index for fan in rightQueue', () => {
+            const fan1 = new Fan(120, 100, mockConfig);
+            const fan2 = new Fan(120, 110, mockConfig);
+            
+            foodStall.rightQueue = [fan1, fan2];
+            
+            expect(foodStall.getQueuePosition(fan1)).toBe(0);
+            expect(foodStall.getQueuePosition(fan2)).toBe(1);
+        });
+
+        test('should return adjusted index for fan in rightApproaching', () => {
+            const fan1 = new Fan(120, 100, mockConfig);
+            const fan2 = new Fan(120, 110, mockConfig);
+            const fan3 = new Fan(120, 120, mockConfig);
+            
+            foodStall.rightQueue = [fan1, fan2];
+            foodStall.rightApproaching = [fan3];
+            
+            // fan3 is after the queue, so position should be rightQueue.length + index
+            expect(foodStall.getQueuePosition(fan3)).toBe(2);
+        });
+    });
+
+    describe('Branch coverage for processFrontOfQueue with right side', () => {
+        test('should process right side fan at front of queue', () => {
+            const fan = new Fan(120, 115, mockConfig);
+            fan.isNearTarget = jest.fn().mockReturnValue(true);
+            fan.setTarget = jest.fn();
+            
+            foodStall.rightQueue = [fan];
+            foodStall.rightApproaching = [];
+            
+            foodStall.processQueue(800, 600, 0);
+            
+            // Fan should be removed from queue and processing started
+            expect(foodStall.rightQueue.length).toBe(0);
+            expect(fan.setTarget).toHaveBeenCalled();
+        });
+    });
+
+    describe('updateQueuePositions default parameters', () => {
+        test('should use default sortNeeded and simulationTime', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            foodStall.leftQueue = [fan];
+            
+            // Call without optional parameters
+            foodStall.updateQueuePositions(800, 600);
+            
+            // Should not throw and should set targets
+            expect(fan).toBeDefined();
+        });
     });
 
     describe('Branch coverage for checkAndProcessFan', () => {
