@@ -681,4 +681,96 @@ describe('EventManager', () => {
             expect(agents.length).toBe(1);
         });
     });
+
+    describe('Branch coverage for getShortestQueue edge cases', () => {
+        test('should return stall when stallTotal < shortestTotal', () => {
+            // Test line 90 - the ternary when stall has fewer fans
+            const fan1 = new Fan(100, 100, mockConfig);
+            const fan2 = new Fan(100, 110, mockConfig);
+            const fan3 = new Fan(100, 120, mockConfig);
+            
+            // Add fans to first stall (make it longer)
+            eventManager.foodStalls[0].leftQueue.push(fan1);
+            eventManager.foodStalls[0].rightQueue.push(fan2);
+            
+            // Keep second stall shorter
+            eventManager.foodStalls[1].leftQueue.push(fan3);
+            
+            const shortest = eventManager.getShortestQueue();
+            
+            // Should return a stall with fewer fans than stall 0 (which has 2 fans)
+            expect(shortest).not.toBe(eventManager.foodStalls[0]);
+            const shortestTotal = shortest.leftQueue.length + shortest.rightQueue.length;
+            expect(shortestTotal).toBeLessThan(2);
+        });
+    });
+
+    describe('Branch coverage for concert end with fans', () => {
+        test('should handle left concert end with non-fan agents', () => {
+            // Test line 125 - agent.type === 'fan' being false
+            const agents = [
+                { type: 'other', currentShow: 'left' }
+            ];
+            
+            eventManager.handleLeftConcert(agents);
+            eventManager.simulationTime = mockConfig.CONCERT_PREP_TIME + eventManager.showDuration + 100;
+            
+            eventManager.updateConcerts(agents);
+            
+            // Should not crash with non-fan agent
+            expect(agents.length).toBe(1);
+        });
+
+        test('should handle right concert end with non-fan agents', () => {
+            // Test line 148 - agent.type === 'fan' being false
+            const agents = [
+                { type: 'other', currentShow: 'right' }
+            ];
+            
+            eventManager.handleRightConcert(agents);
+            eventManager.simulationTime = mockConfig.CONCERT_PREP_TIME + eventManager.showDuration + 100;
+            
+            eventManager.updateConcerts(agents);
+            
+            // Should not crash with non-fan agent
+            expect(agents.length).toBe(1);
+        });
+
+        test('should handle handleHungryFans with no stall found', () => {
+            // Test line 222 - stall not found
+            const fan = new Fan(100, 100, mockConfig);
+            fan.preferredFoodStall = { id: 'nonexistent' };
+            fan.type = 'fan';
+            fan.inQueue = false;
+            fan.state = 'idle';
+            fan.hunger = 1.0; // Very hungry
+            fan.hungerThreshold = 0.5;
+            fan.currentShow = null;
+            
+            const agents = [fan];
+            eventManager.handleHungryFans(agents);
+            
+            // Should not crash when stall not found
+            expect(agents.length).toBe(1);
+        });
+
+        test('should handle bus departure with agent not at bus', () => {
+            // Test line 307 - agent.state === LEAVING && Math.abs(agent.y - busY) <= 10
+            const fan1 = new Fan(400, 100, mockConfig); // Far from bus
+            fan1.state = AgentState.LEAVING;
+            fan1.y = 100; // Not near bus Y
+            
+            const fan2 = new Fan(400, mockConfig.BUS_Y * 600, mockConfig); // Near bus
+            fan2.state = AgentState.LEAVING;
+            fan2.y = mockConfig.BUS_Y * 600;
+            
+            const agents = [fan1, fan2];
+            
+            eventManager.handleBusDeparture(agents);
+            
+            // setTimeout should handle removal based on position
+            // Immediate check - both should still be there
+            expect(agents.length).toBe(2);
+        });
+    });
 });
