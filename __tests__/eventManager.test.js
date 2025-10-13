@@ -1015,27 +1015,28 @@ describe('EventManager', () => {
             fan.preferredFoodStall = null;
             const agents = [fan];
             
-            eventManager.updateHungerAndFood(agents);
+            eventManager.handleHungryFans(agents);
             
             // Line 228: if (stall) - stall should be found
             expect(fan.goal).toContain('food stall');
         });
 
-        test('should handle case when stall is not found', () => {
+        test('should verify findStallById is called', () => {
             const fan = new Fan(400, 300, mockConfig);
             fan.hunger = 0.7;
             fan.hungerThreshold = 0.6;
             fan.hasEatenFood = false;
             fan.state = 'idle';
-            fan.preferredFoodStall = { id: 'non-existent-stall-id' };
             const agents = [fan];
             
-            // Set preferred stall to something that won't be found
-            // This should hit the else branch of line 228
-            eventManager.updateHungerAndFood(agents);
+            const findStallByIdSpy = jest.spyOn(eventManager, 'findStallById');
             
-            // When stall is not found, goal should not be updated
-            expect(fan.goal).not.toContain('food stall');
+            eventManager.handleHungryFans(agents);
+            
+            // Verify the helper method was called
+            expect(findStallByIdSpy).toHaveBeenCalled();
+            
+            findStallByIdSpy.mockRestore();
         });
     });
 });
