@@ -173,6 +173,82 @@ describe('EventManager', () => {
         expect(eventManager.leftConcertStartTime).toBeNull();
     });
 
+    test('should disperse fans after left concert ends', () => {
+        // Test line 125 - agent.type === 'fan' && agent.currentShow === 'left'
+        const fan = new Fan(400, 300, mockConfig);
+        fan.state = AgentState.PASSED_SECURITY;
+        fan.currentShow = 'left';
+        fan.type = 'fan';
+        
+        const testAgents = [fan];
+        
+        // Manually set concert state to simulate ongoing concert
+        eventManager.leftConcertActive = true;
+        eventManager.leftConcertStartTime = 0;
+        eventManager.simulationTime = 0;
+        
+        // End concert by advancing time past show duration
+        eventManager.updateConcerts(eventManager.showDuration + 100, testAgents);
+        
+        // Fan should have seen show and be dispersed
+        expect(fan.hasSeenShow).toBe(true);
+        expect(fan.currentShow).toBeNull();
+    });
+
+    test('should disperse fans after right concert ends', () => {
+        // Test line 148 - agent.type === 'fan' && agent.currentShow === 'right'
+        const fan = new Fan(400, 300, mockConfig);
+        fan.state = AgentState.PASSED_SECURITY;
+        fan.currentShow = 'right';
+        fan.type = 'fan';
+        
+        const testAgents = [fan];
+        
+        // Manually set concert state to simulate ongoing concert
+        eventManager.rightConcertActive = true;
+        eventManager.rightConcertStartTime = 0;
+        eventManager.simulationTime = 0;
+        
+        // End concert by advancing time past show duration
+        eventManager.updateConcerts(eventManager.showDuration + 100, testAgents);
+        
+        // Fan should have seen show and be dispersed
+        expect(fan.hasSeenShow).toBe(true);
+        expect(fan.currentShow).toBeNull();
+    });
+
+    test('should set goal with upFront ternary branches', () => {
+        // Test lines 189-194 - ternary operators for upFront
+        // Since shouldBeUpFront() always returns false, upFront is always false
+        // So we need to test the else branches
+        const fan = new Fan(400, 300, mockConfig);
+        fan.state = AgentState.PASSED_SECURITY;
+        fan.stagePreference = 'left';
+        fan.type = 'fan';
+        
+        eventManager.moveAgentsToStage([fan], 'left');
+        
+        // Check that goal was set (will be back stage since upFront is false)
+        expect(fan.goal).toBe('left stage');
+        expect(fan.isUpFront).toBe(false);
+    });
+
+    test('should add fan to food stall queue when found', () => {
+        // Test line 219 - if (stall) branch
+        const fan = new Fan(400, 300, mockConfig);
+        fan.state = AgentState.PASSED_SECURITY;
+        fan.hunger = 0.9;
+        fan.hungerThreshold = 0.7;
+        fan.inQueue = false;
+        fan.currentShow = null;
+        
+        eventManager.handleHungryFans([fan]);
+        
+        // Fan should be added to queue
+        expect(fan.inQueue).toBe(true);
+        expect(fan.goal).toContain('food stall');
+    });
+
     test('should start concert after prep time', () => {
         eventManager.handleLeftConcert(agents);
         eventManager.simulationTime = 0;

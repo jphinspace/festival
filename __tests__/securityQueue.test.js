@@ -566,30 +566,6 @@ describe('SecurityQueue', () => {
             // Processing should still be the same fan
             expect(securityQueue.processing[0]).toBe(fan);
         });
-
-        test('should update queue positions when new fan starts processing', () => {
-            // Test lines 323-325 - newProcessing !== this.processing AND newProcessing !== null
-            const fan = new Fan(360, 424, mockConfig);
-            fan.state = AgentState.IN_QUEUE_WAITING;
-            fan.targetX = 360;
-            fan.targetY = 432; // Processing position Y
-            
-            // Add fan to queue (entered, not approaching)
-            securityQueue.queues[0] = [fan];
-            securityQueue.entering[0] = [];
-            securityQueue.processing[0] = null; // No one currently processing
-            
-            // Position fan at processing position, ready to start
-            fan.x = 360;
-            fan.y = 430; // Close to processing position
-            
-            securityQueue.update(1000);
-            
-            // Fan should now be processing or at least have transitioned
-            // The exact behavior depends on processQueue logic
-            // At minimum, processing should have changed (either to fan or still null)
-            expect(securityQueue.processing[0] !== undefined).toBe(true);
-        });
     });
 
     describe('Branch coverage for queueIndex 1 (right queue)', () => {

@@ -578,6 +578,53 @@ describe('Pathfinding Module', () => {
             expect(waypoints.length).toBeGreaterThanOrEqual(1)
             expect(waypoints[waypoints.length - 1]).toEqual({ x: 200, y: 200 })
         })
+
+        test('should skip when both start and target near same obstacle', () => {
+            // Test line 317 - continue when both targetNearObstacle && startNearObstacle
+            // Place start and target both very close to the same obstacle
+            const obstacleX = 150
+            const obstacleY = 150
+            mockObstacles.obstacles = [
+                { x: obstacleX, y: obstacleY, width: 10, height: 10, type: 'stage' }
+            ]
+            
+            // Both positions are within buffer of the obstacle
+            const waypoints = calculateStaticWaypoints(
+                obstacleX - 2,  // Very close to obstacle
+                obstacleY - 2,
+                obstacleX + 2,  // Also very close to obstacle
+                obstacleY + 2,
+                mockObstacles,
+                mockAgent.radius,
+                mockConfig.PERSONAL_SPACE,  // This creates the buffer zone
+                mockConfig
+            )
+            
+            // Should still find path
+            expect(waypoints.length).toBeGreaterThanOrEqual(1)
+        })
+
+        test('should skip when target closer than obstacle center', () => {
+            // Test line 328 - continue when distToTarget < distToObs
+            // Agent at (100,100), target at (110,110), obstacle beyond target
+            mockObstacles.obstacles = [
+                { x: 150, y: 150, width: 20, height: 20, type: 'stage' }
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                110,  // Target is closer
+                110,
+                mockObstacles,
+                mockAgent.radius,
+                mockConfig.PERSONAL_SPACE,
+                mockConfig
+            )
+            
+            // Should go direct to target
+            expect(waypoints[waypoints.length - 1]).toEqual({ x: 110, y: 110 })
+        })
     })
 
     describe('Branch coverage for destination handling', () => {
