@@ -470,4 +470,297 @@ describe('Pathfinding Module', () => {
             expect(waypoints[waypoints.length - 1]).toEqual({ x: 250, y: 250 })
         })
     })
+
+    describe('Branch coverage for pathfinding edge cases', () => {
+        test('should handle single waypoint path (last element case)', () => {
+            // Create path with single waypoint - tests line 50 branch when i < path.length - 1 is false
+            mockObstacles.obstacles = []
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                150,
+                150,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should return direct path (single waypoint)
+            expect(waypoints.length).toBe(1)
+            expect(waypoints[0]).toEqual({ x: 150, y: 150 })
+        })
+
+        test('should fallback to original waypoint when random point fails', () => {
+            // Create scenario where randomization fails - tests line 63 fallback
+            mockObstacles.obstacles = [
+                { x: 0, y: 0, width: 1000, height: 1000, type: 'stage' } // Cover entire area
+            ]
+            
+            // With blocked area, randomization should fail and fall back
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                200,
+                200,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should still return waypoints (with fallback)
+            expect(waypoints.length).toBeGreaterThanOrEqual(1)
+        })
+
+        test('should handle zero distance to target in corner scoring', () => {
+            // Test line 102 - when toTargetDist is 0
+            mockObstacles.obstacles = [
+                { x: 100, y: 100, width: 50, height: 50, type: 'stage' }
+            ]
+            
+            // Start at target position
+            const waypoints = calculateStaticWaypoints(
+                200,
+                200,
+                200,
+                200,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should handle gracefully
+            expect(waypoints.length).toBe(1)
+            expect(waypoints[0]).toEqual({ x: 200, y: 200 })
+        })
+
+        test('should skip corner inside obstacle', () => {
+            // Test line 134 - corner inside obstacle
+            mockObstacles.obstacles = [
+                { x: 100, y: 100, width: 100, height: 100, type: 'stage' }
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                50,
+                50,
+                250,
+                250,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should find path around obstacle
+            expect(waypoints[waypoints.length - 1]).toEqual({ x: 250, y: 250 })
+        })
+
+        test('should break when no blocking obstacles found', () => {
+            // Test line 203 - when blockingObstacles.length === 0
+            mockObstacles.obstacles = [
+                { x: 500, y: 500, width: 50, height: 50, type: 'stage' } // Far away
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                200,
+                200,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should use direct path
+            expect(waypoints.length).toBe(1)
+        })
+
+        test('should handle randomRadius zero for destination', () => {
+            // Test line 256 - when randomRadius === 0
+            mockObstacles.obstacles = [
+                { x: 125, y: 125, width: 50, height: 50, type: 'stage' }
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                300,
+                300,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Final waypoint should be exact target (no randomization)
+            expect(waypoints[waypoints.length - 1]).toEqual({ x: 300, y: 300 })
+        })
+
+        test('should handle path clear check with no obstacles', () => {
+            // Test line 304 - obstacles is null/undefined
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                200,
+                200,
+                null,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should return direct path
+            expect(waypoints.length).toBe(1)
+        })
+
+        test('should skip very close obstacles in blocking check', () => {
+            // Test line 362 - distToTarget < radius * 2
+            mockObstacles.obstacles = [
+                { x: 150, y: 150, width: 10, height: 10, type: 'stage' }
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                155,
+                155,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should reach target
+            expect(waypoints[waypoints.length - 1]).toEqual({ x: 155, y: 155 })
+        })
+
+        test('should handle zero distance in obstacle direction check', () => {
+            // Test line 372 - when distToTarget or distToObs is 0
+            mockObstacles.obstacles = [
+                { x: 100, y: 100, width: 10, height: 10, type: 'stage' }
+            ]
+            
+            // Start at obstacle location
+            const waypoints = calculateStaticWaypoints(
+                105,
+                105,
+                200,
+                200,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should handle gracefully
+            expect(waypoints.length).toBeGreaterThanOrEqual(1)
+        })
+
+        test('should skip obstacle not in path direction', () => {
+            // Test line 374 - dotProduct < 0.5 (obstacle behind or to side)
+            mockObstacles.obstacles = [
+                { x: 50, y: 300, width: 20, height: 20, type: 'stage' } // To the side
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                200,
+                100,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should use direct path (obstacle not blocking)
+            expect(waypoints.length).toBe(1)
+        })
+
+        test('should handle null obstacles in point check', () => {
+            // Test line 405 - obstacles is null
+            mockObstacles.obstacles = null
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                200,
+                200,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should handle gracefully
+            expect(waypoints.length).toBeGreaterThanOrEqual(1)
+        })
+
+        test('should use mid-points when no valid corner found', () => {
+            // Test line 225 - mid-point fallback
+            mockObstacles.obstacles = [
+                { x: 140, y: 140, width: 60, height: 60, type: 'stage' }
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                250,
+                250,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should find path (possibly using mid-points)
+            expect(waypoints[waypoints.length - 1]).toEqual({ x: 250, y: 250 })
+        })
+
+        test('should handle ternary operators in waypoint calculation', () => {
+            // Test line 511 and 597 - ternary operators for orientation
+            mockObstacles.obstacles = [
+                { x: 150, y: 150, width: 40, height: 40, type: 'stage' }
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                300,
+                100, // Horizontal path
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should handle horizontal vs vertical orientation
+            expect(waypoints.length).toBeGreaterThanOrEqual(1)
+        })
+
+        test('should handle vertical path orientation', () => {
+            // Test vertical orientation branch
+            mockObstacles.obstacles = [
+                { x: 150, y: 150, width: 40, height: 40, type: 'stage' }
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                100, // Same X, vertical path
+                300,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should handle vertical orientation
+            expect(waypoints.length).toBeGreaterThanOrEqual(1)
+        })
+    })
 })

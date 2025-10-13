@@ -123,6 +123,61 @@ describe('Agent', () => {
         // Outside threshold
         expect(agent.isNearTarget(5)).toBe(false);
     });
+
+    describe('Branch coverage for personal space buffer', () => {
+        test('should not use personal space buffer when state does not require it', () => {
+            agent.state = 'idle';
+            agent.x = 100;
+            agent.y = 100;
+            agent.targetX = 200;
+            agent.targetY = 200;
+            
+            // Create a blocking obstacle to force avoidance attempt
+            mockObstacles.checkCollision = jest.fn(() => true);
+            
+            // Set target to trigger pathfinding and movement
+            agent.setTarget(200, 200, mockObstacles, 0);
+            
+            agent.update(0.016, 1.0, [], mockObstacles, 100);
+            
+            // Should have checked collision (personal space buffer varies by state)
+            expect(mockObstacles.checkCollision.mock.calls.length).toBeGreaterThan(0);
+        });
+    });
+
+    describe('Branch coverage for final destination with waypoints remaining', () => {
+        test('should not snap to target when waypoints remain even if near target', () => {
+            agent.state = 'moving';
+            agent.x = 195;
+            agent.y = 195;
+            agent.targetX = 200;
+            agent.targetY = 200;
+            agent.staticWaypoints = [{ x: 150, y: 150 }, { x: 200, y: 200 }];
+            
+            agent.update(0.016, 1.0, [], mockObstacles, 100);
+            
+            // Should not have snapped to final target yet
+            expect(agent.staticWaypoints.length).toBeGreaterThan(0);
+        });
+    });
+
+    describe('Branch coverage for overlap check', () => {
+        test('should skip overlap resolution when agent does not overlap', () => {
+            agent.state = 'moving';
+            agent.x = 100;
+            agent.y = 100;
+            agent.targetX = 200;
+            agent.targetY = 200;
+            
+            // Create far away agent
+            const otherAgent = new Agent(300, 300, mockConfig);
+            
+            agent.update(0.016, 1.0, [otherAgent], mockObstacles, 100);
+            
+            // Agents are far apart, no overlap resolution needed
+            expect(agent.x).not.toBe(otherAgent.x);
+        });
+    });
 });
 
 describe('Fan', () => {

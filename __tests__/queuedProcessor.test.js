@@ -1,13 +1,21 @@
 // Test for QueuedProcessor base class
 import { QueuedProcessor } from '../src/core/queuedProcessor.js'
+import { Fan } from '../src/core/fan.js'
+import { AgentState } from '../src/utils/enums.js'
 import { jest } from '@jest/globals'
 
 const mockConfig = {
     AGENT_RADIUS: 3,
+    AGENT_SPEED: 0.5,
     QUEUE_SPACING: 20,
     QUEUE_START_Y: 0.1,
     QUEUE_LEFT_X: 0.3,
-    QUEUE_RIGHT_X: 0.7
+    QUEUE_RIGHT_X: 0.7,
+    PERSONAL_SPACE: 12,
+    COLORS: {
+        AGENT_ACTIVE: '#4a90e2',
+        AGENT_LEAVING: '#e24a4a'
+    }
 }
 
 const mockObstacles = {
@@ -412,6 +420,30 @@ describe('QueuedProcessor Base Class', () => {
             // State should change to advancing since update succeeded
             expect(fan1.state).toBe('in_queue_advancing')
             expect(fan1.setTarget).toHaveBeenCalled()
+        })
+
+        test('should not change state when advancing but not at target', () => {
+            // Test line 151 - fan.state === AgentState.IN_QUEUE_ADVANCING && isAtTarget (second part false)
+            const processor = new TestQueuedProcessor(mockConfig)
+            
+            const fan1 = new Fan(100, 100, mockConfig)
+            fan1.state = AgentState.IN_QUEUE_ADVANCING
+            fan1.isNearTarget = jest.fn(() => false) // NOT at target
+            fan1.setTarget = jest.fn(() => false) // Update fails
+            fan1.targetX = 200
+            fan1.targetY = 200
+            
+            processor.getTargetPosition = jest.fn(() => {
+                return { x: 200, y: 200 }
+            })
+            
+            processor.queue = [fan1]
+            processor.setObstacles(mockObstacles)
+            
+            processor.updateQueuePositionsWrapper(false, 1000)
+            
+            // State should remain advancing (not change to waiting)
+            expect(fan1.state).toBe('in_queue_advancing')
         })
     })
 })

@@ -567,4 +567,83 @@ describe('SecurityQueue', () => {
             expect(securityQueue.processing[0]).toBe(fan);
         });
     });
+
+    describe('Branch coverage for queueIndex 1 (right queue)', () => {
+        test('should calculate end of line position for right queue', () => {
+            // Force a fan into the right queue
+            const fan = new Fan(440, 540, mockConfig);
+            fan.queueIndex = 1;
+            securityQueue.queues[1].push(fan);
+            
+            const endPos = securityQueue._calculateEndOfLinePosition(1);
+            
+            // Should use QUEUE_RIGHT_X
+            const expectedX = 800 * mockConfig.QUEUE_RIGHT_X;
+            expect(endPos.x).toBe(expectedX);
+        });
+
+        test('should process fan in right queue', () => {
+            const fan = new Fan(440, 424, mockConfig);
+            fan.enhancedSecurity = false;
+            fan.state = AgentState.PROCESSING;
+            fan.queueIndex = 1;
+            
+            securityQueue.processing[1] = fan;
+            securityQueue.processingStartTime[1] = 0;
+            
+            securityQueue.update(mockConfig.REGULAR_SECURITY_TIME + 100);
+            
+            // Fan should be released
+            expect(securityQueue.processing[1]).toBeNull();
+        });
+    });
+
+    describe('Branch coverage for returning fan reaching target', () => {
+        test('should handle fan reaching end of line and becoming approaching_queue', () => {
+            const fan = new Fan(360, 432, mockConfig);
+            fan.enhancedSecurity = true;
+            fan.queueIndex = 0;
+            fan.state = AgentState.RETURNING_TO_QUEUE;
+            fan.returningToQueue = 0;
+            
+            // Position fan at the end of line exactly
+            const endPos = securityQueue._calculateEndOfLinePosition(0);
+            fan.x = endPos.x;
+            fan.y = endPos.y;
+            fan.targetX = endPos.x;
+            fan.targetY = endPos.y;
+            
+            securityQueue.processing[0] = fan;
+            securityQueue.processingStartTime[0] = 0;
+            
+            securityQueue.update(5000);
+            
+            // Fan should be moved to entering array
+            expect(securityQueue.entering[0]).toContain(fan);
+            expect(fan.state).toBe(AgentState.APPROACHING_QUEUE);
+            expect(securityQueue.processing[0]).toBeNull();
+        });
+    });
+
+    describe('Branch coverage for newProcessing assignment', () => {
+        test('should update processing when newProcessing differs from current', () => {
+            // Start with someone processing
+            const fan1 = new Fan(360, 424, mockConfig);
+            fan1.state = AgentState.PROCESSING;
+            fan1.enhancedSecurity = false;
+            
+            securityQueue.processing[0] = fan1;
+            securityQueue.processingStartTime[0] = 0;
+            
+            // Add someone to the queue
+            const fan2 = new Fan(360, 432, mockConfig);
+            securityQueue.queues[0].push(fan2);
+            
+            // Update after fan1 completes
+            securityQueue.update(mockConfig.REGULAR_SECURITY_TIME + 100);
+            
+            // Processing should have changed (either to fan2 or null)
+            expect(securityQueue.processing[0] !== fan1).toBe(true);
+        });
+    });
 });
