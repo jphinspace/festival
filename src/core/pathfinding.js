@@ -474,46 +474,7 @@ function lineIntersectsLine(x1, y1, x2, y2, x3, y3, x4, y4) {
     return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1
 }
 
-/**
- * Initialize waypoint update times for a set of waypoints
- * @param {Array} waypoints - Array of waypoints
- * @param {number} currentTime - Current simulation time
- * @param {Object} config - Configuration object
- * @returns {Array} Array of update times with randomization
- */
-export function initializeWaypointUpdateTimes(waypoints, currentTime, config) {
-    const updateTimes = []
-    const baseInterval = config.BASE_WAYPOINT_UPDATE_INTERVAL || 125
-    const randomness = config.WAYPOINT_UPDATE_RANDOMNESS || 50
-    
-    for (let i = 0; i < waypoints.length; i++) {
-        // Add random delay to prevent all fans updating simultaneously
-        const randomDelay = Math.random() * randomness
-        updateTimes.push(currentTime + randomDelay)
-    }
-    
-    return updateTimes
-}
 
-/**
- * Check if waypoints need updating based on elapsed time
- * Only checks the first waypoint (current target) at base interval
- * Updates all subsequent waypoints at doubled intervals
- * @param {Array} waypointUpdateTimes - Array of last update times
- * @param {number} currentTime - Current simulation time
- * @param {Object} config - Configuration object
- * @returns {boolean} True if waypoints need updating
- */
-export function shouldUpdateWaypoints(waypointUpdateTimes, currentTime, config) {
-    if (!waypointUpdateTimes || waypointUpdateTimes.length === 0) {
-        return false
-    }
-    
-    const baseInterval = config.BASE_WAYPOINT_UPDATE_INTERVAL || 125
-    const timeSinceUpdate = currentTime - waypointUpdateTimes[0]
-    
-    return timeSinceUpdate >= baseInterval
-}
 
 /**
  * Calculate dynamic waypoint for avoiding other agents

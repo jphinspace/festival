@@ -18,22 +18,16 @@ export class QueueManager {
     }
 
     /**
-     * Update a fan's target position with throttling
+     * Update a fan's target position
      * @param {Fan} fan - Fan to update
      * @param {Object} targetPos - Target position {x, y}
      * @param {Obstacles} obstacles - Obstacles for pathfinding
-     * @param {boolean} forceUpdate - Whether to bypass throttling
-     * @param {number} currentTime - Current timestamp (simulation time preferred)
+     * @param {boolean} forceUpdate - Whether to bypass throttling (kept for API compatibility)
      * @returns {boolean} Whether the target was updated
      */
-    static updateFanTarget(fan, targetPos, obstacles, forceUpdate, currentTime) {
-        const timeSinceLastUpdate = currentTime - (fan.queueTargetUpdateTime || -Infinity);
-        if (forceUpdate || timeSinceLastUpdate >= CONFIG.QUEUE_TARGET_UPDATE_THROTTLE) {
-            fan.setTarget(targetPos.x, targetPos.y, obstacles, currentTime);
-            fan.queueTargetUpdateTime = currentTime;
-            return true;
-        }
-        return false;
+    static updateFanTarget(fan, targetPos, obstacles, forceUpdate) {
+        fan.setTarget(targetPos.x, targetPos.y, obstacles);
+        return true;
     }
 
     /**
@@ -44,9 +38,8 @@ export class QueueManager {
      * @param {Object} frontPosition - {x, y} position of queue front for sorting
      * @param {Obstacles} obstacles - Obstacles for pathfinding (pass to setTarget)
      * @param {boolean} forceUpdate - If true, bypass throttling and update all targets immediately
-     * @param {number} simulationTime - Current simulation time in milliseconds
      */
-    static updatePositions(queue, approaching, getTargetPosition, frontPosition, obstacles = null, forceUpdate = false, simulationTime = 0) {
+    static updatePositions(queue, approaching, getTargetPosition, frontPosition, obstacles = null, forceUpdate = false) {
         // Sort main queue by distance to front
         queue.sort((a, b) => {
             const distA = this.getDistanceToPosition(a, frontPosition);
@@ -64,10 +57,9 @@ export class QueueManager {
             const distToTarget = this.getDistanceToPosition(fan, targetPos);
             const isAtTarget = distToTarget < 5; // Within 5 pixels
             
-            // Throttle setTarget calls to once every 125ms per fan (unless forceUpdate is true)
-            // But only set target if fan is not at target already
+            // Only set target if fan is not at target already
             if (!isAtTarget) {
-                const updated = this.updateFanTarget(fan, targetPos, obstacles, forceUpdate, currentTime);
+                const updated = this.updateFanTarget(fan, targetPos, obstacles, forceUpdate);
                 if (updated) {
                     fan.state = AgentState.IN_QUEUE_ADVANCING;
                 }
@@ -96,8 +88,7 @@ export class QueueManager {
             
             const targetPos = getTargetPosition(fan.queuePosition);
             
-            // Throttle setTarget calls to once every 125ms per fan (unless forceUpdate is true)
-            this.updateFanTarget(fan, targetPos, obstacles, forceUpdate, currentTime);
+            this.updateFanTarget(fan, targetPos, obstacles, forceUpdate);
             
             fan.inQueue = false;
             if (fan.state !== AgentState.APPROACHING_QUEUE) {

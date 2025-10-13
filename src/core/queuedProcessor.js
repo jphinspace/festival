@@ -72,7 +72,7 @@ export class QueuedProcessor {
                 // Fan advances to processing position (still moving in queue)
                 fan.state = AgentState.IN_QUEUE_ADVANCING
                 fan.inQueue = true // Still in queue, just advancing to processing
-                fan.setTarget(processingPos.x, processingPos.y, this.obstacles, simulationTime)
+                fan.setTarget(processingPos.x, processingPos.y, this.obstacles)
                 
                 // Call callback to set processor-specific state
                 onStartProcessing(fan, simulationTime)
@@ -121,7 +121,7 @@ export class QueuedProcessor {
      * @param {boolean} forceUpdate - Force position update
      * @param {number} simulationTime - Current simulation time
      */
-    updateQueuePositions(queue, approaching, getTargetPosition, forceUpdate, simulationTime) {
+    updateQueuePositions(queue, approaching, getTargetPosition, forceUpdate) {
         // Process approaching fans first
         QueueManager.processApproaching(
             queue,
@@ -131,7 +131,6 @@ export class QueuedProcessor {
         )
 
         // Update main queue fans with consecutive positions starting from 0
-        const currentTime = simulationTime || Date.now()
         queue.forEach((fan, index) => {
             fan.queuePosition = index
             const targetPos = getTargetPosition(index)
@@ -171,23 +170,15 @@ export class QueuedProcessor {
     }
 
     /**
-     * Helper to update fan target with throttling
+     * Helper to update fan target
      * @param {Fan} fan - Fan to update
      * @param {Object} targetPos - Target position {x, y}
      * @param {Obstacles} obstacles - Obstacles manager
-     * @param {boolean} forceUpdate - Force update even if throttled
-     * @param {number} currentTime - Current time
+     * @param {boolean} forceUpdate - Force update (kept for API compatibility but ignored)
      * @returns {boolean} True if target was updated
      */
-    updateFanTarget(fan, targetPos, obstacles, forceUpdate, currentTime) {
-        const timeSinceLastUpdate = currentTime - (fan.queueTargetUpdateTime || 0)
-        const shouldUpdate = forceUpdate || timeSinceLastUpdate >= 125
-
-        if (shouldUpdate) {
-            fan.setTarget(targetPos.x, targetPos.y, obstacles, currentTime)
-            fan.queueTargetUpdateTime = currentTime
-            return true
-        }
-        return false
+    updateFanTarget(fan, targetPos, obstacles, forceUpdate) {
+        fan.setTarget(targetPos.x, targetPos.y, obstacles)
+        return true
     }
 }

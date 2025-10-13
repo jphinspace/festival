@@ -106,9 +106,8 @@ export class SecurityQueue extends QueuedProcessor {
      * Update positions for all fans in a specific queue
      * @param {number} queueIndex - Index of the queue to update (0 or 1)
      * @param {boolean} sortNeeded - Whether to sort the queue (only on join/leave events)
-     * @param {number} simulationTime - Current simulation time in milliseconds
      */
-    updateQueuePositions(queueIndex, sortNeeded = false, simulationTime = 0) {
+    updateQueuePositions(queueIndex, sortNeeded = false) {
         // Use shared QueueManager for consistent behavior
         const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X);
         const startY = this.height * this.config.QUEUE_START_Y;
@@ -127,8 +126,7 @@ export class SecurityQueue extends QueuedProcessor {
             },
             { x: queueX, y: startY },
             this.obstacles,  // Pass obstacles for pathfinding
-            sortNeeded,       // Force update when sort is needed (fan joined/left)
-            simulationTime
+            sortNeeded       // Force update when sort is needed (fan joined/left)
         );
     }
     
@@ -197,7 +195,7 @@ export class SecurityQueue extends QueuedProcessor {
         
         if (distToCurrentEnd > 10) {
             // Line has changed, update target to new end
-            processingFan.setTarget(endPos.x, endPos.y, this.obstacles, simulationTime)
+            processingFan.setTarget(endPos.x, endPos.y, this.obstacles)
         } else if (processingFan.isNearTarget(10)) {
             // Reached end of line, add to entering list
             delete processingFan.returningToQueue
@@ -210,7 +208,7 @@ export class SecurityQueue extends QueuedProcessor {
             this.processingStartTime[queueIndex] = null
             
             // Update positions for all fans
-            this.updateQueuePositions(queueIndex, true, simulationTime)
+            this.updateQueuePositions(queueIndex, true)
         }
     }
 
@@ -228,7 +226,7 @@ export class SecurityQueue extends QueuedProcessor {
         
         // Set target first (which might change state to moving)
         fan.inQueue = false
-        fan.setTarget(endPos.x, endPos.y, this.obstacles, simulationTime)
+        fan.setTarget(endPos.x, endPos.y, this.obstacles)
         
         // Then override state to returning_to_queue
         fan.state = AgentState.RETURNING_TO_QUEUE
@@ -285,11 +283,11 @@ export class SecurityQueue extends QueuedProcessor {
             
             // Process fans entering the queue FIRST (before updating positions)
             this.processEntering(queue, entering, (forceUpdate, simTime) => {
-                this.updateQueuePositions(queueIndex, forceUpdate, simTime)
+                this.updateQueuePositions(queueIndex, forceUpdate)
             }, simulationTime)
             
             // Update positions for all fans after processing enters
-            this.updateQueuePositions(queueIndex, false, simulationTime)
+            this.updateQueuePositions(queueIndex, false)
             
             // Check if any returning fans have reached the end of line
             if (this.processing[queueIndex] !== null) {
@@ -322,7 +320,7 @@ export class SecurityQueue extends QueuedProcessor {
             if (newProcessing !== this.processing[queueIndex]) {
                 this.processing[queueIndex] = newProcessing
                 if (newProcessing !== null) {
-                    this.updateQueuePositions(queueIndex, true, simulationTime)
+                    this.updateQueuePositions(queueIndex, true)
                 }
             }
             

@@ -68,7 +68,7 @@ export class EventManager {
     updateFoodStalls(simulationTime, agents) {
         this.foodStalls.forEach(stall => {
             stall.processQueue(this.width, this.height, simulationTime)
-            stall.updateQueuePositions(this.width, this.height, false, simulationTime)
+            stall.updateQueuePositions(this.width, this.height, false)
             
             // Check for fans being processed at this stall
             for (const fan of agents) {
@@ -130,7 +130,7 @@ export class EventManager {
                         // Wander to random position
                         const targetX = Math.random() * this.width;
                         const targetY = Math.random() * this.height * 0.7;
-                        agent.setTarget(targetX, targetY, this.obstacles, simulationTime);
+                        agent.setTarget(targetX, targetY, this.obstacles);
                     }
                 });
             }
@@ -153,7 +153,7 @@ export class EventManager {
                         // Wander to random position
                         const targetX = Math.random() * this.width;
                         const targetY = Math.random() * this.height * 0.7;
-                        agent.setTarget(targetX, targetY, this.obstacles, simulationTime);
+                        agent.setTarget(targetX, targetY, this.obstacles);
                     }
                 });
             }
