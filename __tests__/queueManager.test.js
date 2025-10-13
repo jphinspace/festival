@@ -495,6 +495,20 @@ describe('QueueManager Helper Methods', () => {
             
             expect(fan.inQueue).toBe(false);
         });
+
+        test('should track inQueueStartTime when simulationTime provided and fan promoted', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            const queue = [];
+            const approachingList = [fan]; // Fan must be in approaching list first
+            const simulationTime = 5000;
+            
+            // Call promoteFanToQueue which does set the timestamp
+            QueueManager.promoteFanToQueue(fan, approachingList, queue, simulationTime);
+            
+            expect(fan.inQueueStartTime).toBe(5000);
+            expect(fan.approachingStartTime).toBeNull();
+            expect(fan.inQueue).toBe(true);
+        });
     });
 
     describe('updateFanTarget', () => {

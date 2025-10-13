@@ -975,6 +975,33 @@ describe('Fan', () => {
             // No crash, waypoints unchanged
             expect(agent.staticWaypoints.length).toBe(1)
         })
+
+        test('should recalculate waypoints when last waypoint reached but not at final target', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'moving'
+            agent.targetX = 500
+            agent.targetY = 500
+            // Position agent near the last waypoint
+            agent.x = 298
+            agent.y = 298
+            agent.staticWaypoints = [{ x: 300, y: 300 }] // Only one waypoint
+            
+            const obstacles = {
+                checkCollision: jest.fn(() => false),
+                resolveCollision: jest.fn(),
+                obstacles: [],
+                stages: [],
+                foodStalls: [],
+                bus: null
+            }
+            
+            agent.update(0.016, 1.0, [], obstacles, 0)
+            
+            // Should have recalculated waypoints to reach final target (500, 500)
+            // The waypoint at 300,300 is within reach distance, so it gets removed
+            // Then new waypoints should be calculated
+            expect(agent.staticWaypoints.length).toBeGreaterThanOrEqual(1)
+        })
     })
 
 });

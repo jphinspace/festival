@@ -76,6 +76,27 @@ describe('EventManager', () => {
         expect(leavingAgents.length).toBeGreaterThanOrEqual(0);
     });
 
+    test('should immediately remove agents already at bus when departure triggered', () => {
+        // Create fan that has completed all requirements and is at bus
+        const fan = new Fan(400, 300, mockConfig);
+        fan.hasSeenShow = true;
+        fan.hasEatenFood = true;
+        fan.inQueue = false;
+        fan.state = AgentState.IDLE;
+        
+        // Position fan at bus Y coordinate
+        const busY = 600 * mockConfig.BUS_Y; // height * BUS_Y
+        fan.y = busY + 5; // Within 10 pixels of bus
+        
+        const agentsArray = [fan];
+        const initialCount = agentsArray.length;
+        
+        eventManager.handleBusDeparture(agentsArray);
+        
+        // Agent should be removed immediately
+        expect(agentsArray.length).toBeLessThan(initialCount);
+    });
+
     test('new fans from bus should be added to security queue', () => {
         const newAgents = eventManager.handleBusArrival(agents);
         newAgents.forEach(fan => {

@@ -132,11 +132,15 @@ describe('Fan Class', () => {
             fan.state = AgentState.IDLE
             fan.targetX = null
             fan.targetY = null
+            fan.currentShow = null
+            fan.inQueue = false
 
             fan.update(0.1, 1.0, [], mockObstacles)
 
             // Should start wandering immediately
             expect(fan.state).toBe('moving')
+            expect(fan.targetX).not.toBeNull()
+            expect(fan.targetY).not.toBeNull()
         })
     })
 
