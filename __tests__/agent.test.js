@@ -1028,4 +1028,36 @@ describe('Fan', () => {
         })
     })
 
+    describe('getPersonalSpaceBuffer', () => {
+        test('should return PERSONAL_SPACE for moving state', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'moving'
+            expect(agent.getPersonalSpaceBuffer()).toBe(mockConfig.PERSONAL_SPACE)
+        })
+
+        test('should return PERSONAL_SPACE for approaching_queue state', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'approaching_queue'
+            expect(agent.getPersonalSpaceBuffer()).toBe(mockConfig.PERSONAL_SPACE)
+        })
+
+        test('should return 0 for idle state', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'idle'
+            expect(agent.getPersonalSpaceBuffer()).toBe(0)
+        })
+
+        test('should return 0 for in_queue_waiting state', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'in_queue_waiting'
+            expect(agent.getPersonalSpaceBuffer()).toBe(0)
+        })
+
+        test('should return 0 for processing state', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'processing'
+            expect(agent.getPersonalSpaceBuffer()).toBe(0)
+        })
+    })
+
 });

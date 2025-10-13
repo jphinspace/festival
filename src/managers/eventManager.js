@@ -96,6 +96,35 @@ export class EventManager {
      * @param {number} simulationTime - Current simulation time in milliseconds
      * @param {Agent[]} agents - All agents in simulation
      */
+    /**
+     * Get fans that need to be dispersed after a concert
+     * @param {Array} agents - All agents
+     * @param {string} stage - Stage name ('left' or 'right')
+     * @returns {Array} Fans attending the specified stage
+     */
+    getFansToDisperse(agents, stage) {
+        return agents.filter(agent => 
+            agent.type === 'fan' && agent.currentShow === stage
+        )
+    }
+
+    /**
+     * Disperse fans after a concert ends
+     * @param {Array} fans - Fans to disperse
+     */
+    disperseFans(fans) {
+        fans.forEach(fan => {
+            // Mark as having seen a show
+            fan.hasSeenShow = true
+            fan.currentShow = null
+            fan.isUpFront = false
+            // Go to center position (deterministic)
+            const targetX = this.width / 2
+            const targetY = this.height * 0.35
+            fan.setTarget(targetX, targetY, this.obstacles)
+        })
+    }
+
     updateConcerts(simulationTime, agents) {
         // Handle left concert preparation and start
         if (this.leftConcertPrepStartTime !== null && !this.leftConcertStartTime) {
@@ -121,18 +150,8 @@ export class EventManager {
                 this.leftConcertPrepStartTime = null;
                 
                 // Fans disperse after show - go to center
-                agents.forEach(agent => {
-                    if (agent.type === 'fan' && agent.currentShow === 'left') {
-                        // Mark as having seen a show
-                        agent.hasSeenShow = true;
-                        agent.currentShow = null;
-                        agent.isUpFront = false;
-                        // Go to center position (deterministic)
-                        const targetX = this.width / 2;
-                        const targetY = this.height * 0.35;
-                        agent.setTarget(targetX, targetY, this.obstacles);
-                    }
-                });
+                const fansToDisperse = this.getFansToDisperse(agents, 'left')
+                this.disperseFans(fansToDisperse)
             }
         }
         
@@ -144,18 +163,8 @@ export class EventManager {
                 this.rightConcertPrepStartTime = null;
                 
                 // Fans disperse after show - go to center
-                agents.forEach(agent => {
-                    if (agent.type === 'fan' && agent.currentShow === 'right') {
-                        // Mark as having seen a show
-                        agent.hasSeenShow = true;
-                        agent.currentShow = null;
-                        agent.isUpFront = false;
-                        // Go to center position (deterministic)
-                        const targetX = this.width / 2;
-                        const targetY = this.height * 0.35;
-                        agent.setTarget(targetX, targetY, this.obstacles);
-                    }
-                });
+                const fansToDisperse = this.getFansToDisperse(agents, 'right')
+                this.disperseFans(fansToDisperse)
             }
         }
     }

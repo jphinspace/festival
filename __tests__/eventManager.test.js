@@ -869,4 +869,75 @@ describe('EventManager', () => {
             expect(agents.length).toBe(2);
         });
     });
+
+    describe('getFansToDisperse', () => {
+        test('should filter fans by stage', () => {
+            const fan1 = new Fan(100, 100, mockConfig);
+            fan1.type = 'fan';
+            fan1.currentShow = 'left';
+            
+            const fan2 = new Fan(200, 200, mockConfig);
+            fan2.type = 'fan';
+            fan2.currentShow = 'right';
+            
+            const fan3 = new Fan(300, 300, mockConfig);
+            fan3.type = 'fan';
+            fan3.currentShow = 'left';
+            
+            const nonFan = { type: 'other', currentShow: 'left' };
+            
+            const agents = [fan1, fan2, fan3, nonFan];
+            
+            const leftFans = eventManager.getFansToDisperse(agents, 'left');
+            expect(leftFans).toHaveLength(2);
+            expect(leftFans).toContain(fan1);
+            expect(leftFans).toContain(fan3);
+            
+            const rightFans = eventManager.getFansToDisperse(agents, 'right');
+            expect(rightFans).toHaveLength(1);
+            expect(rightFans).toContain(fan2);
+        });
+
+        test('should return empty array when no matching fans', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            fan.type = 'fan';
+            fan.currentShow = 'left';
+            
+            const agents = [fan];
+            
+            const rightFans = eventManager.getFansToDisperse(agents, 'right');
+            expect(rightFans).toHaveLength(0);
+        });
+    });
+
+    describe('disperseFans', () => {
+        test('should disperse fans to center position', () => {
+            const fan1 = new Fan(100, 100, mockConfig);
+            const fan2 = new Fan(200, 200, mockConfig);
+            
+            fan1.hasSeenShow = false;
+            fan1.currentShow = 'left';
+            fan1.isUpFront = true;
+            
+            fan2.hasSeenShow = false;
+            fan2.currentShow = 'right';
+            fan2.isUpFront = false;
+            
+            const fans = [fan1, fan2];
+            eventManager.disperseFans(fans);
+            
+            // Both fans should be dispersed
+            expect(fan1.hasSeenShow).toBe(true);
+            expect(fan1.currentShow).toBeNull();
+            expect(fan1.isUpFront).toBe(false);
+            expect(fan1.targetX).toBe(eventManager.width / 2);
+            expect(fan1.targetY).toBe(eventManager.height * 0.35);
+            
+            expect(fan2.hasSeenShow).toBe(true);
+            expect(fan2.currentShow).toBeNull();
+            expect(fan2.isUpFront).toBe(false);
+            expect(fan2.targetX).toBe(eventManager.width / 2);
+            expect(fan2.targetY).toBe(eventManager.height * 0.35);
+        });
+    });
 });

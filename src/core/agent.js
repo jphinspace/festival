@@ -29,6 +29,15 @@ export class Agent {
     }
 
     /**
+     * Get personal space buffer based on agent's current state
+     * @returns {number} Personal space buffer to use
+     */
+    getPersonalSpaceBuffer() {
+        return StateChecks.shouldUsePersonalSpaceBuffer(this.state) ? 
+            this.config.PERSONAL_SPACE : 0
+    }
+
+    /**
      * Set movement target for the agent
      * @param {number} x - Target X position
      * @param {number} y - Target Y position
@@ -44,8 +53,7 @@ export class Agent {
         
         if (needsPathfinding) {
             // Calculate static waypoints using pathfinding module
-            const personalSpaceBuffer = StateChecks.shouldUsePersonalSpaceBuffer(this.state) ? 
-                this.config.PERSONAL_SPACE : 0
+            const personalSpaceBuffer = this.getPersonalSpaceBuffer()
             
             this.staticWaypoints = Pathfinding.calculateStaticWaypoints(
                 this.x, this.y, x, y, obstacles, this.radius, personalSpaceBuffer, this.config
@@ -182,8 +190,7 @@ export class Agent {
         const perpY = perp.y
         
         // Use personal space buffer for food stalls when approaching_queue or moving
-        const personalSpaceBuffer = StateChecks.shouldUsePersonalSpaceBuffer(this.state) ? 
-            this.config.PERSONAL_SPACE : 0
+        const personalSpaceBuffer = this.getPersonalSpaceBuffer()
         
         // Try multiple avoidance strategies in order of preference
         const strategies = [
@@ -268,8 +275,7 @@ export class Agent {
         // Allow movement for moving, in_queue_advancing, approaching_queue, and returning_to_queue states
         // Note: in_queue_waiting, processing, and idle are stationary states
         if (StateChecks.canMove(this.state) && this.targetX !== null) {
-            const personalSpaceBuffer = StateChecks.shouldUsePersonalSpaceBuffer(this.state) ? 
-                this.config.PERSONAL_SPACE : 0
+            const personalSpaceBuffer = this.getPersonalSpaceBuffer()
             const waypointReachDistance = this.config.WAYPOINT_REACH_DISTANCE || 10
             
             // Determine next static waypoint or final target
