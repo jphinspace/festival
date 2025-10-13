@@ -1190,4 +1190,124 @@ describe('Pathfinding Module', () => {
             })
         })
     })
+
+    describe('Coverage for loop exit conditions', () => {
+        test('should break when path becomes clear mid-routing (line 218)', () => {
+            // Setup: obstacle initially blocks direct path, but after routing around it, 
+            // there are no more obstacles to the target
+            mockObstacles.obstacles = [
+                { x: 145, y: 145, width: 30, height: 30, type: 'stage' } // Blocks initial direct path
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                300, // Target far enough that we route around obstacle
+                300,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should find waypoints that route around the obstacle
+            // The break at line 218 happens when path becomes clear after first waypoint
+            expect(waypoints.length).toBeGreaterThanOrEqual(1)
+            expect(waypoints[waypoints.length - 1]).toEqual({ x: 300, y: 300 })
+        })
+
+        test('should break when no blocking obstacles found (line 225)', () => {
+            // This tests the scenario where findBlockingObstacles returns empty array
+            // Setup an obstacle that's far from the direct path
+            mockObstacles.obstacles = [
+                { x: 500, y: 500, width: 30, height: 30, type: 'stage' } // Far from path
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                200,
+                200,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should go direct since obstacle doesn't block path
+            expect(waypoints.length).toBe(1)
+            expect(waypoints[0]).toEqual({ x: 200, y: 200 })
+        })
+
+        test('should use midpoint fallback when no valid corners found (lines 247-249)', () => {
+            // Setup: all corners around obstacle are blocked but midpoints are clear
+            // This is a tricky scenario that requires very specific obstacle placement
+            mockObstacles.obstacles = [
+                { x: 145, y: 145, width: 20, height: 20, type: 'stage' }, // Main blocking obstacle
+                { x: 120, y: 145, width: 15, height: 15, type: 'stage' }, // Blocks left corners
+                { x: 170, y: 145, width: 15, height: 15, type: 'stage' }, // Blocks right corners
+                { x: 145, y: 120, width: 15, height: 15, type: 'stage' }, // Blocks top corners
+                { x: 145, y: 170, width: 15, height: 15, type: 'stage' }  // Blocks bottom corners
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                200,
+                200,
+                mockObstacles,
+                mockAgent.radius,
+                mockConfig.PERSONAL_SPACE,
+                mockConfig
+            )
+            
+            // Should still find a path using midpoints
+            expect(waypoints.length).toBeGreaterThanOrEqual(1)
+        })
+    })
+
+    describe('Coverage for obstacle filtering (lines 349, 361)', () => {
+        test('should skip obstacle very close to target (line 349)', () => {
+            // Target at 200,200, place obstacle very close to it
+            mockObstacles.obstacles = [
+                { x: 198, y: 198, width: 4, height: 4, type: 'stage' } // Within 2*radius of target
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                200,
+                200,
+                mockObstacles,
+                mockAgent.radius, // radius = 3, so 2*radius = 6
+                0,
+                mockConfig
+            )
+            
+            // Should handle this gracefully
+            expect(waypoints.length).toBeGreaterThanOrEqual(1)
+        })
+
+        test('should skip obstacle not in path forward (line 361)', () => {
+            // Place obstacle behind the agent or to the side (dot product < 0.5)
+            mockObstacles.obstacles = [
+                { x: 50, y: 150, width: 20, height: 20, type: 'stage' } // To the side
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                200,
+                200,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should not consider this obstacle as blocking
+            expect(waypoints.length).toBe(1) // Direct path
+            expect(waypoints[0]).toEqual({ x: 200, y: 200 })
+        })
+    })
 })

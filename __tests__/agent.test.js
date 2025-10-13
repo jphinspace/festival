@@ -1060,4 +1060,26 @@ describe('Fan', () => {
         })
     })
 
+    describe('Coverage for final destination reaching (line 316)', () => {
+        test('should reach final destination when no waypoints remain', () => {
+            const agent = new Agent(100, 100, mockConfig)
+            agent.state = 'moving'
+            
+            // Set a very close target with no waypoints
+            agent.targetX = 105
+            agent.targetY = 105
+            agent.staticWaypoints = []
+            
+            // Update - should move to target and reach it
+            agent.update(16, 1, [], mockObstacles)
+            
+            // Should have reached target
+            expect(agent.x).toBe(105)
+            expect(agent.y).toBe(105)
+            expect(agent.targetX).toBeNull()
+            expect(agent.targetY).toBeNull()
+            expect(agent.state).toBe('idle')
+        })
+    })
+
 });

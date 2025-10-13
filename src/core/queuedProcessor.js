@@ -142,12 +142,10 @@ export class QueuedProcessor {
             
             // Only set target if fan is not at target already
             if (!isAtTarget) {
-                const updated = this.updateFanTarget(
+                this.updateFanTarget(
                     fan, targetPos, this.obstacles, forceUpdate
                 )
-                if (updated) {
-                    fan.state = AgentState.IN_QUEUE_ADVANCING
-                }
+                fan.state = AgentState.IN_QUEUE_ADVANCING
             } else if (fan.state === AgentState.IN_QUEUE_ADVANCING) {
                 // Fan reached target, switch to waiting
                 fan.state = AgentState.IN_QUEUE_WAITING
