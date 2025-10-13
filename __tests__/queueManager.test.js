@@ -685,6 +685,28 @@ describe('QueueManager Helper Methods', () => {
             
             expect(fan.state).toBe('in_queue_waiting');
         });
+
+        test('should set fan to advancing when updateFanTarget succeeds', () => {
+            // Test for line 62 - if (updated) branch
+            const fan = new Fan(100, 100, mockConfig);
+            fan.state = 'in_queue_waiting';
+            fan.x = 50;  // Far from target
+            fan.y = 50;
+            const queue = [fan];
+            const getTargetPosition = (index) => ({ x: 200, y: 200 });  // Different target
+            const frontPosition = { x: 200, y: 200 };
+            
+            const obstacles = {
+                checkCollision: jest.fn(() => false),
+                resolveCollision: jest.fn()
+            };
+            
+            // updateFanTarget should succeed since fan is far from target
+            QueueManager.updatePositions(queue, [], getTargetPosition, frontPosition, obstacles, false);
+            
+            // Fan should be set to advancing state
+            expect(fan.state).toBe('in_queue_advancing');
+        });
     });
 
     describe('findApproachingPosition with undefined queuePosition check', () => {
