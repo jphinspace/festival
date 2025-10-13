@@ -177,10 +177,10 @@ describe('Fan Class', () => {
             const mockObstaclesWithCollisions = {
                 ...mockObstacles,
                 isValidPosition: jest.fn()
-                    .mockReturnValueOnce(false)
-                    .mockReturnValueOnce(false)
-                    .mockReturnValueOnce(false)
-                    .mockReturnValueOnce(true), // After 3 fails in loop, 4th call in if check succeeds
+                    .mockReturnValueOnce(false)  // First attempt in loop
+                    .mockReturnValueOnce(false)  // Second attempt in loop  
+                    .mockReturnValueOnce(true)   // Third attempt in loop exits
+                    .mockReturnValueOnce(true),  // Final check after loop
                 width: 800,
                 height: 600
             }

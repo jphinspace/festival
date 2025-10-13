@@ -2,6 +2,7 @@
 import { EventManager } from '../src/managers/eventManager.js';
 import { Fan } from '../src/core/fan.js';
 import { AgentState } from '../src/utils/enums.js';
+import { jest } from '@jest/globals';
 
 const mockConfig = {
     BUS_ATTENDEE_COUNT: 50,

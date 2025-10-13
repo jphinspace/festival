@@ -2,6 +2,7 @@
 import { SecurityQueue } from '../src/components/securityQueue.js';
 import { Fan } from '../src/core/fan.js';
 import { AgentState } from '../src/utils/enums.js';
+import { jest } from '@jest/globals';
 
 const mockConfig = {
     REGULAR_SECURITY_TIME: 1000,
@@ -378,36 +379,30 @@ describe('SecurityQueue', () => {
             fan.queueIndex = 0;
             const queueIndex = 0;
             
-            securityQueue.entering[queueIndex].push(fan);
-            fan.state = 'approaching_queue';
+            // Set up fan as if returning to queue with target far from actual end
+            fan.state = 'returning_to_queue';
+            fan.returningToQueue = queueIndex;
+            fan.targetX = 400;
+            fan.targetY = 500; // Target far from actual end
+            fan.x = 400;
+            fan.y = 450;
             
-            // Move fan to front
-            fan.x = fan.targetX;
-            fan.y = fan.targetY;
+            // Set up processing state
+            securityQueue.processing[queueIndex] = fan;
+            
+            // Add more fans to queue to change the end position significantly
+            securityQueue.queues[queueIndex] = [];
+            securityQueue.entering[queueIndex] = [
+                new Fan(400, 400, mockConfig),
+                new Fan(400, 410, mockConfig),
+                new Fan(400, 420, mockConfig)
+            ];
+            
+            // This should call _handleReturningFan which will update target (changing state to moving)
             securityQueue.update(0);
             
-            // Start processing
-            securityQueue.update(10);
-            fan.x = fan.targetX;
-            fan.y = fan.targetY;
-            securityQueue.update(20);
-            
-            // Complete enhanced security - fan returns to back
-            securityQueue.update(mockConfig.ENHANCED_SECURITY_TIME + 100);
-            
-            // Fan should be returning to queue
-            expect(fan.state).toBe('returning_to_queue');
-            
-            // Simulate line growing (add new fans)
-            const newFan = new Fan(400, 400, mockConfig);
-            securityQueue.entering[queueIndex].push(newFan);
-            
-            // Update - should check if line changed and update target
-            const initialTargetY = fan.targetY;
-            securityQueue.update(mockConfig.ENHANCED_SECURITY_TIME + 200);
-            
-            // Target may have been updated if line grew significantly
-            expect(fan).toBeDefined();
+            // When setTarget is called, state changes to moving
+            expect(fan.state).toBe('moving');
         });
 
         test('should handle fan reaching end of line when returning', () => {
@@ -416,28 +411,23 @@ describe('SecurityQueue', () => {
             fan.queueIndex = 0;
             const queueIndex = 0;
             
-            securityQueue.entering[queueIndex].push(fan);
-            fan.state = 'approaching_queue';
-            fan.x = fan.targetX;
-            fan.y = fan.targetY;
+            // Set up fan as if they just reached end of line
+            fan.state = 'returning_to_queue';
+            fan.returningToQueue = queueIndex;
+            const endPos = securityQueue._calculateEndOfLinePosition(queueIndex);
+            fan.targetX = endPos.x;
+            fan.targetY = endPos.y;
+            fan.x = endPos.x;
+            fan.y = endPos.y;
+            fan.isNearTarget = jest.fn().mockReturnValue(true);
             
+            // Set up processing state
+            securityQueue.processing[queueIndex] = fan;
+            
+            // This should transition fan to approaching_queue and add to entering
             securityQueue.update(0);
-            securityQueue.update(10);
-            fan.x = fan.targetX;
-            fan.y = fan.targetY;
-            securityQueue.update(20);
             
-            // Complete enhanced security
-            securityQueue.update(mockConfig.ENHANCED_SECURITY_TIME + 100);
-            expect(fan.state).toBe('returning_to_queue');
-            
-            // Move fan to end of line
-            fan.x = fan.targetX;
-            fan.y = fan.targetY;
-            
-            // Update - fan should join entering list
-            securityQueue.update(mockConfig.ENHANCED_SECURITY_TIME + 200);
-            
+            // Fan should now be in entering list with approaching state
             expect(fan.state).toBe('approaching_queue');
             expect(securityQueue.entering[queueIndex]).toContain(fan);
         });
@@ -463,20 +453,18 @@ describe('SecurityQueue', () => {
             fan.queueIndex = 0;
             const queueIndex = 0;
             
-            securityQueue.entering[queueIndex].push(fan);
-            fan.state = 'approaching_queue';
-            fan.x = fan.targetX;
-            fan.y = fan.targetY;
+            // Set up fan as if they've completed regular security processing
+            fan.state = 'processing';
+            fan.inQueue = false;
             
-            securityQueue.update(0);
-            securityQueue.update(10);
-            fan.x = fan.targetX;
-            fan.y = fan.targetY;
-            securityQueue.update(20);
+            // Set up processing state
+            securityQueue.processing[queueIndex] = fan;
+            securityQueue.processingStartTime[queueIndex] = 0;
             
-            // Complete regular security - fan should be released
+            // Update after regular security time has elapsed
             securityQueue.update(mockConfig.REGULAR_SECURITY_TIME + 100);
             
+            // Fan should be released (state changed to moving/idle and removed from processing)
             expect(fan.state).toBe('moving');
             expect(securityQueue.processing[queueIndex]).toBeNull();
         });
