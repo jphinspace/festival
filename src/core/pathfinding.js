@@ -115,6 +115,30 @@ function calculateCornerScore(corner, currentX, currentY, targetX, targetY) {
 }
 
 /**
+ * Check if a corner is valid for pathfinding
+ * @param {Object} corner - Corner position {x, y}
+ * @param {number} currentX - Current X position
+ * @param {number} currentY - Current Y position
+ * @param {Object} obstacles - Obstacles object
+ * @param {number} radius - Agent radius
+ * @param {number} personalSpaceBuffer - Personal space buffer
+ * @returns {Object} {valid: boolean, reason: string}
+ */
+export function isCornerValid(corner, currentX, currentY, obstacles, radius, personalSpaceBuffer) {
+    // Check if corner is inside an obstacle
+    if (isPointInsideObstacle(corner.x, corner.y, obstacles, radius, personalSpaceBuffer)) {
+        return { valid: false, reason: 'inside_obstacle' }
+    }
+    
+    // Check if we can reach this corner from current position
+    if (!isPathClear(currentX, currentY, corner.x, corner.y, obstacles, radius, personalSpaceBuffer)) {
+        return { valid: false, reason: 'path_blocked' }
+    }
+    
+    return { valid: true, reason: null }
+}
+
+/**
  * Find the best corner to route around an obstacle
  * @param {Array} corners - Array of corner positions
  * @param {number} currentX - Current X position
@@ -131,13 +155,9 @@ function findBestCorner(corners, currentX, currentY, targetX, targetY, obstacles
     let bestScore = Infinity
     
     for (const corner of corners) {
-        // Check if corner is valid (not inside obstacle)
-        if (isPointInsideObstacle(corner.x, corner.y, obstacles, radius, personalSpaceBuffer)) {
-            continue
-        }
-        
-        // Check if we can reach this corner from current position
-        if (!isPathClear(currentX, currentY, corner.x, corner.y, obstacles, radius, personalSpaceBuffer)) {
+        // Check if corner is valid using extracted validation function
+        const validation = isCornerValid(corner, currentX, currentY, obstacles, radius, personalSpaceBuffer)
+        if (!validation.valid) {
             continue
         }
         
@@ -194,14 +214,14 @@ function findPathAroundObstacles(startX, startY, targetX, targetY, obstacles, ra
     // Iteratively find waypoints around obstacles
     for (let iteration = 0; iteration < maxWaypoints - 1; iteration++) { // -1 because last waypoint is always target
         // Check if we can go straight to target now
-        if (isPathClear(currentX, currentY, targetX, targetY, obstacles, radius, personalSpaceBuffer)) {
+        if (canReachTargetDirectly(currentX, currentY, targetX, targetY, obstacles, radius, personalSpaceBuffer)) {
             break // Can reach target directly now
         }
         
         // Find blocking obstacles
         const blockingObstacles = findBlockingObstacles(currentX, currentY, targetX, targetY, obstacles, radius, personalSpaceBuffer)
         
-        if (blockingObstacles.length === 0) {
+        if (!hasBlockingObstacles(blockingObstacles)) {
             break // No obstacles in the way
         }
         
@@ -222,14 +242,11 @@ function findPathAroundObstacles(startX, startY, targetX, targetY, obstacles, ra
             // No valid corner found - try mid-points along obstacle edges
             const midPoints = getObstacleMidPoints(obstacle, totalBuffer)
             
-            for (const midPoint of midPoints) {
-                if (!isPointInsideObstacle(midPoint.x, midPoint.y, obstacles, radius, personalSpaceBuffer) &&
-                    isPathClear(currentX, currentY, midPoint.x, midPoint.y, obstacles, radius, personalSpaceBuffer)) {
-                    waypoints.push(midPoint)
-                    currentX = midPoint.x
-                    currentY = midPoint.y
-                    break
-                }
+            const validMidpoint = findValidMidpoint(midPoints, currentX, currentY, obstacles, radius, personalSpaceBuffer)
+            if (validMidpoint) {
+                waypoints.push(validMidpoint)
+                currentX = validMidpoint.x
+                currentY = validMidpoint.y
             }
             break // If still no waypoint, give up
         }
@@ -254,39 +271,7 @@ function findPathAroundObstacles(startX, startY, targetX, targetY, obstacles, ra
  * @returns {Object|null} Random point {x, y} or null if none found
  */
 function findRandomPointNearWaypoint(waypointX, waypointY, randomRadius, prevWaypoint, nextWaypoint, obstacles, radius, personalSpaceBuffer) {
-    if (randomRadius === 0) {
-        return { x: waypointX, y: waypointY } // No randomization for destination
-    }
-    
-    const maxAttempts = 50 // Limit attempts to avoid infinite loop
-    
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        // Generate random point within circle
-        const angle = Math.random() * Math.PI * 2
-        const distance = Math.random() * randomRadius
-        const randomX = waypointX + Math.cos(angle) * distance
-        const randomY = waypointY + Math.sin(angle) * distance
-        
-        // Check if point is inside obstacle
-        if (isPointInsideObstacle(randomX, randomY, obstacles, radius, personalSpaceBuffer)) {
-            continue
-        }
-        
-        // Check if path from previous waypoint to this point is clear
-        if (!isPathClear(prevWaypoint.x, prevWaypoint.y, randomX, randomY, obstacles, radius, personalSpaceBuffer)) {
-            continue
-        }
-        
-        // Check if path from this point to next waypoint is clear
-        if (!isPathClear(randomX, randomY, nextWaypoint.x, nextWaypoint.y, obstacles, radius, personalSpaceBuffer)) {
-            continue
-        }
-        
-        // Valid point found
-        return { x: randomX, y: randomY }
-    }
-    
-    // No valid random point found, return original waypoint
+    // No randomization - just return the original waypoint deterministically
     return { x: waypointX, y: waypointY }
 }
 
@@ -360,7 +345,7 @@ function findBlockingObstacles(startX, startY, targetX, targetY, obstacles, radi
                 continue // Target closer than obstacle - not blocking
             }
             
-            if (distToTarget < radius * 2) {
+            if (isVeryCloseToTarget(distToTarget, radius)) {
                 continue // Very close to target
             }
             
@@ -372,7 +357,7 @@ function findBlockingObstacles(startX, startY, targetX, targetY, obstacles, radi
             
             if (distToTarget > 0 && distToObs > 0) {
                 const dotProduct = (toObsX * toTargetX + toObsY * toTargetY) / (distToObs * distToTarget)
-                if (dotProduct < 0.5) {
+                if (!isObstacleInPathForward(dotProduct)) {
                     continue // Obstacle not in path forward
                 }
             }
@@ -472,6 +457,69 @@ function lineIntersectsLine(x1, y1, x2, y2, x3, y3, x4, y4) {
     const ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom
     
     return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1
+}
+
+/**
+ * Check if path to target is clear (extracted for testability)
+ * @param {number} currentX - Current X position
+ * @param {number} currentY - Current Y position
+ * @param {number} targetX - Target X position
+ * @param {number} targetY - Target Y position
+ * @param {Obstacles} obstacles - Obstacles manager
+ * @param {number} radius - Agent radius
+ * @param {number} buffer - Personal space buffer
+ * @returns {boolean} True if can reach target directly
+ */
+export function canReachTargetDirectly(currentX, currentY, targetX, targetY, obstacles, radius, buffer) {
+    return isPathClear(currentX, currentY, targetX, targetY, obstacles, radius, buffer)
+}
+
+/**
+ * Check if there are blocking obstacles (extracted for testability)
+ * @param {Array} blockingObstacles - Array of blocking obstacles
+ * @returns {boolean} True if there are blocking obstacles
+ */
+export function hasBlockingObstacles(blockingObstacles) {
+    return blockingObstacles.length > 0
+}
+
+/**
+ * Find valid midpoint for pathfinding (extracted for testability)
+ * @param {Array} midPoints - Array of potential midpoints
+ * @param {number} currentX - Current X position
+ * @param {number} currentY - Current Y position
+ * @param {Obstacles} obstacles - Obstacles manager
+ * @param {number} radius - Agent radius
+ * @param {number} buffer - Personal space buffer
+ * @returns {Object|null} Valid midpoint or null if none found
+ */
+export function findValidMidpoint(midPoints, currentX, currentY, obstacles, radius, buffer) {
+    for (const midPoint of midPoints) {
+        if (!isPointInsideObstacle(midPoint.x, midPoint.y, obstacles, radius, buffer) &&
+            isPathClear(currentX, currentY, midPoint.x, midPoint.y, obstacles, radius, buffer)) {
+            return midPoint
+        }
+    }
+    return null
+}
+
+/**
+ * Check if obstacle is very close to target (extracted for testability)
+ * @param {number} distToTarget - Distance to target
+ * @param {number} radius - Agent radius
+ * @returns {boolean} True if very close to target
+ */
+export function isVeryCloseToTarget(distToTarget, radius) {
+    return distToTarget < radius * 2
+}
+
+/**
+ * Check if obstacle is in path forward (extracted for testability)
+ * @param {number} dotProduct - Dot product of vectors
+ * @returns {boolean} True if obstacle is in path forward
+ */
+export function isObstacleInPathForward(dotProduct) {
+    return dotProduct >= 0.5
 }
 
 

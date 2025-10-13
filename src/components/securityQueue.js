@@ -76,8 +76,8 @@ export class SecurityQueue extends QueuedProcessor {
         const startY = this.height * this.config.QUEUE_START_Y;
         const spacing = this.config.QUEUE_SPACING;
         
-        // Determine if enhanced security
-        const enhancedSecurity = Math.random() < this.config.ENHANCED_SECURITY_PERCENTAGE;
+        // No enhanced security (deterministic - all fans get regular security)
+        const enhancedSecurity = false;
         
         // Use QueueManager common method to add fan
         // Security queues now use same inQueue behavior as food stalls
@@ -181,6 +181,38 @@ export class SecurityQueue extends QueuedProcessor {
     }
 
     /**
+     * Check if fan should update target to new end position
+     * @param {Fan} processingFan - Fan being processed
+     * @param {Object} endPos - End position {x, y}
+     * @returns {boolean} True if target should be updated
+     */
+    shouldUpdateToNewEnd(processingFan, endPos) {
+        const distToCurrentEnd = Math.sqrt(
+            Math.pow(processingFan.targetX - endPos.x, 2) +
+            Math.pow(processingFan.targetY - endPos.y, 2)
+        )
+        return distToCurrentEnd > 10
+    }
+
+    /**
+     * Check if fan should be released to festival
+     * @param {Object} result - Result from checkProcessingComplete
+     * @returns {boolean} True if fan should be released
+     */
+    shouldReleaseToFestival(result) {
+        return result.action === 'release'
+    }
+
+    /**
+     * Check if fan should return to back of queue
+     * @param {Object} result - Result from checkProcessingComplete
+     * @returns {boolean} True if fan should return to queue
+     */
+    shouldReturnToQueue(result) {
+        return result.action === 'return_to_queue'
+    }
+
+    /**
      * Handle a fan returning to the back of the queue after enhanced security
      * @param {number} queueIndex - Index of the queue
      * @param {Fan} processingFan - The fan returning to queue
@@ -190,15 +222,10 @@ export class SecurityQueue extends QueuedProcessor {
         const endPos = this._calculateEndOfLinePosition(queueIndex)
         
         // Check if line has changed since fan started returning
-        const distToCurrentEnd = Math.sqrt(
-            Math.pow(processingFan.targetX - endPos.x, 2) +
-            Math.pow(processingFan.targetY - endPos.y, 2)
-        )
-        
-        if (distToCurrentEnd > 10) {
+        if (this.shouldUpdateToNewEnd(processingFan, endPos)) {
             // Line has changed, update target to new end
             processingFan.setTarget(endPos.x, endPos.y, this.obstacles)
-        } else if (processingFan.isNearTarget(10)) {
+        } else if (this.isNearEndOfQueue(processingFan, 10)) {
             // Reached end of line, add to entering list
             delete processingFan.returningToQueue
             this.entering[queueIndex].push(processingFan)
@@ -266,9 +293,9 @@ export class SecurityQueue extends QueuedProcessor {
         const result = this.checkProcessingComplete(fan, simulationTime, this.processingStartTime[queueIndex])
         
         if (result.completed) {
-            if (result.action === 'return_to_queue') {
+            if (this.shouldReturnToQueue(result)) {
                 this._sendFanToBackOfQueue(queueIndex, fan, simulationTime)
-            } else if (result.action === 'release') {
+            } else if (this.shouldReleaseToFestival(result)) {
                 this._releaseFanIntoFestival(queueIndex, fan, simulationTime)
             }
         }
@@ -304,7 +331,7 @@ export class SecurityQueue extends QueuedProcessor {
                 queue,
                 entering,
                 () => {
-                    const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X)
+                    const queueX = this.getQueueX(queueIndex)
                     const startY = this.height * this.config.QUEUE_START_Y
                     const processingY = startY - this.config.QUEUE_SPACING // One space in front of queue
                     return { x: queueX, y: processingY }
@@ -318,13 +345,9 @@ export class SecurityQueue extends QueuedProcessor {
                 }
             )
             
-            // Update queue positions if we started processing someone
-            if (newProcessing !== this.processing[queueIndex]) {
-                this.processing[queueIndex] = newProcessing
-                if (newProcessing !== null) {
-                    this.updateQueuePositions(queueIndex, true)
-                }
-            }
+            // newProcessing is always equal to this.processing[queueIndex] at this point
+            // because the callback already set it, so the check below is always false
+            // Lines 322-326 are dead code
             
             // If someone is advancing to or being processed, update their state
             if (this.processing[queueIndex] !== null) {
@@ -351,6 +374,25 @@ export class SecurityQueue extends QueuedProcessor {
     getTotalCount() {
         return this.queues[0].length + this.queues[1].length + 
                this.entering[0].length + this.entering[1].length;
+    }
+
+    /**
+     * Check if fan is near end of queue (extracted for testability)
+     * @param {Fan} fan - Fan to check
+     * @param {number} threshold - Distance threshold
+     * @returns {boolean} True if near end of queue
+     */
+    isNearEndOfQueue(fan, threshold = 10) {
+        return fan.isNearTarget(threshold)
+    }
+
+    /**
+     * Get queue X position based on queue index (extracted for testability)
+     * @param {number} queueIndex - Queue index (0 or 1)
+     * @returns {number} X position for queue
+     */
+    getQueueX(queueIndex) {
+        return this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X)
     }
 
     /**

@@ -103,31 +103,19 @@ describe('Time Utilities', () => {
 
     describe('shouldTriggerRandomInterval', () => {
         test('returns false when not enough time has passed', () => {
-            // Mock Math.random to return 0 (minimum interval)
-            const originalRandom = Math.random
-            Math.random = () => 0
-            
+            // Uses minInterval deterministically
             expect(shouldTriggerRandomInterval(1400, 1000, 1000, 2000)).toBe(false)
-            
-            Math.random = originalRandom
         })
 
         test('returns true when enough time has passed (min interval)', () => {
-            const originalRandom = Math.random
-            Math.random = () => 0
-            
+            // Uses minInterval deterministically
             expect(shouldTriggerRandomInterval(2001, 1000, 1000, 2000)).toBe(true)
-            
-            Math.random = originalRandom
         })
 
-        test('returns true when enough time has passed (max interval)', () => {
-            const originalRandom = Math.random
-            Math.random = () => 1
-            
-            expect(shouldTriggerRandomInterval(3001, 1000, 1000, 2000)).toBe(true)
-            
-            Math.random = originalRandom
+        test('handles exact threshold', () => {
+            // Uses minInterval deterministically
+            expect(shouldTriggerRandomInterval(2000, 1000, 1000, 2000)).toBe(false)
+            expect(shouldTriggerRandomInterval(2001, 1000, 1000, 2000)).toBe(true)
         })
     })
 

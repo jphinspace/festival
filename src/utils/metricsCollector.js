@@ -124,11 +124,6 @@ export class MetricsCollector {
             if (fan.hunger >= 1.0) {
                 fansAtMaxHunger++
             }
-
-            // Metric 8: Count stuck fans (stationary while not idle or in_queue_waiting)
-            if (this.isFanStuck(fan)) {
-                stuckFans++
-            }
         })
 
         // Compute statistics

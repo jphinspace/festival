@@ -170,7 +170,7 @@ The project uses a flat structure for simplicity. All source files are in the ro
 - Jest with jsdom environment
 - Test files in `__tests__/` directory
 - Naming: `[component].test.js`
-- 70% coverage threshold (branches, functions, lines, statements)
+- Coverage thresholds: 100% branches (MANDATORY), 70% functions, 80% lines, 80% statements
 
 ### Test Patterns
 - Mock canvas context with jest.fn()

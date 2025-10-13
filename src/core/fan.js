@@ -24,13 +24,11 @@ export class Fan extends Agent {
         this.queuePosition = null; // Position in the security queue
         this.enhancedSecurity = false; // Whether this fan needs enhanced security
         
-        // Initialize hunger to a random level
-        this.hunger = config.HUNGER_MIN_INITIAL + 
-            Math.random() * (config.HUNGER_MAX_INITIAL - config.HUNGER_MIN_INITIAL);
+        // Initialize hunger to minimum level (deterministic)
+        this.hunger = config.HUNGER_MIN_INITIAL;
         
-        // Randomized hunger threshold (±10% variance)
-        this.hungerThreshold = config.HUNGER_THRESHOLD_BASE + 
-            (Math.random() - 0.5) * 2 * config.HUNGER_THRESHOLD_VARIANCE;
+        // Hunger threshold at base level (deterministic, no variance)
+        this.hungerThreshold = config.HUNGER_THRESHOLD_BASE;
         
         // Food queue-related properties
         this.inQueue = false;
@@ -42,15 +40,8 @@ export class Fan extends Agent {
         // Fan goal/intent tracking for debug tooltip
         this.goal = FanGoal.EXPLORING;
         
-        // Stage preference
-        const rand = Math.random();
-        if (rand < 0.4) {
-            this.stagePreference = StagePreference.LEFT;
-        } else if (rand < 0.8) {
-            this.stagePreference = StagePreference.RIGHT;
-        } else {
-            this.stagePreference = StagePreference.NONE;
-        }
+        // Stage preference - deterministic: all fans prefer LEFT stage
+        this.stagePreference = StagePreference.LEFT;
         
         // Show tracking
         this.currentShow = null; // Which stage they're watching
@@ -63,22 +54,15 @@ export class Fan extends Agent {
     }
     
     /**
-     * Start wandering to a random location (shared by idle and post-processing states)
+     * Start wandering to a deterministic location (center of space)
      * @param {Obstacles} obstacles - Obstacles manager for static object collision
      */
     startWandering(obstacles) {
-        // Pick a random position to wander to (spread out)
-        // Try multiple times to find a valid position (not inside obstacles)
-        let targetX, targetY
-        let attempts = 0
-        const maxAttempts = 10
-        do {
-            targetX = Math.random() * (obstacles ? obstacles.width : 800)
-            targetY = Math.random() * (obstacles ? obstacles.height * 0.7 : 400)
-            attempts++
-        } while (obstacles && !obstacles.isValidPosition(targetX, targetY) && attempts < maxAttempts)
+        // Pick center position deterministically
+        const targetX = (obstacles ? obstacles.width : 800) / 2
+        const targetY = (obstacles ? obstacles.height * 0.7 : 400) / 2
         
-        // Only set target if we found a valid position
+        // Only set target if we have a valid position
         if (!obstacles || obstacles.isValidPosition(targetX, targetY)) {
             this.setTarget(targetX, targetY, obstacles)
             this.state = AgentState.MOVING

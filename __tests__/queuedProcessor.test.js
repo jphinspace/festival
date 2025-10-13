@@ -416,6 +416,24 @@ describe('QueuedProcessor Base Class', () => {
             expect(fan1.setTarget).toHaveBeenCalled()
         })
 
+        test('should set advancing state with real Fan when update succeeds - line 148', () => {
+            // Test line 148 - if (updated) branch using real Fan object
+            const processor = new TestQueuedProcessor(800, 600, mockConfig)
+            
+            const fan1 = new Fan(100, 100, mockConfig)
+            fan1.state = AgentState.IN_QUEUE_WAITING
+            fan1.x = 100  // Far from queue position
+            fan1.y = 100
+            
+            processor.queue = [fan1]
+            processor.setObstacles(mockObstacles)
+            
+            processor.updateQueuePositionsWrapper(false)
+            
+            // State should change to advancing when updateFanTarget succeeds
+            expect(fan1.state).toBe('in_queue_advancing')
+        })
+
         test('should not change state when advancing but not at target', () => {
             // Test line 151 - fan.state === AgentState.IN_QUEUE_ADVANCING && isAtTarget (second part false)
             const processor = new TestQueuedProcessor(800, 600, mockConfig)

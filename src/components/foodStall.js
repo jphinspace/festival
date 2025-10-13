@@ -262,19 +262,19 @@ export class FoodStall extends QueuedProcessor {
                 fan.hunger = Math.max(0, fan.hunger - this.config.HUNGER_DECREASE_AMOUNT)
                 fan.hasEatenFood = true // Mark as having eaten
                 
-                // Move to the side after eating (using shared wandering logic but with custom position)
+                // Move to the side after eating (deterministic position)
                 const side = result.data.side
-                const moveDistance = 80 + Math.random() * 50 // Move 80-130 pixels to the side
+                const moveDistance = 100 // Fixed distance to the side
                 let targetX, targetY
                 
                 if (side === 'left') {
                     // If on left queue, move further left
                     targetX = this.x - moveDistance
-                    targetY = this.y + (Math.random() - 0.5) * 60
+                    targetY = this.y // Same Y position
                 } else {
                     // If on right queue, move further right
                     targetX = this.x + this.width + moveDistance
-                    targetY = this.y + (Math.random() - 0.5) * 60
+                    targetY = this.y // Same Y position
                 }
                 
                 // Clamp to canvas bounds

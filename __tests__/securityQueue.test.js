@@ -707,5 +707,186 @@ describe('SecurityQueue', () => {
             expect(securityQueue.entering[0]).toContain(fan);
             expect(fan.state).toBe(AgentState.APPROACHING_QUEUE);
         });
-    })
+    });
+
+    describe('Integration test for processing transition - lines 323-325', () => {
+        test('should trigger processing transition and updateQueuePositions', () => {
+            // Create a fan in the queue, ready to be processed
+            const fan = new Fan(360, 424, mockConfig);
+            fan.state = AgentState.IN_QUEUE_WAITING;
+            fan.inQueue = true;
+            
+            // Position fan at front of queue, at the exact queue position
+            const queueX = 800 * mockConfig.QUEUE_LEFT_X;
+            const queueY = 600 * mockConfig.QUEUE_START_Y;
+            fan.x = queueX;
+            fan.y = queueY - 5; // Just behind processing position
+            fan.targetX = queueX;
+            fan.targetY = queueY;
+            
+            // Add to queue
+            securityQueue.queues[0] = [fan];
+            securityQueue.processing[0] = null; // No one processing yet
+            
+            // First update - fan should not start processing yet (too far)
+            securityQueue.update(100);
+            
+            // Move fan closer to processing position
+            fan.y = queueY + 3; // Right at processing area
+            
+            // Second update - fan should start processing now
+            securityQueue.update(200);
+            
+            // Verify fan is now being processed
+            // This should hit lines 323-325 where newProcessing !== null
+            expect(securityQueue.processing[0]).toBeTruthy();
+        });
+    });
+
+    describe('Helper methods for state transitions', () => {
+        test('shouldUpdateToNewEnd returns true when distance > 10', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            fan.targetX = 100;
+            fan.targetY = 100;
+            
+            const endPos = { x: 100, y: 115 }; // 15 pixels away
+            
+            expect(securityQueue.shouldUpdateToNewEnd(fan, endPos)).toBe(true);
+        });
+
+        test('shouldUpdateToNewEnd returns false when distance <= 10', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            fan.targetX = 100;
+            fan.targetY = 100;
+            
+            const endPos = { x: 100, y: 108 }; // 8 pixels away
+            
+            expect(securityQueue.shouldUpdateToNewEnd(fan, endPos)).toBe(false);
+        });
+
+        test('shouldReleaseToFestival returns true for release action', () => {
+            const result = { completed: true, action: 'release' };
+            expect(securityQueue.shouldReleaseToFestival(result)).toBe(true);
+        });
+
+        test('shouldReleaseToFestival returns false for other actions', () => {
+            const result = { completed: true, action: 'return_to_queue' };
+            expect(securityQueue.shouldReleaseToFestival(result)).toBe(false);
+        });
+
+        test('shouldReturnToQueue returns true for return_to_queue action', () => {
+            const result = { completed: true, action: 'return_to_queue' };
+            expect(securityQueue.shouldReturnToQueue(result)).toBe(true);
+        });
+
+        test('shouldReturnToQueue returns false for other actions', () => {
+            const result = { completed: true, action: 'release' };
+            expect(securityQueue.shouldReturnToQueue(result)).toBe(false);
+        });
+    });
+
+    describe('Additional helper methods', () => {
+        test('isNearEndOfQueue returns true when fan is near target', () => {
+            const fan = new Fan(400, 300, mockConfig);
+            fan.targetX = 405;
+            fan.targetY = 305;
+            fan.x = 405;
+            fan.y = 305;
+            
+            expect(securityQueue.isNearEndOfQueue(fan, 10)).toBe(true);
+        });
+
+        test('isNearEndOfQueue returns false when fan is far from target', () => {
+            const fan = new Fan(400, 300, mockConfig);
+            fan.targetX = 450;
+            fan.targetY = 350;
+            fan.x = 400;
+            fan.y = 300;
+            
+            expect(securityQueue.isNearEndOfQueue(fan, 10)).toBe(false);
+        });
+
+        test('getQueueX returns left queue X for index 0', () => {
+            const queueX = securityQueue.getQueueX(0);
+            expect(queueX).toBe(800 * mockConfig.QUEUE_LEFT_X);
+        });
+
+        test('getQueueX returns right queue X for index 1', () => {
+            const queueX = securityQueue.getQueueX(1);
+            expect(queueX).toBe(800 * mockConfig.QUEUE_RIGHT_X);
+        });
+    });
+
+    describe('Branch coverage for _handleReturningFan line 228', () => {
+        test('should hit else branch when fan is near end of queue', () => {
+            const fan = new Fan(400, 300, mockConfig);
+            const queueIndex = 0;
+            
+            // Set up fan as returning to queue
+            fan.returningToQueue = true;
+            fan.state = 'processing';
+            fan.inQueue = false;
+            
+            // Position fan at end of queue - make sure it's really close to target
+            const endPos = securityQueue._calculateEndOfLinePosition(queueIndex);
+            fan.x = endPos.x;
+            fan.y = endPos.y;
+            fan.targetX = endPos.x;
+            fan.targetY = endPos.y;
+            
+            securityQueue.processing[queueIndex] = fan;
+            securityQueue.processingStartTime[queueIndex] = 0;
+            
+            // This should hit the else branch on line 228
+            securityQueue._handleReturningFan(queueIndex, fan, 1000);
+            
+            // Verify the else branch was executed
+            expect(fan.returningToQueue).toBeUndefined();
+            expect(securityQueue.entering[queueIndex]).toContain(fan);
+            expect(fan.state).toBe('approaching_queue');
+            // inQueue might be set by other logic, just check it's defined
+            expect(fan.inQueue).toBeDefined();
+        });
+    });
+
+    describe('Branch coverage for _handleCompletedProcessing line 298', () => {
+        test('should hit else-if branch for release to festival', () => {
+            const fan = new Fan(400, 300, mockConfig);
+            const queueIndex = 0;
+            
+            fan.state = 'processing';
+            fan.enhancedSecurity = false;
+            fan.inQueue = true;
+            
+            securityQueue.processing[queueIndex] = fan;
+            securityQueue.processingStartTime[queueIndex] = 0;
+            
+            // Wait for regular security time to complete
+            const completionTime = mockConfig.REGULAR_SECURITY_TIME + 100;
+            
+            // This should hit the else-if branch on line 298 (release to festival)
+            securityQueue._handleCompletedProcessing(queueIndex, fan, completionTime);
+            
+            // Verify fan was released
+            expect(fan.state).toBe('moving');
+            expect(securityQueue.processing[queueIndex]).toBeNull();
+        });
+    });
+
+    describe('Branch coverage for isNearEndOfQueue line 385 implicit else', () => {
+        test('isNearEndOfQueue returns value from fan.isNearTarget', () => {
+            const fan = new Fan(400, 300, mockConfig);
+            
+            // Position fan far from target (implicit else path)
+            fan.x = 400;
+            fan.y = 300;
+            fan.targetX = 500;
+            fan.targetY = 400;
+            
+            // This exercises line 385-386 (return statement)
+            const result = securityQueue.isNearEndOfQueue(fan, 10);
+            
+            expect(typeof result).toBe('boolean');
+        });
+    });
 });

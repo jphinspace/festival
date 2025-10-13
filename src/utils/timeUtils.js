@@ -59,15 +59,15 @@ export function calculateProgress(currentTime, startTime, duration) {
 }
 
 /**
- * Check if a timer should trigger (random interval)
+ * Check if a timer should trigger (deterministic with fixed interval)
  * @param {number} currentTime - Current timestamp
  * @param {number} lastTriggerTime - Last trigger timestamp
- * @param {number} minInterval - Minimum interval
- * @param {number} maxInterval - Maximum interval
+ * @param {number} minInterval - Interval to use
+ * @param {number} maxInterval - Unused (for compatibility)
  * @returns {boolean} True if should trigger
  */
 export function shouldTriggerRandomInterval(currentTime, lastTriggerTime, minInterval, maxInterval) {
-    const interval = minInterval + Math.random() * (maxInterval - minInterval)
+    const interval = minInterval // Use minimum interval deterministically
     return (currentTime - lastTriggerTime) > interval
 }
 

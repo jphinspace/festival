@@ -62,10 +62,9 @@ describe('Fan Class', () => {
         expect(fan.inQueue).toBe(false)
     })
 
-    test('should initialize hunger to random value within range', () => {
+    test('should initialize hunger to minimum value deterministically', () => {
         const hungryFan = new Fan(100, 100, mockConfig)
-        expect(hungryFan.hunger).toBeGreaterThanOrEqual(mockConfig.HUNGER_MIN_INITIAL)
-        expect(hungryFan.hunger).toBeLessThanOrEqual(mockConfig.HUNGER_MAX_INITIAL)
+        expect(hungryFan.hunger).toBe(mockConfig.HUNGER_MIN_INITIAL)
     })
 
     describe('update', () => {
@@ -133,11 +132,33 @@ describe('Fan Class', () => {
             fan.state = AgentState.IDLE
             fan.targetX = null
             fan.targetY = null
+            fan.currentShow = null
+            fan.inQueue = false
 
             fan.update(0.1, 1.0, [], mockObstacles)
 
             // Should start wandering immediately
             expect(fan.state).toBe('moving')
+            expect(fan.targetX).not.toBeNull()
+            expect(fan.targetY).not.toBeNull()
+        })
+
+        test('should not wander when fan already has a target', () => {
+            // Test the false branch of line 98 - when targets are NOT null
+            fan.state = AgentState.IDLE
+            fan.targetX = 200  // Has a target
+            fan.targetY = 200
+            fan.currentShow = null
+            fan.inQueue = false
+
+            const initialTargetX = fan.targetX
+            const initialTargetY = fan.targetY
+
+            fan.update(0.1, 1.0, [], mockObstacles)
+
+            // Should keep existing target, not set new wander target
+            expect(fan.targetX).toBe(initialTargetX)
+            expect(fan.targetY).toBe(initialTargetY)
         })
     })
 
@@ -173,42 +194,28 @@ describe('Fan Class', () => {
             expect(fan.targetY).toBeLessThanOrEqual(mockObstacles.height * 0.7)
         })
 
-        test('should retry finding valid position when obstacles block initial choice', () => {
-            const mockObstaclesWithCollisions = {
-                ...mockObstacles,
-                isValidPosition: jest.fn()
-                    .mockReturnValueOnce(false)  // First attempt in loop
-                    .mockReturnValueOnce(false)  // Second attempt in loop  
-                    .mockReturnValueOnce(true)   // Third attempt in loop exits
-                    .mockReturnValueOnce(true),  // Final check after loop
-                width: 800,
-                height: 600
-            }
+        test('should use center position deterministically', () => {
+            fan.startWandering(mockObstacles)
 
-            fan.startWandering(mockObstaclesWithCollisions, 1000)
-
-            // Should retry until finding valid position
-            expect(mockObstaclesWithCollisions.isValidPosition.mock.calls.length).toBeGreaterThanOrEqual(4)
+            // Should target center position
+            expect(fan.targetX).toBe(mockObstacles.width / 2)
+            expect(fan.targetY).toBe((mockObstacles.height * 0.7) / 2)
             expect(fan.state).toBe(AgentState.MOVING)
         })
 
-        test('should not set target when no valid position found after max attempts', () => {
-            const mockObstaclesWithAllCollisions = {
+        test('should not set target when position is invalid', () => {
+            const mockObstaclesWithCollisions = {
                 ...mockObstacles,
                 isValidPosition: jest.fn().mockReturnValue(false),
                 width: 800,
                 height: 600
             }
 
-            const initialX = fan.targetX
-            const initialY = fan.targetY
             const initialState = fan.state
 
-            fan.startWandering(mockObstaclesWithAllCollisions, 1000)
+            fan.startWandering(mockObstaclesWithCollisions)
 
-            // Should have tried 10 times
-            expect(mockObstaclesWithAllCollisions.isValidPosition.mock.calls.length).toBeGreaterThanOrEqual(10)
-            // State should not change since no valid position found
+            // Should not change state since position is invalid
             expect(fan.state).toBe(initialState)
         })
 

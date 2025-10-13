@@ -58,10 +58,8 @@ export class QueueManager {
             
             // Only set target if fan is not at target already
             if (!isAtTarget) {
-                const updated = this.updateFanTarget(fan, targetPos, obstacles, forceUpdate);
-                if (updated) {
-                    fan.state = AgentState.IN_QUEUE_ADVANCING;
-                }
+                this.updateFanTarget(fan, targetPos, obstacles, forceUpdate);
+                fan.state = AgentState.IN_QUEUE_ADVANCING;
             } else if (fan.state === AgentState.IN_QUEUE_ADVANCING) {
                 // Fan reached their position, now waiting
                 fan.state = AgentState.IN_QUEUE_WAITING;
