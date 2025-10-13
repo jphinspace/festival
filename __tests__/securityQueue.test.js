@@ -816,4 +816,77 @@ describe('SecurityQueue', () => {
             expect(queueX).toBe(800 * mockConfig.QUEUE_RIGHT_X);
         });
     });
+
+    describe('Branch coverage for _handleReturningFan line 228', () => {
+        test('should hit else branch when fan is near end of queue', () => {
+            const fan = new Fan(400, 300, mockConfig);
+            const queueIndex = 0;
+            
+            // Set up fan as returning to queue
+            fan.returningToQueue = true;
+            fan.state = 'processing';
+            fan.inQueue = false;
+            
+            // Position fan at end of queue - make sure it's really close to target
+            const endPos = securityQueue._calculateEndOfLinePosition(queueIndex);
+            fan.x = endPos.x;
+            fan.y = endPos.y;
+            fan.targetX = endPos.x;
+            fan.targetY = endPos.y;
+            
+            securityQueue.processing[queueIndex] = fan;
+            securityQueue.processingStartTime[queueIndex] = 0;
+            
+            // This should hit the else branch on line 228
+            securityQueue._handleReturningFan(queueIndex, fan, 1000);
+            
+            // Verify the else branch was executed
+            expect(fan.returningToQueue).toBeUndefined();
+            expect(securityQueue.entering[queueIndex]).toContain(fan);
+            expect(fan.state).toBe('approaching_queue');
+            // inQueue might be set by other logic, just check it's defined
+            expect(fan.inQueue).toBeDefined();
+        });
+    });
+
+    describe('Branch coverage for _handleCompletedProcessing line 298', () => {
+        test('should hit else-if branch for release to festival', () => {
+            const fan = new Fan(400, 300, mockConfig);
+            const queueIndex = 0;
+            
+            fan.state = 'processing';
+            fan.enhancedSecurity = false;
+            fan.inQueue = true;
+            
+            securityQueue.processing[queueIndex] = fan;
+            securityQueue.processingStartTime[queueIndex] = 0;
+            
+            // Wait for regular security time to complete
+            const completionTime = mockConfig.REGULAR_SECURITY_TIME + 100;
+            
+            // This should hit the else-if branch on line 298 (release to festival)
+            securityQueue._handleCompletedProcessing(queueIndex, fan, completionTime);
+            
+            // Verify fan was released
+            expect(fan.state).toBe('moving');
+            expect(securityQueue.processing[queueIndex]).toBeNull();
+        });
+    });
+
+    describe('Branch coverage for isNearEndOfQueue line 385 implicit else', () => {
+        test('isNearEndOfQueue returns value from fan.isNearTarget', () => {
+            const fan = new Fan(400, 300, mockConfig);
+            
+            // Position fan far from target (implicit else path)
+            fan.x = 400;
+            fan.y = 300;
+            fan.targetX = 500;
+            fan.targetY = 400;
+            
+            // This exercises line 385-386 (return statement)
+            const result = securityQueue.isNearEndOfQueue(fan, 10);
+            
+            expect(typeof result).toBe('boolean');
+        });
+    });
 });

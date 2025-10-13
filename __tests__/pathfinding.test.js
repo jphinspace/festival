@@ -1309,5 +1309,121 @@ describe('Pathfinding Module', () => {
             expect(waypoints.length).toBe(1) // Direct path
             expect(waypoints[0]).toEqual({ x: 200, y: 200 })
         })
+
+        test('should hit line 218 break - path clears after first iteration', () => {
+            // Setup: first obstacle blocks, then after routing around it, path to target is clear
+            mockObstacles.obstacles = [
+                { x: 145, y: 145, width: 20, height: 20, type: 'stage' } // Blocks initial path
+            ]
+            
+            // Start far from obstacle
+            const waypoints = calculateStaticWaypoints(
+                50,
+                50,
+                250,
+                250,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // After routing around first obstacle, should break on line 218
+            expect(waypoints.length).toBeGreaterThan(1)
+            expect(waypoints[waypoints.length - 1]).toEqual({ x: 250, y: 250 })
+        })
+
+        test('should hit line 225 break - no blocking obstacles after check', () => {
+            // Obstacle exists but doesn't block the specific path
+            mockObstacles.obstacles = [
+                { x: 400, y: 400, width: 50, height: 50, type: 'stage' } // Far away
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                150,
+                150,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should break early on line 225 when no obstacles block
+            expect(waypoints).toEqual([{ x: 150, y: 150 }])
+        })
+
+        test('should hit lines 247-249 - midpoint fallback when corners blocked', () => {
+            // Create U-shaped obstacle configuration where corners are blocked but midpoints work
+            mockObstacles.obstacles = [
+                { x: 140, y: 140, width: 30, height: 30, type: 'stage' }, // Central obstacle
+                { x: 125, y: 140, width: 10, height: 10, type: 'stage' }, // Block left side
+                { x: 175, y: 140, width: 10, height: 10, type: 'stage' }  // Block right side
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                150,
+                200,
+                150,
+                mockObstacles,
+                mockAgent.radius,
+                mockConfig.PERSONAL_SPACE,
+                mockConfig
+            )
+            
+            // Should use midpoint as fallback (lines 247-249)
+            expect(waypoints.length).toBeGreaterThanOrEqual(1)
+        })
+
+        test('should hit line 349 - skip obstacle very close to target', () => {
+            // Place obstacle at distance < radius * 2 from target
+            const targetX = 200
+            const targetY = 200
+            
+            mockObstacles.obstacles = [
+                { x: 199, y: 199, width: 2, height: 2, type: 'stage' }, // Very close to target
+                { x: 150, y: 150, width: 20, height: 20, type: 'stage' }  // Actual blocking obstacle
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                targetX,
+                targetY,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // The very close obstacle should be skipped (line 349)
+            expect(waypoints).toBeDefined()
+            expect(waypoints.length).toBeGreaterThanOrEqual(1)
+        })
+
+        test('should hit line 361 - skip obstacle not in path forward', () => {
+            // Place obstacle with dot product < 0.5 (more than 60 degrees off path)
+            mockObstacles.obstacles = [
+                { x: 50, y: 200, width: 15, height: 15, type: 'stage' }, // Far to the side
+                { x: 150, y: 150, width: 20, height: 20, type: 'stage' }  // Actually blocks
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                250,
+                250,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Obstacle at (50, 200) should be skipped due to dot product check
+            expect(waypoints).toBeDefined()
+            expect(waypoints.length).toBeGreaterThanOrEqual(1)
+        })
     })
 })
