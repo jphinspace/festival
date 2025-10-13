@@ -3,20 +3,10 @@
  * This ensures consistent behavior across all queue types
  */
 import { AgentState } from '../utils/enums.js';
+import * as Geometry from '../utils/geometry.js';
+import { CONFIG } from '../utils/config.js';
 
 export class QueueManager {
-    /**
-     * Calculate Euclidean distance between two points
-     * @param {number} x1 - First point X coordinate
-     * @param {number} y1 - First point Y coordinate
-     * @param {number} x2 - Second point X coordinate
-     * @param {number} y2 - Second point Y coordinate
-     * @returns {number} Distance between the points
-     */
-    static calculateDistance(x1, y1, x2, y2) {
-        return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-    }
-
     /**
      * Get distance from a fan to a position
      * @param {Fan} fan - Fan object with x, y coordinates
@@ -24,7 +14,7 @@ export class QueueManager {
      * @returns {number} Distance from fan to position
      */
     static getDistanceToPosition(fan, position) {
-        return this.calculateDistance(fan.x, fan.y, position.x, position.y);
+        return Geometry.calculateDistance(fan.x, fan.y, position.x, position.y);
     }
 
     /**
@@ -38,7 +28,7 @@ export class QueueManager {
      */
     static updateFanTarget(fan, targetPos, obstacles, forceUpdate, currentTime) {
         const timeSinceLastUpdate = currentTime - (fan.queueTargetUpdateTime || -Infinity);
-        if (forceUpdate || timeSinceLastUpdate >= 125) {
+        if (forceUpdate || timeSinceLastUpdate >= CONFIG.QUEUE_TARGET_UPDATE_THROTTLE) {
             fan.setTarget(targetPos.x, targetPos.y, obstacles, currentTime);
             fan.queueTargetUpdateTime = currentTime;
             return true;
@@ -133,12 +123,12 @@ export class QueueManager {
         const allFansInQueue = [...queue, ...approaching.filter(f => f !== fan)];
         
         // Find nearby fans within a reasonable proximity
-        const proximityThreshold = 60; // pixels - reduced from 80 to be more conservative
+        const proximityThreshold = CONFIG.QUEUE_PROXIMITY_THRESHOLD;
         const nearbyFans = [];
         
         allFansInQueue.forEach((otherFan) => {
             const otherDistToFront = this.getDistanceToPosition(otherFan, frontPosition);
-            const distToOther = this.calculateDistance(fan.x, fan.y, otherFan.x, otherFan.y);
+            const distToOther = Geometry.calculateDistance(fan.x, fan.y, otherFan.x, otherFan.y);
             
             if (distToOther <= proximityThreshold) {
                 nearbyFans.push({
@@ -226,9 +216,9 @@ export class QueueManager {
      * @param {Array} queue - Main queue array
      * @param {Array} approaching - Approaching fans array
      * @param {Function} updateCallback - Function to call after promotion (for resorting)
-     * @param {number} threshold - Distance threshold for joining (default 10)
+     * @param {number} threshold - Distance threshold for joining (default from CONFIG)
      */
-    static processApproaching(queue, approaching, updateCallback, threshold = 10) {
+    static processApproaching(queue, approaching, updateCallback, threshold = CONFIG.QUEUE_JOIN_THRESHOLD) {
         for (let i = approaching.length - 1; i >= 0; i--) {
             const fan = approaching[i];
             if (this.shouldJoinQueue(fan, threshold)) {

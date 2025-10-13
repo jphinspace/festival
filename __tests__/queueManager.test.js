@@ -15,29 +15,6 @@ const mockConfig = {
 };
 
 describe('QueueManager Helper Methods', () => {
-    describe('calculateDistance', () => {
-        test('should calculate distance between two points', () => {
-            const distance = QueueManager.calculateDistance(0, 0, 3, 4);
-            expect(distance).toBe(5); // 3-4-5 triangle
-        });
-
-        test('should return 0 for same point', () => {
-            const distance = QueueManager.calculateDistance(10, 20, 10, 20);
-            expect(distance).toBe(0);
-        });
-
-        test('should handle negative coordinates', () => {
-            const distance = QueueManager.calculateDistance(-3, -4, 0, 0);
-            expect(distance).toBe(5);
-        });
-
-        test('should be commutative', () => {
-            const dist1 = QueueManager.calculateDistance(1, 2, 5, 7);
-            const dist2 = QueueManager.calculateDistance(5, 7, 1, 2);
-            expect(dist1).toBe(dist2);
-        });
-    });
-
     describe('getDistanceToPosition', () => {
         test('should calculate distance from fan to position', () => {
             const fan = new Fan(0, 0, mockConfig);
