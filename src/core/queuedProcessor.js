@@ -121,13 +121,14 @@ export class QueuedProcessor {
      * @param {boolean} forceUpdate - Force position update
      * @param {number} simulationTime - Current simulation time
      */
-    updateQueuePositions(queue, approaching, getTargetPosition, forceUpdate) {
+    updateQueuePositions(queue, approaching, getTargetPosition, forceUpdate, simulationTime = null) {
         // Process approaching fans first
         QueueManager.processApproaching(
             queue,
             approaching,
             () => {}, // No-op callback since we'll handle position updates separately
-            10  // Threshold
+            10,  // Threshold
+            simulationTime
         )
 
         // Update main queue fans with consecutive positions starting from 0

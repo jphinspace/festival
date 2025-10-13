@@ -22,7 +22,23 @@ class FestivalApp {
             speedSlider: document.getElementById('speedSlider'),
             speedValue: document.getElementById('speedValue'),
             attendeeCount: document.getElementById('attendeeCount'),
-            fps: document.getElementById('fps')
+            fps: document.getElementById('fps'),
+            // Metrics elements
+            inQueueAvg: document.getElementById('inQueueAvg'),
+            inQueueMedian: document.getElementById('inQueueMedian'),
+            inQueueMax: document.getElementById('inQueueMax'),
+            approachingAvg: document.getElementById('approachingAvg'),
+            approachingMedian: document.getElementById('approachingMedian'),
+            approachingMax: document.getElementById('approachingMax'),
+            reenteringAvg: document.getElementById('reenteringAvg'),
+            reenteringMedian: document.getElementById('reenteringMedian'),
+            reenteringMax: document.getElementById('reenteringMax'),
+            fansInQueue: document.getElementById('fansInQueue'),
+            fansApproachingQueue: document.getElementById('fansApproachingQueue'),
+            fansAtMaxHunger: document.getElementById('fansAtMaxHunger'),
+            stuckFans: document.getElementById('stuckFans'),
+            hungerAvg: document.getElementById('hungerAvg'),
+            hungerMedian: document.getElementById('hungerMedian')
         };
 
         // Initialize simulation
@@ -93,6 +109,25 @@ class FestivalApp {
     updateStats(stats) {
         this.elements.attendeeCount.textContent = `Attendees: ${stats.attendeeCount}`;
         this.elements.fps.textContent = `FPS: ${stats.fps}`;
+        
+        // Update metrics if available
+        if (stats.metrics) {
+            this.elements.inQueueAvg.textContent = stats.metrics.inQueueAvg;
+            this.elements.inQueueMedian.textContent = stats.metrics.inQueueMedian;
+            this.elements.inQueueMax.textContent = stats.metrics.inQueueMax;
+            this.elements.approachingAvg.textContent = stats.metrics.approachingAvg;
+            this.elements.approachingMedian.textContent = stats.metrics.approachingMedian;
+            this.elements.approachingMax.textContent = stats.metrics.approachingMax;
+            this.elements.reenteringAvg.textContent = stats.metrics.reenteringAvg;
+            this.elements.reenteringMedian.textContent = stats.metrics.reenteringMedian;
+            this.elements.reenteringMax.textContent = stats.metrics.reenteringMax;
+            this.elements.fansInQueue.textContent = stats.metrics.fansInQueue;
+            this.elements.fansApproachingQueue.textContent = stats.metrics.fansApproachingQueue;
+            this.elements.fansAtMaxHunger.textContent = stats.metrics.fansAtMaxHunger;
+            this.elements.stuckFans.textContent = stats.metrics.stuckFans;
+            this.elements.hungerAvg.textContent = stats.metrics.hungerAvg;
+            this.elements.hungerMedian.textContent = stats.metrics.hungerMedian;
+        }
     }
 }
 

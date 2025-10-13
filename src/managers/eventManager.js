@@ -220,7 +220,7 @@ export class EventManager {
                     const stall = this.foodStalls.find(s => s.id === targetStall.id);
                     if (stall) {
                         agent.goal = `food stall ${stall.id}`;
-                        stall.addToQueue(agent);
+                        stall.addToQueue(agent, this.simulationTime);
                     }
                 }
             }
@@ -255,7 +255,7 @@ export class EventManager {
             const fan = new Fan(busX + offsetX, busY + offsetY, this.config);
             
             // Add fan to security queue - this will direct them toward the queue ends
-            this.securityQueue.addToQueue(fan);
+            this.securityQueue.addToQueue(fan, this.simulationTime);
             
             newAgents.push(fan);
         }
@@ -275,7 +275,7 @@ export class EventManager {
         const fan = new Fan(busX + offsetX, busY + offsetY, this.config);
         
         // Add fan to security queue - this will direct them toward the queue ends
-        this.securityQueue.addToQueue(fan);
+        this.securityQueue.addToQueue(fan, this.simulationTime);
         
         newAgents.push(fan);
         

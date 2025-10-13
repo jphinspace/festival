@@ -158,6 +158,55 @@ body {
     display: inline-block;
 }
 
+/* Metrics panel */
+#metrics {
+    background: #2a2a2a;
+    padding: 10px;
+    font-size: 11px;
+    border-bottom: 1px solid #444;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.metrics-section {
+    flex: 1;
+    min-width: 250px;
+}
+
+.metrics-section h3 {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #4a90e2;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.metric-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    border-bottom: 1px solid #333;
+}
+
+.metric-row:last-child {
+    border-bottom: none;
+}
+
+.metric-label {
+    font-weight: 500;
+    color: #aaa;
+}
+
+.metric-value {
+    font-weight: 600;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+}
+
 /* Canvas container */
 #canvas-container {
     flex: 1;
