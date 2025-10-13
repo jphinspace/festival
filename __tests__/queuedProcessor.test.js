@@ -424,7 +424,7 @@ describe('QueuedProcessor Base Class', () => {
 
         test('should not change state when advancing but not at target', () => {
             // Test line 151 - fan.state === AgentState.IN_QUEUE_ADVANCING && isAtTarget (second part false)
-            const processor = new TestQueuedProcessor(mockConfig)
+            const processor = new TestQueuedProcessor(800, 600, mockConfig)
             
             const fan1 = new Fan(100, 100, mockConfig)
             fan1.state = AgentState.IN_QUEUE_ADVANCING

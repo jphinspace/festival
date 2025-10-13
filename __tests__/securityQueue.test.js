@@ -645,5 +645,67 @@ describe('SecurityQueue', () => {
             // Processing should have changed (either to fan2 or null)
             expect(securityQueue.processing[0] !== fan1).toBe(true);
         });
-    });
+
+        test('should update queue positions when starting to process new fan', () => {
+            // Test Line 322-324: newProcessing !== this.processing AND newProcessing !== null
+            const fan1 = new Fan(360, 432, mockConfig);
+            fan1.state = AgentState.IN_QUEUE_WAITING;
+            fan1.queueIndex = 0;
+            
+            securityQueue.queues[0].push(fan1);
+            securityQueue.processing[0] = null;
+            
+            // Update should start processing fan1
+            securityQueue.update(1000);
+            
+            // Should have started processing
+            expect(securityQueue.processing[0]).toBe(fan1);
+        });
+
+        test('should complete regular security and release fan', () => {
+            // Test Line 271: result.action === 'release'
+            const fan = new Fan(360, 424, mockConfig);
+            fan.enhancedSecurity = false;
+            fan.state = AgentState.PROCESSING;
+            fan.queueIndex = 0;
+            
+            securityQueue.processing[0] = fan;
+            securityQueue.processingStartTime[0] = 0;
+            
+            // Update after regular security completes
+            securityQueue.update(mockConfig.REGULAR_SECURITY_TIME + 100);
+            
+            // Fan should be released (processing cleared)
+            expect(securityQueue.processing[0]).toBeNull();
+            expect(fan.state).not.toBe(AgentState.PROCESSING);
+        });
+
+        test('should handle returning fan near target at end of line', () => {
+            // Test Line 201: else if processingFan.isNearTarget(10)
+            const fan = new Fan(360, 432, mockConfig);
+            fan.enhancedSecurity = true;
+            fan.queueIndex = 0;
+            fan.state = AgentState.RETURNING_TO_QUEUE;
+            fan.returningToQueue = 0;
+            
+            // Position fan exactly at end of line
+            const endPos = securityQueue._calculateEndOfLinePosition(0);
+            fan.x = endPos.x;
+            fan.y = endPos.y;
+            fan.targetX = endPos.x;
+            fan.targetY = endPos.y;
+            
+            securityQueue.processing[0] = fan;
+            securityQueue.processingStartTime[0] = 0;
+            
+            // Should be near target
+            expect(fan.isNearTarget(10)).toBe(true);
+            
+            securityQueue.update(5000);
+            
+            // Fan should be moved to entering list
+            expect(securityQueue.entering[0]).toContain(fan);
+            expect(fan.state).toBe(AgentState.APPROACHING_QUEUE);
+        });
+    })
 });
