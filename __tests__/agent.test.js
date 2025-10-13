@@ -872,65 +872,6 @@ describe('Fan', () => {
         })
     })
 
-    describe('_updateWaypointsIfNeeded', () => {
-        test('should not update waypoints when obstacles is null', () => {
-            const agent = new Agent(100, 100, mockConfig)
-            agent.state = 'moving'
-            agent.setTarget(300, 300)
-            agent.staticWaypoints = [{ x: 200, y: 200 }, { x: 300, y: 300 }]
-            agent.waypointUpdateTimes = [100, 200]
-            
-            const initialWaypoints = agent.staticWaypoints.length
-            agent._updateWaypointsIfNeeded(null, 10, 1000)
-            
-            expect(agent.staticWaypoints.length).toBe(initialWaypoints)
-        })
-
-        test('should not update waypoints when only one or zero waypoints', () => {
-            const agent = new Agent(100, 100, mockConfig)
-            agent.state = 'moving'
-            agent.setTarget(300, 300)
-            agent.staticWaypoints = [{ x: 300, y: 300 }]
-            agent.waypointUpdateTimes = [100]
-            
-            const obstacles = {
-                checkCollision: jest.fn(() => false),
-                obstacles: [],
-                stages: [],
-                foodStalls: [],
-                bus: null
-            }
-            
-            agent._updateWaypointsIfNeeded(obstacles, 10, 1000)
-            
-            expect(agent.staticWaypoints.length).toBe(1)
-            expect(obstacles.checkCollision).not.toHaveBeenCalled()
-        })
-
-        test('should update waypoints keeping first waypoint fixed', () => {
-            const agent = new Agent(100, 100, mockConfig)
-            agent.state = 'moving'
-            agent.setTarget(300, 300)
-            agent.staticWaypoints = [{ x: 150, y: 150 }, { x: 200, y: 200 }, { x: 300, y: 300 }]
-            agent.waypointUpdateTimes = [100, 200, 300]
-            
-            const obstacles = {
-                checkCollision: jest.fn(() => false),
-                obstacles: [],
-                stages: [],
-                foodStalls: [],
-                bus: null
-            }
-            
-            const firstWaypoint = agent.staticWaypoints[0]
-            agent._updateWaypointsIfNeeded(obstacles, 10, 1000)
-            
-            // First waypoint should remain the same
-            expect(agent.staticWaypoints[0]).toEqual(firstWaypoint)
-            expect(agent.waypointUpdateTimes[0]).toBe(100)
-        })
-    })
-
     describe('_getNextStaticTarget', () => {
         test('should return waypoint when not close enough', () => {
             const agent = new Agent(100, 100, mockConfig)

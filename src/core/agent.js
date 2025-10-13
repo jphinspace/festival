@@ -26,7 +26,6 @@ export class Agent {
         this.config = config
         this.color = config.COLORS.AGENT_ACTIVE
         this.radius = config.AGENT_RADIUS
-        this.waypointUpdateTimes = [] // Track last update time for each waypoint individually
     }
 
     /**
@@ -34,9 +33,8 @@ export class Agent {
      * @param {number} x - Target X position
      * @param {number} y - Target Y position
      * @param {Obstacles} obstacles - Optional obstacles manager for pathfinding
-     * @param {number} simulationTime - Optional simulation time (for timestamp initialization)
      */
-    setTarget(x, y, obstacles = null, simulationTime = 0) {
+    setTarget(x, y, obstacles = null) {
         this.targetX = x
         this.targetY = y
         
@@ -52,16 +50,9 @@ export class Agent {
             this.staticWaypoints = Pathfinding.calculateStaticWaypoints(
                 this.x, this.y, x, y, obstacles, this.radius, personalSpaceBuffer, this.config
             )
-            
-            // Initialize update times for waypoints (with randomization)
-            const currentTime = simulationTime || Date.now()
-            this.waypointUpdateTimes = Pathfinding.initializeWaypointUpdateTimes(
-                this.staticWaypoints, currentTime, this.config
-            )
         } else {
             // Stationary fans don't need waypoints
             this.staticWaypoints = []
-            this.waypointUpdateTimes = []
         }
         
         // Set state to moving (unless already in a queue/processing/advancing/waiting state)
@@ -226,47 +217,16 @@ export class Agent {
      * @param {number} simulationSpeed - Speed multiplier for simulation
      * @param {Agent[]} otherAgents - Array of other agents for collision detection
      * @param {Obstacles} obstacles - Obstacles manager for static object collision
-     * @param {number} simulationTime - Current simulation time in milliseconds
      */
     /**
-     * Update waypoints if needed (keeps first waypoint fixed)
-     * @param {Object} obstacles - Obstacles object
-     * @param {number} personalSpaceBuffer - Personal space buffer
-     * @param {number} currentTime - Current timestamp
-     * @private
-     */
-    _updateWaypointsIfNeeded(obstacles, personalSpaceBuffer, currentTime) {
-        if (!obstacles || this.staticWaypoints.length <= 1) {
-            return
-        }
-        
-        // Keep first waypoint fixed, only update subsequent waypoints
-        const firstWaypoint = this.staticWaypoints[0]
-        const firstUpdateTime = this.waypointUpdateTimes[0]
-        
-        // Recalculate path from first waypoint to target
-        const updatedWaypoints = Pathfinding.calculateStaticWaypoints(
-            firstWaypoint.x, firstWaypoint.y, this.targetX, this.targetY, 
-            obstacles, this.radius, personalSpaceBuffer, this.config
-        )
-        
-        // Replace waypoints but keep the first one fixed
-        this.staticWaypoints = [firstWaypoint, ...updatedWaypoints]
-        
-        // Reset update times but keep first waypoint's time
-        const newUpdateTimes = Pathfinding.initializeWaypointUpdateTimes(
-            updatedWaypoints, currentTime, this.config
-        )
-        this.waypointUpdateTimes = [firstUpdateTime, ...newUpdateTimes]
-    }
-
-    /**
-     * Get the next static waypoint or final target
+     * Get the next static waypoint or final target, recalculating path when waypoint is reached
      * @param {number} waypointReachDistance - Distance threshold for reaching waypoint
+     * @param {Obstacles} obstacles - Obstacles manager for pathfinding
+     * @param {number} personalSpaceBuffer - Personal space buffer for pathfinding
      * @returns {{x: number, y: number}} Next target position
      * @private
      */
-    _getNextStaticTarget(waypointReachDistance) {
+    _getNextStaticTarget(waypointReachDistance, obstacles, personalSpaceBuffer) {
         if (this.staticWaypoints.length === 0) {
             return { x: this.targetX, y: this.targetY }
         }
@@ -279,7 +239,18 @@ export class Agent {
         if (distToWaypoint < waypointReachDistance) {
             // Remove reached waypoint
             this.staticWaypoints.shift()
-            this.waypointUpdateTimes.shift()
+            
+            // Recalculate path from current position to final target
+            if (this.staticWaypoints.length === 0 && this.targetX !== null && this.targetY !== null) {
+                // No more waypoints, but we haven't reached final target yet
+                // Recalculate path from current position
+                if (obstacles && StateChecks.needsPathfinding(this.state)) {
+                    this.staticWaypoints = Pathfinding.calculateStaticWaypoints(
+                        this.x, this.y, this.targetX, this.targetY, 
+                        obstacles, this.radius, personalSpaceBuffer, this.config
+                    )
+                }
+            }
             
             // Return next waypoint or final destination
             if (this.staticWaypoints.length === 0) {
@@ -293,26 +264,17 @@ export class Agent {
         return { x: waypoint.x, y: waypoint.y }
     }
 
-    update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null, simulationTime = 0) {
+    update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null) {
         // Allow movement for moving, in_queue_advancing, approaching_queue, and returning_to_queue states
         // Note: in_queue_waiting, processing, and idle are stationary states
         if (StateChecks.canMove(this.state) && this.targetX !== null) {
-            const currentTime = simulationTime || Date.now()
             const personalSpaceBuffer = StateChecks.shouldUsePersonalSpaceBuffer(this.state) ? 
                 this.config.PERSONAL_SPACE : 0
             const waypointReachDistance = this.config.WAYPOINT_REACH_DISTANCE || 10
             
-            // Check if waypoints need updating (only updates non-first waypoints)
-            const needsWaypointUpdate = obstacles && 
-                Pathfinding.shouldUpdateWaypoints(this.waypointUpdateTimes, currentTime, this.config)
-            
-            // Update waypoints if needed
-            if (needsWaypointUpdate && this.targetX !== null && this.targetY !== null) {
-                this._updateWaypointsIfNeeded(obstacles, personalSpaceBuffer, currentTime)
-            }
-            
             // Determine next static waypoint or final target
-            const nextStaticTarget = this._getNextStaticTarget(waypointReachDistance)
+            // This will recalculate path when a waypoint is reached
+            const nextStaticTarget = this._getNextStaticTarget(waypointReachDistance, obstacles, personalSpaceBuffer)
             
             // Calculate dynamic fan avoidance waypoint (updated every frame)
             this.dynamicWaypoint = Pathfinding.calculateDynamicFanAvoidance(
@@ -352,7 +314,6 @@ export class Agent {
                     this.targetX = null
                     this.targetY = null
                     this.staticWaypoints = []
-                    this.waypointUpdateTimes = []
                     
                     // Transition to idle when reaching target
                     if (StateChecks.shouldTransitionToIdle(this.state)) {

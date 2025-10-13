@@ -65,11 +65,8 @@ export class Fan extends Agent {
     /**
      * Start wandering to a random location (shared by idle and post-processing states)
      * @param {Obstacles} obstacles - Obstacles manager for static object collision
-     * @param {number} simulationTime - Current simulation time in milliseconds
      */
-    startWandering(obstacles, simulationTime) {
-        this.wanderTargetUpdateTime = simulationTime || Date.now()
-        
+    startWandering(obstacles) {
         // Pick a random position to wander to (spread out)
         // Try multiple times to find a valid position (not inside obstacles)
         let targetX, targetY
@@ -83,7 +80,7 @@ export class Fan extends Agent {
         
         // Only set target if we found a valid position
         if (!obstacles || obstacles.isValidPosition(targetX, targetY)) {
-            this.setTarget(targetX, targetY, obstacles, simulationTime)
+            this.setTarget(targetX, targetY, obstacles)
             this.state = AgentState.MOVING
         }
     }
@@ -94,11 +91,10 @@ export class Fan extends Agent {
      * @param {number} simulationSpeed - Speed multiplier for simulation
      * @param {Agent[]} otherAgents - Array of other agents for collision detection
      * @param {Obstacles} obstacles - Obstacles manager for static object collision
-     * @param {number} simulationTime - Current simulation time in milliseconds
      */
-    update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null, simulationTime = 0) {
+    update(deltaTime, simulationSpeed, otherAgents = [], obstacles = null) {
         // Update base agent behavior
-        super.update(deltaTime, simulationSpeed, otherAgents, obstacles, simulationTime);
+        super.update(deltaTime, simulationSpeed, otherAgents, obstacles);
         
         // Increase hunger over time (unless waiting at food stall)
         // Hunger now scales with simulation speed for consistent behavior
@@ -112,12 +108,11 @@ export class Fan extends Agent {
         }
         
         // Spread-out behavior: wander if idle and not watching a show
+        // Wander on every sim tick when idle (checked every frame, but wandering happens when reaching previous target)
         if (StateChecks.shouldWander(this.state, this.currentShow, this.inQueue)) {
-            const now = simulationTime || Date.now(); // Use simulationTime if available
-            
-            // Update wander target every 5-10 seconds
-            if (TimeUtils.shouldTriggerRandomInterval(now, this.wanderTargetUpdateTime, 5000, 10000)) {
-                this.startWandering(obstacles, simulationTime)
+            // If fan has no target (reached previous wander target), pick a new one
+            if (this.targetX === null && this.targetY === null) {
+                this.startWandering(obstacles)
             }
         }
     }

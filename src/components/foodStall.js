@@ -192,7 +192,7 @@ export class FoodStall extends QueuedProcessor {
      */
     processQueue(width, height, simulationTime) {
         // Update positions every frame for responsive movement
-        this.updateQueuePositions(width, height, false, simulationTime);
+        this.updateQueuePositions(width, height, false);
         
         // Use QueueManager to process both queues
         [
@@ -201,7 +201,7 @@ export class FoodStall extends QueuedProcessor {
         ].forEach(({ queue, approaching, side }) => {
             // Process fans entering the queue
             this.processEntering(queue, approaching, (forceUpdate, simTime) => {
-                this.updateQueuePositions(width, height, forceUpdate, simTime)
+                this.updateQueuePositions(width, height, forceUpdate)
             }, simulationTime)
             
             // Process the fan at the front of the queue
@@ -225,7 +225,7 @@ export class FoodStall extends QueuedProcessor {
                     fan.processingAtStall = this // Keep reference to this stall
                     fan.processingSide = side
                     // Update remaining fans' positions
-                    this.updateQueuePositions(width, height, true, simTime)
+                    this.updateQueuePositions(width, height, true)
                 }
             )
         })
@@ -280,7 +280,7 @@ export class FoodStall extends QueuedProcessor {
                 targetY = Math.max(20, Math.min(height * 0.7, targetY))
                 
                 // Set target and transition directly to moving state
-                fan.setTarget(targetX, targetY, this.obstacles, simulationTime)
+                fan.setTarget(targetX, targetY, this.obstacles)
                 fan.state = AgentState.MOVING
                 
                 // Clean up processing references
@@ -302,7 +302,7 @@ export class FoodStall extends QueuedProcessor {
      * @param {boolean} sortNeeded - Whether to sort queues (only on join/leave events)
      * @param {number} simulationTime - Current simulation time in milliseconds
      */
-    updateQueuePositions(width, height, sortNeeded = false, simulationTime = 0) {
+    updateQueuePositions(width, height, sortNeeded = false) {
         // Use shared QueueManager for consistent behavior
         // The "front" position should match where position 0 fans actually stand
         const spacing = 8;
@@ -321,8 +321,7 @@ export class FoodStall extends QueuedProcessor {
             (position) => this.getQueueTargetPosition(position, 'left'),
             { x: frontLeftX, y: frontY },
             this.obstacles,
-            sortNeeded,
-            simulationTime
+            sortNeeded
         );
         
         // Update right queue using QueueManager - pass obstacles for pathfinding
@@ -332,8 +331,7 @@ export class FoodStall extends QueuedProcessor {
             (position) => this.getQueueTargetPosition(position, 'right'),
             { x: frontRightX, y: frontY },
             this.obstacles,
-            sortNeeded,
-            simulationTime
+            sortNeeded
         );
     }
     
