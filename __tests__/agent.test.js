@@ -126,7 +126,7 @@ describe('Agent', () => {
 
     describe('Branch coverage for personal space buffer', () => {
         test('should not use personal space buffer when state does not require it', () => {
-            agent.state = 'idle';
+            agent.state = 'in_queue_advancing'; // Moving but not APPROACHING_QUEUE or MOVING
             agent.x = 100;
             agent.y = 100;
             agent.targetX = 200;
@@ -135,12 +135,9 @@ describe('Agent', () => {
             // Create a blocking obstacle to force avoidance attempt
             mockObstacles.checkCollision = jest.fn(() => true);
             
-            // Set target to trigger pathfinding and movement
-            agent.setTarget(200, 200, mockObstacles, 0);
-            
             agent.update(0.016, 1.0, [], mockObstacles, 100);
             
-            // Should have checked collision (personal space buffer varies by state)
+            // Should have checked collision (personal space buffer = 0 for in_queue_advancing)
             expect(mockObstacles.checkCollision.mock.calls.length).toBeGreaterThan(0);
         });
     });
@@ -158,6 +155,24 @@ describe('Agent', () => {
             
             // Should not have snapped to final target yet
             expect(agent.staticWaypoints.length).toBeGreaterThan(0);
+        });
+
+        test('should snap to target when near and no waypoints remain', () => {
+            agent.state = 'moving';
+            // Place agent very close to target (within one frame of movement)
+            agent.x = 200 - 0.001;
+            agent.y = 200 - 0.001;
+            agent.targetX = 200;
+            agent.targetY = 200;
+            agent.staticWaypoints = []; // No waypoints remaining
+            
+            agent.update(0.016, 1.0, [], mockObstacles, 100);
+            
+            // Should have snapped to final target
+            expect(agent.x).toBe(200);
+            expect(agent.y).toBe(200);
+            expect(agent.targetX).toBeNull();
+            expect(agent.targetY).toBeNull();
         });
     });
 
