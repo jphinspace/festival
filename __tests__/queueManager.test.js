@@ -32,61 +32,38 @@ describe('QueueManager Helper Methods', () => {
     });
 
     describe('updateFanTarget', () => {
-        test('should update target when forceUpdate is true', () => {
+        test('should always update target', () => {
             const fan = new Fan(100, 100, mockConfig);
             const targetPos = { x: 200, y: 200 };
-            const currentTime = Date.now();
 
-            const updated = QueueManager.updateFanTarget(fan, targetPos, null, true, currentTime);
+            const updated = QueueManager.updateFanTarget(fan, targetPos, null, false);
 
             expect(updated).toBe(true);
             expect(fan.targetX).toBe(200);
             expect(fan.targetY).toBe(200);
-            expect(fan.queueTargetUpdateTime).toBe(currentTime);
         });
 
-        test('should throttle updates within 125ms window', () => {
-            const fan = new Fan(100, 100, mockConfig);
-            const targetPos1 = { x: 200, y: 200 };
-            const targetPos2 = { x: 300, y: 300 };
-            const baseTime = Date.now();
-
-            // First update should succeed
-            fan.queueTargetUpdateTime = baseTime;
-            const updated1 = QueueManager.updateFanTarget(fan, targetPos1, null, false, baseTime + 50);
-            expect(updated1).toBe(false); // Within 125ms window
-
-            // Second update after 125ms should succeed
-            const updated2 = QueueManager.updateFanTarget(fan, targetPos2, null, false, baseTime + 126);
-            expect(updated2).toBe(true);
-            expect(fan.targetX).toBe(300);
-            expect(fan.targetY).toBe(300);
-        });
-
-        test('should update when no previous update time exists', () => {
+        test('should update target with forceUpdate flag', () => {
             const fan = new Fan(100, 100, mockConfig);
             const targetPos = { x: 200, y: 200 };
-            const currentTime = Date.now();
 
-            const updated = QueueManager.updateFanTarget(fan, targetPos, null, false, currentTime);
+            const updated = QueueManager.updateFanTarget(fan, targetPos, null, true);
 
             expect(updated).toBe(true);
-            expect(fan.queueTargetUpdateTime).toBe(currentTime);
+            expect(fan.targetX).toBe(200);
+            expect(fan.targetY).toBe(200);
         });
 
-        test('should bypass throttle when forceUpdate is true even with recent update', () => {
+        test('should pass obstacles to setTarget', () => {
             const fan = new Fan(100, 100, mockConfig);
-            const targetPos1 = { x: 200, y: 200 };
-            const targetPos2 = { x: 300, y: 300 };
-            const baseTime = Date.now();
+            const targetPos = { x: 200, y: 200 };
+            const mockObstacles = { checkCollision: jest.fn() };
 
-            // Set recent update time
-            fan.queueTargetUpdateTime = baseTime;
+            const updated = QueueManager.updateFanTarget(fan, targetPos, mockObstacles, false);
 
-            // Force update should work immediately
-            const updated = QueueManager.updateFanTarget(fan, targetPos2, null, true, baseTime + 10);
             expect(updated).toBe(true);
-            expect(fan.targetX).toBe(300);
+            expect(fan.targetX).toBe(200);
+            expect(fan.targetY).toBe(200);
         });
     });
 
@@ -194,7 +171,7 @@ describe('QueueManager Helper Methods', () => {
             const frontPosition = { x: 100, y: 100 };
             
             // Call with simulationTime = 0, should use Date.now()
-            QueueManager.updatePositions(queue, [], getTargetPosition, frontPosition, null, false, 0);
+            QueueManager.updatePositions(queue, [], getTargetPosition, frontPosition, null, false);
             
             expect(fan.state).toBe('in_queue_waiting');
         });
@@ -202,7 +179,7 @@ describe('QueueManager Helper Methods', () => {
         test('should use provided simulationTime when non-zero', () => {
             const fan = new Fan(100, 100, mockConfig);
             fan.state = 'in_queue_waiting';
-            fan.queueTargetUpdateTime = -Infinity;
+            
             const queue = [fan];
             const getTargetPosition = (index) => ({ x: 200, y: 100 });
             const frontPosition = { x: 200, y: 100 };
@@ -212,9 +189,9 @@ describe('QueueManager Helper Methods', () => {
             };
             
             // Call with non-zero simulationTime
-            QueueManager.updatePositions(queue, [], getTargetPosition, frontPosition, obstacles, true, 1000);
+            QueueManager.updatePositions(queue, [], getTargetPosition, frontPosition, obstacles, true);
             
-            expect(fan.queueTargetUpdateTime).toBe(1000);
+            // Timing removed
         });
 
         test('should sort queue by distance before updating', () => {
@@ -225,7 +202,7 @@ describe('QueueManager Helper Methods', () => {
             const getTargetPosition = (index) => ({ x: 50 + index * 10, y: 100 });
             const frontPosition = { x: 0, y: 0 };
             
-            QueueManager.updatePositions(queue, [], getTargetPosition, frontPosition, null, false, 0);
+            QueueManager.updatePositions(queue, [], getTargetPosition, frontPosition, null, false);
             
             // After sorting, fan2 should be first (position 0)
             expect(fan2.queuePosition).toBe(0);
@@ -240,7 +217,7 @@ describe('QueueManager Helper Methods', () => {
             const getTargetPosition = (index) => ({ x: 100, y: 100 }); // At current position
             const frontPosition = { x: 100, y: 100 };
             
-            QueueManager.updatePositions(queue, [], getTargetPosition, frontPosition, null, false, 0);
+            QueueManager.updatePositions(queue, [], getTargetPosition, frontPosition, null, false);
             
             expect(fan.state).toBe('in_queue_waiting');
         });
@@ -248,7 +225,7 @@ describe('QueueManager Helper Methods', () => {
         test('should update fan state to advancing when not at target', () => {
             const fan = new Fan(100, 100, mockConfig);
             fan.state = 'in_queue_waiting';
-            fan.queueTargetUpdateTime = -Infinity;
+            
             const queue = [fan];
             const getTargetPosition = (index) => ({ x: 200, y: 100 }); // Far from current
             const frontPosition = { x: 200, y: 100 };
@@ -257,7 +234,7 @@ describe('QueueManager Helper Methods', () => {
                 checkCollision: jest.fn(() => false)
             };
             
-            QueueManager.updatePositions(queue, [], getTargetPosition, frontPosition, obstacles, true, 0);
+            QueueManager.updatePositions(queue, [], getTargetPosition, frontPosition, obstacles, true);
             
             expect(fan.state).toBe('in_queue_advancing');
         });
@@ -265,13 +242,13 @@ describe('QueueManager Helper Methods', () => {
         test('should not change state when updateFanTarget returns false', () => {
             const fan = new Fan(100, 100, mockConfig);
             fan.state = 'in_queue_waiting';
-            fan.queueTargetUpdateTime = 100; // Recent update
+             // Recent update
             const queue = [fan];
             const getTargetPosition = (index) => ({ x: 200, y: 100 }); // Far from current
             const frontPosition = { x: 200, y: 100 };
             
             // No forceUpdate, and time threshold not met
-            QueueManager.updatePositions(queue, [], getTargetPosition, frontPosition, null, false, 110);
+            QueueManager.updatePositions(queue, [], getTargetPosition, frontPosition, null, false);
             
             // State should not change to advancing
             expect(fan.state).toBe('in_queue_waiting');
@@ -281,15 +258,15 @@ describe('QueueManager Helper Methods', () => {
             const fan = new Fan(100, 100, mockConfig);
             fan.targetX = 100;
             fan.targetY = 100;
-            fan.queueTargetUpdateTime = 0;
+            
             const queue = [fan];
             const getTargetPosition = (index) => ({ x: 100, y: 100 });
             const frontPosition = { x: 100, y: 100 };
             
-            QueueManager.updatePositions(queue, [], getTargetPosition, frontPosition, null, false, 50);
+            QueueManager.updatePositions(queue, [], getTargetPosition, frontPosition, null, false);
             
             // Should not have updated target (queueTargetUpdateTime should be same)
-            expect(fan.queueTargetUpdateTime).toBe(0);
+            // Timing removed
         });
 
         test('should update approaching fans with correct state', () => {
@@ -303,7 +280,7 @@ describe('QueueManager Helper Methods', () => {
                 checkCollision: jest.fn(() => false)
             };
             
-            QueueManager.updatePositions([], approaching, getTargetPosition, frontPosition, obstacles, true, 0);
+            QueueManager.updatePositions([], approaching, getTargetPosition, frontPosition, obstacles, true);
             
             expect(fan.state).toBe('approaching_queue');
             expect(fan.inQueue).toBe(false);
@@ -320,7 +297,7 @@ describe('QueueManager Helper Methods', () => {
                 checkCollision: jest.fn(() => false)
             };
             
-            QueueManager.updatePositions([], approaching, getTargetPosition, frontPosition, obstacles, true, 0);
+            QueueManager.updatePositions([], approaching, getTargetPosition, frontPosition, obstacles, true);
             
             expect(fan.state).toBe('approaching_queue');
         });
@@ -337,7 +314,7 @@ describe('QueueManager Helper Methods', () => {
                 checkCollision: jest.fn(() => false)
             };
             
-            QueueManager.updatePositions(queue, approaching, getTargetPosition, frontPosition, obstacles, true, 0);
+            QueueManager.updatePositions(queue, approaching, getTargetPosition, frontPosition, obstacles, true);
             
             // Should still work with empty queue
             expect(fan.queuePosition).toBe(0);
@@ -357,7 +334,7 @@ describe('QueueManager Helper Methods', () => {
                 checkCollision: jest.fn(() => false)
             };
             
-            QueueManager.updatePositions(queue, approaching, getTargetPosition, frontPosition, obstacles, true, 0);
+            QueueManager.updatePositions(queue, approaching, getTargetPosition, frontPosition, obstacles, true);
             
             // approachingFan should be positioned between the two (position 1)
             expect(approachingFan.queuePosition).toBe(1);
@@ -377,7 +354,7 @@ describe('QueueManager Helper Methods', () => {
                 checkCollision: jest.fn(() => false)
             };
             
-            QueueManager.updatePositions(queue, approaching, getTargetPosition, frontPosition, obstacles, true, 0);
+            QueueManager.updatePositions(queue, approaching, getTargetPosition, frontPosition, obstacles, true);
             
             // approachingFan should be at the end (position 2)
             expect(approachingFan.queuePosition).toBe(2);
@@ -391,7 +368,7 @@ describe('QueueManager Helper Methods', () => {
             const getTargetPosition = (index) => ({ x: 100 + index * 10, y: 100 });
             const frontPosition = { x: 100, y: 100 };
             
-            QueueManager.updatePositions(queue, approaching, getTargetPosition, frontPosition, null, false, 0);
+            QueueManager.updatePositions(queue, approaching, getTargetPosition, frontPosition, null, false);
             
             // fan2 is farther, should be positioned after fan1
             expect(fan2.queuePosition).toBe(1);
@@ -405,7 +382,7 @@ describe('QueueManager Helper Methods', () => {
             const getTargetPosition = (index) => ({ x: 100 + index * 10, y: 100 });
             const frontPosition = { x: 100, y: 100 };
             
-            QueueManager.updatePositions(queue, approaching, getTargetPosition, frontPosition, null, false, 0);
+            QueueManager.updatePositions(queue, approaching, getTargetPosition, frontPosition, null, false);
             
             // fan2 is closer to front, should be positioned before fan1
             expect(fan2.queuePosition).toBe(0);
@@ -553,7 +530,7 @@ describe('QueueManager Helper Methods', () => {
 
         test('should not update target when time threshold not met', () => {
             const fan = new Fan(100, 100, mockConfig);
-            fan.queueTargetUpdateTime = 100;
+            
             const targetPos = { x: 200, y: 200 };
             
             const updated = QueueManager.updateFanTarget(fan, targetPos, null, false, 110);
@@ -563,7 +540,7 @@ describe('QueueManager Helper Methods', () => {
 
         test('should update target when time threshold met', () => {
             const fan = new Fan(100, 100, mockConfig);
-            fan.queueTargetUpdateTime = 0;
+            
             const targetPos = { x: 200, y: 200 };
             
             const obstacles = {
@@ -573,7 +550,7 @@ describe('QueueManager Helper Methods', () => {
             const updated = QueueManager.updateFanTarget(fan, targetPos, obstacles, false, 130);
             
             expect(updated).toBe(true);
-            expect(fan.queueTargetUpdateTime).toBe(130);
+            // Timing removed
         });
     });
 
