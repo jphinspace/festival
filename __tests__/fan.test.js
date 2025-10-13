@@ -142,6 +142,24 @@ describe('Fan Class', () => {
             expect(fan.targetX).not.toBeNull()
             expect(fan.targetY).not.toBeNull()
         })
+
+        test('should not wander when fan already has a target', () => {
+            // Test the false branch of line 98 - when targets are NOT null
+            fan.state = AgentState.IDLE
+            fan.targetX = 200  // Has a target
+            fan.targetY = 200
+            fan.currentShow = null
+            fan.inQueue = false
+
+            const initialTargetX = fan.targetX
+            const initialTargetY = fan.targetY
+
+            fan.update(0.1, 1.0, [], mockObstacles)
+
+            // Should keep existing target, not set new wander target
+            expect(fan.targetX).toBe(initialTargetX)
+            expect(fan.targetY).toBe(initialTargetY)
+        })
     })
 
     describe('startWandering', () => {
