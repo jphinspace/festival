@@ -199,8 +199,8 @@ export class EventManager {
                 
                 const position = AgentUtils.calculateStagePosition(
                     targetX,
-                    this.height * (upFront ? 0.20 : 0.25),
-                    this.height * (upFront ? 0.15 : 0.3),
+                    this.getStageYOffset(upFront),
+                    this.getStageYRange(upFront),
                     upFront
                 );
                 agent.setTarget(position.x, position.y, this.obstacles);
@@ -224,7 +224,7 @@ export class EventManager {
                     const targetStall = agent.preferredFoodStall;
                     
                     // Find the stall with this ID
-                    const stall = this.foodStalls.find(s => s.id === targetStall.id);
+                    const stall = this.findStallById(targetStall.id);
                     if (stall) {
                         agent.goal = `food stall ${stall.id}`;
                         stall.addToQueue(agent, this.simulationTime);
@@ -309,6 +309,33 @@ export class EventManager {
                 }
             }
         }
+    }
+
+    /**
+     * Get stage Y offset based on up front status (extracted for testability)
+     * @param {boolean} upFront - Whether fan is positioned up front
+     * @returns {number} Y offset value
+     */
+    getStageYOffset(upFront) {
+        return this.height * (upFront ? 0.20 : 0.25)
+    }
+
+    /**
+     * Get stage Y range based on up front status (extracted for testability)
+     * @param {boolean} upFront - Whether fan is positioned up front
+     * @returns {number} Y range value
+     */
+    getStageYRange(upFront) {
+        return this.height * (upFront ? 0.15 : 0.3)
+    }
+
+    /**
+     * Find food stall by ID (extracted for testability)
+     * @param {string} stallId - Stall ID to find
+     * @returns {Object|undefined} Food stall or undefined if not found
+     */
+    findStallById(stallId) {
+        return this.foodStalls.find(s => s.id === stallId)
     }
 
     /**

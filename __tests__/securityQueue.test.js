@@ -784,4 +784,36 @@ describe('SecurityQueue', () => {
             expect(securityQueue.shouldReturnToQueue(result)).toBe(false);
         });
     });
+
+    describe('Additional helper methods', () => {
+        test('isNearEndOfQueue returns true when fan is near target', () => {
+            const fan = new Fan(400, 300, mockConfig);
+            fan.targetX = 405;
+            fan.targetY = 305;
+            fan.x = 405;
+            fan.y = 305;
+            
+            expect(securityQueue.isNearEndOfQueue(fan, 10)).toBe(true);
+        });
+
+        test('isNearEndOfQueue returns false when fan is far from target', () => {
+            const fan = new Fan(400, 300, mockConfig);
+            fan.targetX = 450;
+            fan.targetY = 350;
+            fan.x = 400;
+            fan.y = 300;
+            
+            expect(securityQueue.isNearEndOfQueue(fan, 10)).toBe(false);
+        });
+
+        test('getQueueX returns left queue X for index 0', () => {
+            const queueX = securityQueue.getQueueX(0);
+            expect(queueX).toBe(800 * mockConfig.QUEUE_LEFT_X);
+        });
+
+        test('getQueueX returns right queue X for index 1', () => {
+            const queueX = securityQueue.getQueueX(1);
+            expect(queueX).toBe(800 * mockConfig.QUEUE_RIGHT_X);
+        });
+    });
 });

@@ -1,5 +1,14 @@
 // Test for pathfinding module
-import { calculateStaticWaypoints, calculateDynamicFanAvoidance, isCornerValid } from '../src/core/pathfinding.js'
+import { 
+    calculateStaticWaypoints, 
+    calculateDynamicFanAvoidance, 
+    isCornerValid,
+    canReachTargetDirectly,
+    hasBlockingObstacles,
+    findValidMidpoint,
+    isVeryCloseToTarget,
+    isObstacleInPathForward
+} from '../src/core/pathfinding.js'
 import { jest } from '@jest/globals'
 
 const mockConfig = {
@@ -1042,6 +1051,143 @@ describe('Pathfinding Module', () => {
             
             // Should be invalid due to buffer
             expect(result.valid).toBe(false)
+        })
+    })
+
+    describe('Helper functions for testability', () => {
+        describe('canReachTargetDirectly', () => {
+            test('returns true when path is clear', () => {
+                const clearObstacles = {
+                    checkCollision: jest.fn(() => false),
+                    obstacles: [],
+                    stages: [],
+                    foodStalls: [],
+                    bus: null
+                }
+                
+                const result = canReachTargetDirectly(100, 100, 200, 200, clearObstacles, 3, 0)
+                
+                expect(result).toBe(true)
+            })
+
+            test('returns false when path is blocked', () => {
+                const blockedObstacles = {
+                    checkCollision: jest.fn(() => false),
+                    obstacles: [
+                        { x: 140, y: 140, width: 40, height: 40, type: 'stage' }
+                    ],
+                    stages: [],
+                    foodStalls: [],
+                    bus: null
+                }
+                
+                const result = canReachTargetDirectly(100, 100, 200, 200, blockedObstacles, 3, 0)
+                
+                expect(result).toBe(false)
+            })
+        })
+
+        describe('hasBlockingObstacles', () => {
+            test('returns true when obstacles exist', () => {
+                const obstacles = [{ x: 100, y: 100, width: 20, height: 20 }]
+                
+                expect(hasBlockingObstacles(obstacles)).toBe(true)
+            })
+
+            test('returns false when no obstacles', () => {
+                const obstacles = []
+                
+                expect(hasBlockingObstacles(obstacles)).toBe(false)
+            })
+        })
+
+        describe('findValidMidpoint', () => {
+            test('returns first valid midpoint', () => {
+                const clearObstacles = {
+                    checkCollision: jest.fn(() => false),
+                    obstacles: [],
+                    stages: [],
+                    foodStalls: [],
+                    bus: null
+                }
+                const midPoints = [
+                    { x: 150, y: 150 },
+                    { x: 160, y: 160 }
+                ]
+                
+                const result = findValidMidpoint(midPoints, 100, 100, clearObstacles, 3, 0)
+                
+                expect(result).toEqual({ x: 150, y: 150 })
+            })
+
+            test('returns null when no valid midpoint', () => {
+                const blockedObstacles = {
+                    checkCollision: jest.fn(() => false),
+                    obstacles: [
+                        { x: 130, y: 130, width: 80, height: 80, type: 'stage' } // Blocks all midpoints
+                    ],
+                    stages: [],
+                    foodStalls: [],
+                    bus: null
+                }
+                const midPoints = [
+                    { x: 150, y: 150 },
+                    { x: 160, y: 160 }
+                ]
+                
+                const result = findValidMidpoint(midPoints, 100, 100, blockedObstacles, 3, 0)
+                
+                expect(result).toBeNull()
+            })
+
+            test('returns null when all midpoints blocked by obstacles', () => {
+                const blockedObstacles = {
+                    checkCollision: jest.fn(() => false),
+                    obstacles: [
+                        { x: 120, y: 120, width: 100, height: 100, type: 'stage' } // Large obstacle blocking all midpoints
+                    ],
+                    stages: [],
+                    foodStalls: [],
+                    bus: null
+                }
+                const midPoints = [
+                    { x: 150, y: 150 }, // Inside obstacle
+                    { x: 160, y: 160 }  // Also inside obstacle
+                ]
+                
+                const result = findValidMidpoint(midPoints, 100, 100, blockedObstacles, 3, 0)
+                
+                expect(result).toBeNull()
+            })
+        })
+
+        describe('isVeryCloseToTarget', () => {
+            test('returns true when distance less than 2*radius', () => {
+                expect(isVeryCloseToTarget(5, 3)).toBe(true)
+            })
+
+            test('returns false when distance equals 2*radius', () => {
+                expect(isVeryCloseToTarget(6, 3)).toBe(false)
+            })
+
+            test('returns false when distance greater than 2*radius', () => {
+                expect(isVeryCloseToTarget(10, 3)).toBe(false)
+            })
+        })
+
+        describe('isObstacleInPathForward', () => {
+            test('returns true when dot product >= 0.5', () => {
+                expect(isObstacleInPathForward(0.5)).toBe(true)
+                expect(isObstacleInPathForward(0.7)).toBe(true)
+                expect(isObstacleInPathForward(1.0)).toBe(true)
+            })
+
+            test('returns false when dot product < 0.5', () => {
+                expect(isObstacleInPathForward(0.49)).toBe(false)
+                expect(isObstacleInPathForward(0.3)).toBe(false)
+                expect(isObstacleInPathForward(0)).toBe(false)
+                expect(isObstacleInPathForward(-0.5)).toBe(false)
+            })
         })
     })
 })

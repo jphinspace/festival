@@ -940,4 +940,36 @@ describe('EventManager', () => {
             expect(fan2.targetY).toBe(eventManager.height * 0.35);
         });
     });
+
+    describe('Helper methods for testability', () => {
+        test('getStageYOffset returns correct value for up front', () => {
+            const offset = eventManager.getStageYOffset(true);
+            expect(offset).toBe(600 * 0.20);
+        });
+
+        test('getStageYOffset returns correct value for not up front', () => {
+            const offset = eventManager.getStageYOffset(false);
+            expect(offset).toBe(600 * 0.25);
+        });
+
+        test('getStageYRange returns correct value for up front', () => {
+            const range = eventManager.getStageYRange(true);
+            expect(range).toBe(600 * 0.15);
+        });
+
+        test('getStageYRange returns correct value for not up front', () => {
+            const range = eventManager.getStageYRange(false);
+            expect(range).toBe(600 * 0.3);
+        });
+
+        test('findStallById finds stall by id', () => {
+            const stall = eventManager.findStallById(eventManager.foodStalls[0].id);
+            expect(stall).toBe(eventManager.foodStalls[0]);
+        });
+
+        test('findStallById returns undefined for non-existent id', () => {
+            const stall = eventManager.findStallById('non-existent-id');
+            expect(stall).toBeUndefined();
+        });
+    });
 });

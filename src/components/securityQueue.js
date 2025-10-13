@@ -225,7 +225,7 @@ export class SecurityQueue extends QueuedProcessor {
         if (this.shouldUpdateToNewEnd(processingFan, endPos)) {
             // Line has changed, update target to new end
             processingFan.setTarget(endPos.x, endPos.y, this.obstacles)
-        } else if (processingFan.isNearTarget(10)) {
+        } else if (this.isNearEndOfQueue(processingFan, 10)) {
             // Reached end of line, add to entering list
             delete processingFan.returningToQueue
             this.entering[queueIndex].push(processingFan)
@@ -331,7 +331,7 @@ export class SecurityQueue extends QueuedProcessor {
                 queue,
                 entering,
                 () => {
-                    const queueX = this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X)
+                    const queueX = this.getQueueX(queueIndex)
                     const startY = this.height * this.config.QUEUE_START_Y
                     const processingY = startY - this.config.QUEUE_SPACING // One space in front of queue
                     return { x: queueX, y: processingY }
@@ -374,6 +374,25 @@ export class SecurityQueue extends QueuedProcessor {
     getTotalCount() {
         return this.queues[0].length + this.queues[1].length + 
                this.entering[0].length + this.entering[1].length;
+    }
+
+    /**
+     * Check if fan is near end of queue (extracted for testability)
+     * @param {Fan} fan - Fan to check
+     * @param {number} threshold - Distance threshold
+     * @returns {boolean} True if near end of queue
+     */
+    isNearEndOfQueue(fan, threshold = 10) {
+        return fan.isNearTarget(threshold)
+    }
+
+    /**
+     * Get queue X position based on queue index (extracted for testability)
+     * @param {number} queueIndex - Queue index (0 or 1)
+     * @returns {number} X position for queue
+     */
+    getQueueX(queueIndex) {
+        return this.width * (queueIndex === 0 ? this.config.QUEUE_LEFT_X : this.config.QUEUE_RIGHT_X)
     }
 
     /**
