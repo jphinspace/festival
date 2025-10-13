@@ -161,10 +161,11 @@ export class QueueManager {
      * @param {Object} options.fanProperties - Properties to set on the fan
      * @param {boolean} options.setInQueue - Whether to set fan.inQueue to true (default: true)
      * @param {Obstacles} options.obstacles - Obstacles manager for pathfinding (optional but recommended)
+     * @param {number} options.simulationTime - Current simulation time for timestamp tracking
      * @returns {number} The assigned position
      */
     static addFanToQueue(fan, options) {
-        const { queue, approachingList, frontPosition, getTargetPosition, fanProperties = {}, setInQueue = true, obstacles = null } = options;
+        const { queue, approachingList, frontPosition, getTargetPosition, fanProperties = {}, setInQueue = true, obstacles = null, simulationTime = null } = options;
         
         // Use proximity-based positioning
         const position = this.findApproachingPosition(
@@ -190,6 +191,11 @@ export class QueueManager {
         // so that setTarget() knows to generate waypoints
         fan.state = AgentState.APPROACHING_QUEUE;
         
+        // Track timestamp for metrics (when fan starts approaching queue)
+        if (simulationTime !== null) {
+            fan.approachingStartTime = simulationTime;
+        }
+        
         // Set target based on calculated position WITH obstacles for pathfinding
         const targetPos = getTargetPosition(position);
         fan.setTarget(targetPos.x, targetPos.y, obstacles);
@@ -207,12 +213,13 @@ export class QueueManager {
      * @param {Array} approaching - Approaching fans array
      * @param {Function} updateCallback - Function to call after promotion (for resorting)
      * @param {number} threshold - Distance threshold for joining (default from CONFIG)
+     * @param {number} simulationTime - Current simulation time for timestamp tracking
      */
-    static processApproaching(queue, approaching, updateCallback, threshold = CONFIG.QUEUE_JOIN_THRESHOLD) {
+    static processApproaching(queue, approaching, updateCallback, threshold = CONFIG.QUEUE_JOIN_THRESHOLD, simulationTime = null) {
         for (let i = approaching.length - 1; i >= 0; i--) {
             const fan = approaching[i];
             if (this.shouldJoinQueue(fan, threshold)) {
-                this.promoteFanToQueue(fan, approaching, queue);
+                this.promoteFanToQueue(fan, approaching, queue, simulationTime);
                 if (updateCallback) {
                     updateCallback();
                 }
@@ -235,14 +242,23 @@ export class QueueManager {
      * @param {Fan} fan - Fan joining
      * @param {Array} approaching - Approaching array to remove from
      * @param {Array} queue - Queue array to add to
+     * @param {number} simulationTime - Current simulation time for timestamp tracking
      */
-    static promoteFanToQueue(fan, approaching, queue) {
+    static promoteFanToQueue(fan, approaching, queue, simulationTime = null) {
         const index = approaching.indexOf(fan);
         if (index !== -1) {
             approaching.splice(index, 1);
             queue.push(fan);
             fan.state = AgentState.IN_QUEUE;
             fan.inQueue = true;
+            
+            // Track timestamp for metrics (when fan enters queue)
+            if (simulationTime !== null) {
+                fan.inQueueStartTime = simulationTime;
+                // Clear approaching timestamp since they're now in queue
+                fan.approachingStartTime = null;
+            }
+            
             return true;
         }
         return false;

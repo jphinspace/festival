@@ -56,8 +56,9 @@ export class SecurityQueue extends QueuedProcessor {
     /**
      * Add a fan to one of the queues (fan chooses closest queue)
      * @param {Fan} fan - Fan to add to queue
+     * @param {number} simulationTime - Current simulation time for timestamp tracking
      */
-    addToQueue(fan) {
+    addToQueue(fan, simulationTime = null) {
         // Fan chooses the queue closest to their current position
         // This is a fan decision, not a queue property
         const leftQueueX = this.width * this.config.QUEUE_LEFT_X;
@@ -95,7 +96,8 @@ export class SecurityQueue extends QueuedProcessor {
                 queueIndex: queueIndex,
                 enhancedSecurity: enhancedSecurity
             },
-            obstacles: this.obstacles
+            obstacles: this.obstacles,
+            simulationTime: simulationTime
             // setInQueue defaults to true - same behavior as food stalls
         });
         

@@ -29,8 +29,9 @@ export class FoodStall extends QueuedProcessor {
     /**
      * Add a fan to the queue (left or right side, whichever is shorter)
      * @param {Fan} fan - Fan to add to queue
+     * @param {number} simulationTime - Current simulation time for timestamp tracking
      */
-    addToQueue(fan) {
+    addToQueue(fan, simulationTime = null) {
         // Check if already in either queue or approaching
         if (this.leftQueue.includes(fan) || this.rightQueue.includes(fan) ||
             this.leftApproaching.includes(fan) || this.rightApproaching.includes(fan)) {
@@ -62,7 +63,8 @@ export class FoodStall extends QueuedProcessor {
                 targetFoodStall: this,
                 queueSide: side
             },
-            obstacles: this.obstacles
+            obstacles: this.obstacles,
+            simulationTime: simulationTime
         });
         
         return position;

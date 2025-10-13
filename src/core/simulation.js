@@ -2,6 +2,7 @@
 import { Fan } from './fan.js';
 import { Renderer } from '../components/renderer.js';
 import { EventManager } from '../managers/eventManager.js';
+import { MetricsCollector } from '../utils/metricsCollector.js';
 import * as TimeUtils from '../utils/timeUtils.js';
 import * as Geometry from '../utils/geometry.js';
 
@@ -188,9 +189,14 @@ export class Simulation {
             this.fpsUpdateTime = currentTime;
             
             if (this.onStatsUpdate) {
+                // Collect and format metrics
+                const metrics = MetricsCollector.collectMetrics(this.agents, this.simulationTime);
+                const formattedMetrics = MetricsCollector.formatMetrics(metrics);
+                
                 this.onStatsUpdate({
                     attendeeCount: this.agents.length,
-                    fps: this.currentFPS
+                    fps: this.currentFPS,
+                    metrics: formattedMetrics
                 });
             }
         }

@@ -39,6 +39,65 @@
             <span id="attendeeCount">Attendees: 0</span>
             <span id="fps">FPS: 0</span>
         </div>
+        <div id="metrics" role="region" aria-label="Festival metrics">
+            <div class="metrics-section">
+                <h3>Queue Wait Times</h3>
+                <div class="metric-row">
+                    <span class="metric-label">In Queue:</span>
+                    <span class="metric-value">
+                        Avg: <span id="inQueueAvg">0ms</span> | 
+                        Med: <span id="inQueueMedian">0ms</span> | 
+                        Max: <span id="inQueueMax">0ms</span>
+                    </span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Approaching:</span>
+                    <span class="metric-value">
+                        Avg: <span id="approachingAvg">0ms</span> | 
+                        Med: <span id="approachingMedian">0ms</span> | 
+                        Max: <span id="approachingMax">0ms</span>
+                    </span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Re-entering:</span>
+                    <span class="metric-value">
+                        Avg: <span id="reenteringAvg">0ms</span> | 
+                        Med: <span id="reenteringMedian">0ms</span> | 
+                        Max: <span id="reenteringMax">0ms</span>
+                    </span>
+                </div>
+            </div>
+            <div class="metrics-section">
+                <h3>Current State</h3>
+                <div class="metric-row">
+                    <span class="metric-label">Fans in Queue:</span>
+                    <span class="metric-value" id="fansInQueue">0</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Fans Approaching:</span>
+                    <span class="metric-value" id="fansApproachingQueue">0</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">At Max Hunger:</span>
+                    <span class="metric-value" id="fansAtMaxHunger">0.0%</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Stuck Fans:</span>
+                    <span class="metric-value" id="stuckFans">0</span>
+                </div>
+            </div>
+            <div class="metrics-section">
+                <h3>Hunger Levels</h3>
+                <div class="metric-row">
+                    <span class="metric-label">Average:</span>
+                    <span class="metric-value" id="hungerAvg">0.0%</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">Median:</span>
+                    <span class="metric-value" id="hungerMedian">0.0%</span>
+                </div>
+            </div>
+        </div>
         <div id="canvas-container">
             <canvas id="canvas" role="img" aria-label="Festival simulation visualization"></canvas>
         </div>
