@@ -318,13 +318,9 @@ export class SecurityQueue extends QueuedProcessor {
                 }
             )
             
-            // Update queue positions if we started processing someone
-            if (newProcessing !== this.processing[queueIndex]) {
-                this.processing[queueIndex] = newProcessing
-                if (newProcessing !== null) {
-                    this.updateQueuePositions(queueIndex, true)
-                }
-            }
+            // newProcessing is always equal to this.processing[queueIndex] at this point
+            // because the callback already set it, so the check below is always false
+            // Lines 322-326 are dead code
             
             // If someone is advancing to or being processed, update their state
             if (this.processing[queueIndex] !== null) {

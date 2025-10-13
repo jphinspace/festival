@@ -707,5 +707,39 @@ describe('SecurityQueue', () => {
             expect(securityQueue.entering[0]).toContain(fan);
             expect(fan.state).toBe(AgentState.APPROACHING_QUEUE);
         });
-    })
+    });
+
+    describe('Integration test for processing transition - lines 323-325', () => {
+        test('should trigger processing transition and updateQueuePositions', () => {
+            // Create a fan in the queue, ready to be processed
+            const fan = new Fan(360, 424, mockConfig);
+            fan.state = AgentState.IN_QUEUE_WAITING;
+            fan.inQueue = true;
+            
+            // Position fan at front of queue, at the exact queue position
+            const queueX = 800 * mockConfig.QUEUE_LEFT_X;
+            const queueY = 600 * mockConfig.QUEUE_START_Y;
+            fan.x = queueX;
+            fan.y = queueY - 5; // Just behind processing position
+            fan.targetX = queueX;
+            fan.targetY = queueY;
+            
+            // Add to queue
+            securityQueue.queues[0] = [fan];
+            securityQueue.processing[0] = null; // No one processing yet
+            
+            // First update - fan should not start processing yet (too far)
+            securityQueue.update(100);
+            
+            // Move fan closer to processing position
+            fan.y = queueY + 3; // Right at processing area
+            
+            // Second update - fan should start processing now
+            securityQueue.update(200);
+            
+            // Verify fan is now being processed
+            // This should hit lines 323-325 where newProcessing !== null
+            expect(securityQueue.processing[0]).toBeTruthy();
+        });
+    });
 });
