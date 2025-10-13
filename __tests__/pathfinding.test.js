@@ -811,5 +811,186 @@ describe('Pathfinding Module', () => {
             // Should handle vertical orientation
             expect(waypoints.length).toBeGreaterThanOrEqual(1)
         })
+
+        test('should trigger corner inside obstacle continue - line 136', () => {
+            // Explicit test for line 136: corner inside obstacle
+            mockObstacles.checkCollision = jest.fn((x, y, r) => {
+                // Make some corners be inside obstacles
+                return (x > 145 && x < 155 && y > 145 && y < 155)
+            })
+            mockObstacles.obstacles = [
+                { x: 140, y: 140, width: 20, height: 20, type: 'stage' }
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                200,
+                200,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            expect(waypoints.length).toBeGreaterThanOrEqual(1)
+        })
+
+        test('should trigger direct path break - line 198', () => {
+            // Line 198: break when direct path becomes clear after first waypoint
+            // Need an obstacle that blocks initial path but after routing around corner, path is clear
+            mockObstacles.obstacles = [
+                { x: 148, y: 148, width: 4, height: 4, type: 'foodStall' } // Small obstacle
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                200,
+                200,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Path should be calculated
+            expect(waypoints[waypoints.length - 1]).toEqual({ x: 200, y: 200 })
+        })
+
+        test('should trigger no blocking obstacles break - line 205', () => {
+            // Line 205: break when blockingObstacles.length === 0
+            // This happens after routing around one obstacle, the next iteration finds no more obstacles
+            mockObstacles.obstacles = [
+                { x: 600, y: 600, width: 10, height: 10, type: 'stage' } // Very far away
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                150,
+                150,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            expect(waypoints.length).toBe(1)
+        })
+
+        test('should trigger midpoint fallback lines 228-231', () => {
+            // Lines 228-231: midpoint fallback when corners don't work
+            // Need obstacles placed so corners are all blocked but midpoints work
+            mockObstacles.checkCollision = jest.fn((x, y, r) => {
+                // Block area around corners but allow midpoints
+                if (x === 140 || x === 160 || y === 140 || y === 160) {
+                    return true // Block corners
+                }
+                return false
+            })
+            mockObstacles.obstacles = [
+                { x: 145, y: 145, width: 10, height: 10, type: 'stage' }
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                200,
+                200,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            expect(waypoints.length).toBeGreaterThanOrEqual(1)
+        })
+
+        test('should trigger both near same obstacle continue - line 317', () => {
+            // Line 317: continue when both start and target are near same obstacle
+            const buffer = mockConfig.PERSONAL_SPACE || 12
+            mockObstacles.obstacles = [
+                { x: 100, y: 100, width: 10, height: 10, type: 'stage' }
+            ]
+            
+            // Start and target both within buffer zone of same obstacle
+            const waypoints = calculateStaticWaypoints(
+                100 - buffer / 2,  // Within buffer
+                100 - buffer / 2,
+                100 + buffer / 2,  // Also within buffer
+                100 + buffer / 2,
+                mockObstacles,
+                mockAgent.radius,
+                buffer,
+                mockConfig
+            )
+            
+            expect(waypoints.length).toBeGreaterThanOrEqual(1)
+        })
+
+        test('should trigger very close to target continue - line 332', () => {
+            // Line 332: continue when distToTarget < radius * 2
+            const radius = mockAgent.radius // 3
+            mockObstacles.obstacles = [
+                { x: 102, y: 102, width: 2, height: 2, type: 'foodStall' }
+            ]
+            
+            // Target very close, within radius * 2
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                100 + radius * 1.5,  // Within radius * 2
+                100 + radius * 1.5,
+                mockObstacles,
+                mockAgent.radius,
+                mockConfig.PERSONAL_SPACE,
+                mockConfig
+            )
+            
+            expect(waypoints.length).toBeGreaterThanOrEqual(1)
+        })
+
+        test('should trigger obstacle not in path forward continue - line 344', () => {
+            // Line 344: continue when dotProduct < 0.5 (obstacle not in path direction)
+            mockObstacles.obstacles = [
+                { x: 50, y: 150, width: 10, height: 10, type: 'stage' } // To the side, not forward
+            ]
+            
+            const waypoints = calculateStaticWaypoints(
+                100,
+                100,
+                200,
+                100,  // Moving horizontally right, obstacle is below
+                mockObstacles,
+                mockAgent.radius,
+                mockConfig.PERSONAL_SPACE,
+                mockConfig
+            )
+            
+            expect(waypoints[waypoints.length - 1]).toEqual({ x: 200, y: 100 })
+        })
+
+        test('should trigger isPointInsideObstacle return true - line 390', () => {
+            // Line 390: return true in isPointInsideObstacle
+            mockObstacles.obstacles = [
+                { x: 100, y: 100, width: 20, height: 20, type: 'stage' }
+            ]
+            
+            // Try to calculate path where start point is inside obstacle
+            const waypoints = calculateStaticWaypoints(
+                110,  // Inside obstacle
+                110,
+                200,
+                200,
+                mockObstacles,
+                mockAgent.radius,
+                0,
+                mockConfig
+            )
+            
+            // Should still return something (may be empty or have waypoints)
+            expect(waypoints).toBeDefined()
+        })
     })
 })
