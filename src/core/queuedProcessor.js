@@ -147,8 +147,6 @@ export class QueuedProcessor {
                 )
                 if (updated) {
                     fan.state = AgentState.IN_QUEUE_ADVANCING
-                } else if (fan.state === AgentState.IN_QUEUE_ADVANCING && isAtTarget) {
-                    fan.state = AgentState.IN_QUEUE_WAITING
                 }
             } else if (fan.state === AgentState.IN_QUEUE_ADVANCING) {
                 // Fan reached target, switch to waiting
