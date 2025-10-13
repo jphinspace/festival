@@ -247,7 +247,7 @@ export class SecurityQueue extends QueuedProcessor {
         fan.inQueue = false
         
         // Start wandering immediately using shared function
-        fan.startWandering(this.obstacles, simulationTime)
+        fan.startWandering(this.obstacles)
         
         // Clear processing
         this.processing[queueIndex] = null
