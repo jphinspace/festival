@@ -742,4 +742,46 @@ describe('SecurityQueue', () => {
             expect(securityQueue.processing[0]).toBeTruthy();
         });
     });
+
+    describe('Helper methods for state transitions', () => {
+        test('shouldUpdateToNewEnd returns true when distance > 10', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            fan.targetX = 100;
+            fan.targetY = 100;
+            
+            const endPos = { x: 100, y: 115 }; // 15 pixels away
+            
+            expect(securityQueue.shouldUpdateToNewEnd(fan, endPos)).toBe(true);
+        });
+
+        test('shouldUpdateToNewEnd returns false when distance <= 10', () => {
+            const fan = new Fan(100, 100, mockConfig);
+            fan.targetX = 100;
+            fan.targetY = 100;
+            
+            const endPos = { x: 100, y: 108 }; // 8 pixels away
+            
+            expect(securityQueue.shouldUpdateToNewEnd(fan, endPos)).toBe(false);
+        });
+
+        test('shouldReleaseToFestival returns true for release action', () => {
+            const result = { completed: true, action: 'release' };
+            expect(securityQueue.shouldReleaseToFestival(result)).toBe(true);
+        });
+
+        test('shouldReleaseToFestival returns false for other actions', () => {
+            const result = { completed: true, action: 'return_to_queue' };
+            expect(securityQueue.shouldReleaseToFestival(result)).toBe(false);
+        });
+
+        test('shouldReturnToQueue returns true for return_to_queue action', () => {
+            const result = { completed: true, action: 'return_to_queue' };
+            expect(securityQueue.shouldReturnToQueue(result)).toBe(true);
+        });
+
+        test('shouldReturnToQueue returns false for other actions', () => {
+            const result = { completed: true, action: 'release' };
+            expect(securityQueue.shouldReturnToQueue(result)).toBe(false);
+        });
+    });
 });

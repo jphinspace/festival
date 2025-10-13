@@ -181,6 +181,38 @@ export class SecurityQueue extends QueuedProcessor {
     }
 
     /**
+     * Check if fan should update target to new end position
+     * @param {Fan} processingFan - Fan being processed
+     * @param {Object} endPos - End position {x, y}
+     * @returns {boolean} True if target should be updated
+     */
+    shouldUpdateToNewEnd(processingFan, endPos) {
+        const distToCurrentEnd = Math.sqrt(
+            Math.pow(processingFan.targetX - endPos.x, 2) +
+            Math.pow(processingFan.targetY - endPos.y, 2)
+        )
+        return distToCurrentEnd > 10
+    }
+
+    /**
+     * Check if fan should be released to festival
+     * @param {Object} result - Result from checkProcessingComplete
+     * @returns {boolean} True if fan should be released
+     */
+    shouldReleaseToFestival(result) {
+        return result.action === 'release'
+    }
+
+    /**
+     * Check if fan should return to back of queue
+     * @param {Object} result - Result from checkProcessingComplete
+     * @returns {boolean} True if fan should return to queue
+     */
+    shouldReturnToQueue(result) {
+        return result.action === 'return_to_queue'
+    }
+
+    /**
      * Handle a fan returning to the back of the queue after enhanced security
      * @param {number} queueIndex - Index of the queue
      * @param {Fan} processingFan - The fan returning to queue
@@ -190,12 +222,7 @@ export class SecurityQueue extends QueuedProcessor {
         const endPos = this._calculateEndOfLinePosition(queueIndex)
         
         // Check if line has changed since fan started returning
-        const distToCurrentEnd = Math.sqrt(
-            Math.pow(processingFan.targetX - endPos.x, 2) +
-            Math.pow(processingFan.targetY - endPos.y, 2)
-        )
-        
-        if (distToCurrentEnd > 10) {
+        if (this.shouldUpdateToNewEnd(processingFan, endPos)) {
             // Line has changed, update target to new end
             processingFan.setTarget(endPos.x, endPos.y, this.obstacles)
         } else if (processingFan.isNearTarget(10)) {
@@ -266,9 +293,9 @@ export class SecurityQueue extends QueuedProcessor {
         const result = this.checkProcessingComplete(fan, simulationTime, this.processingStartTime[queueIndex])
         
         if (result.completed) {
-            if (result.action === 'return_to_queue') {
+            if (this.shouldReturnToQueue(result)) {
                 this._sendFanToBackOfQueue(queueIndex, fan, simulationTime)
-            } else if (result.action === 'release') {
+            } else if (this.shouldReleaseToFestival(result)) {
                 this._releaseFanIntoFestival(queueIndex, fan, simulationTime)
             }
         }
