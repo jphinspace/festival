@@ -48,7 +48,6 @@ export class QueueManager {
         });
         
         // Update main queue fans with consecutive positions starting from 0
-        const currentTime = simulationTime || Date.now(); // Use simulationTime if available
         queue.forEach((fan, index) => {
             fan.queuePosition = index;
             const targetPos = getTargetPosition(index);
