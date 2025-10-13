@@ -5,8 +5,6 @@ import {
     calculatePerpendicularVector,
     moveInDirection,
     isWithinDistance,
-    positionAlongLine,
-    positionOnCircle,
     positionWithAngularOffset,
     clamp
 } from '../src/utils/geometry.js'
@@ -105,70 +103,6 @@ describe('Geometry Utilities', () => {
         test('handles zero distance', () => {
             expect(isWithinDistance(5, 5, 5, 5, 0)).toBe(false)
             expect(isWithinDistance(5, 5, 5, 5, 1)).toBe(true)
-        })
-    })
-
-    describe('positionAlongLine', () => {
-        test('calculates position at start', () => {
-            const result = positionAlongLine(0, 0, 10, 0, 0)
-            expect(result.x).toBe(0)
-            expect(result.y).toBe(0)
-        })
-
-        test('calculates position in middle', () => {
-            const result = positionAlongLine(0, 0, 10, 0, 5)
-            expect(result.x).toBe(5)
-            expect(result.y).toBe(0)
-        })
-
-        test('calculates position past end', () => {
-            const result = positionAlongLine(0, 0, 10, 0, 15)
-            expect(result.x).toBe(10)
-            expect(result.y).toBe(0)
-        })
-
-        test('handles diagonal line', () => {
-            const result = positionAlongLine(0, 0, 3, 4, 2.5)
-            expect(result.x).toBeCloseTo(1.5, 5)
-            expect(result.y).toBeCloseTo(2, 5)
-        })
-
-        test('handles zero-length line', () => {
-            const result = positionAlongLine(5, 5, 5, 5, 10)
-            expect(result.x).toBe(5)
-            expect(result.y).toBe(5)
-        })
-    })
-
-    describe('positionOnCircle', () => {
-        test('calculates position at 0 degrees (right)', () => {
-            const result = positionOnCircle(0, 0, 10, 0)
-            expect(result.x).toBeCloseTo(10, 5)
-            expect(result.y).toBeCloseTo(0, 5)
-        })
-
-        test('calculates position at 90 degrees (up)', () => {
-            const result = positionOnCircle(0, 0, 10, 90)
-            expect(result.x).toBeCloseTo(0, 5)
-            expect(result.y).toBeCloseTo(10, 5)
-        })
-
-        test('calculates position at 180 degrees (left)', () => {
-            const result = positionOnCircle(0, 0, 10, 180)
-            expect(result.x).toBeCloseTo(-10, 5)
-            expect(result.y).toBeCloseTo(0, 5)
-        })
-
-        test('calculates position at 270 degrees (down)', () => {
-            const result = positionOnCircle(0, 0, 10, 270)
-            expect(result.x).toBeCloseTo(0, 5)
-            expect(result.y).toBeCloseTo(-10, 5)
-        })
-
-        test('handles non-origin center', () => {
-            const result = positionOnCircle(5, 5, 3, 0)
-            expect(result.x).toBeCloseTo(8, 5)
-            expect(result.y).toBeCloseTo(5, 5)
         })
     })
 

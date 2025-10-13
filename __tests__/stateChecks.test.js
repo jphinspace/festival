@@ -1,15 +1,11 @@
 import {
     isMovingState,
-    isStationaryState,
-    isInQueueState,
-    isProcessingState,
     needsPathfinding,
     shouldTransitionToIdle,
     canMove,
     shouldUsePersonalSpaceBuffer,
     hasPassedSecurity,
     isLeaving,
-    canAttendShow,
     shouldWander
 } from '../src/utils/stateChecks.js'
 import { AgentState } from '../src/utils/enums.js'
@@ -27,47 +23,6 @@ describe('State Checking Utilities', () => {
             expect(isMovingState(AgentState.IDLE)).toBe(false)
             expect(isMovingState(AgentState.IN_QUEUE_WAITING)).toBe(false)
             expect(isMovingState(AgentState.PROCESSING)).toBe(false)
-        })
-    })
-
-    describe('isStationaryState', () => {
-        test('returns true for stationary states', () => {
-            expect(isStationaryState(AgentState.IN_QUEUE_WAITING)).toBe(true)
-            expect(isStationaryState(AgentState.PROCESSING)).toBe(true)
-            expect(isStationaryState(AgentState.IDLE)).toBe(true)
-            expect(isStationaryState(AgentState.BEING_CHECKED)).toBe(true)
-        })
-
-        test('returns false for moving states', () => {
-            expect(isStationaryState(AgentState.MOVING)).toBe(false)
-            expect(isStationaryState(AgentState.APPROACHING_QUEUE)).toBe(false)
-        })
-    })
-
-    describe('isInQueueState', () => {
-        test('returns true for queue states', () => {
-            expect(isInQueueState(AgentState.IN_QUEUE_WAITING)).toBe(true)
-            expect(isInQueueState(AgentState.IN_QUEUE_ADVANCING)).toBe(true)
-            expect(isInQueueState(AgentState.APPROACHING_QUEUE)).toBe(true)
-        })
-
-        test('returns false for non-queue states', () => {
-            expect(isInQueueState(AgentState.IDLE)).toBe(false)
-            expect(isInQueueState(AgentState.MOVING)).toBe(false)
-            expect(isInQueueState(AgentState.PROCESSING)).toBe(false)
-        })
-    })
-
-    describe('isProcessingState', () => {
-        test('returns true for processing states', () => {
-            expect(isProcessingState(AgentState.PROCESSING)).toBe(true)
-            expect(isProcessingState(AgentState.BEING_CHECKED)).toBe(true)
-        })
-
-        test('returns false for non-processing states', () => {
-            expect(isProcessingState(AgentState.IDLE)).toBe(false)
-            expect(isProcessingState(AgentState.MOVING)).toBe(false)
-            expect(isProcessingState(AgentState.IN_QUEUE_WAITING)).toBe(false)
         })
     })
 
@@ -144,27 +99,6 @@ describe('State Checking Utilities', () => {
         test('returns false for other states', () => {
             expect(isLeaving(AgentState.IDLE)).toBe(false)
             expect(isLeaving(AgentState.MOVING)).toBe(false)
-        })
-    })
-
-    describe('canAttendShow', () => {
-        test('returns true when conditions are met', () => {
-            expect(canAttendShow(AgentState.PASSED_SECURITY, false)).toBe(true)
-            expect(canAttendShow(AgentState.IDLE, false)).toBe(true)
-            expect(canAttendShow(AgentState.MOVING, false)).toBe(true)
-        })
-
-        test('returns false when in queue', () => {
-            expect(canAttendShow(AgentState.PASSED_SECURITY, true)).toBe(false)
-        })
-
-        test('returns false when leaving', () => {
-            expect(canAttendShow(AgentState.LEAVING, false)).toBe(false)
-        })
-
-        test('returns false when not passed security', () => {
-            expect(canAttendShow(AgentState.IN_QUEUE_WAITING, false)).toBe(false)
-            expect(canAttendShow(AgentState.BEING_CHECKED, false)).toBe(false)
         })
     })
 
