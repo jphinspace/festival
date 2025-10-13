@@ -86,14 +86,13 @@ class TestQueuedProcessor extends QueuedProcessor {
         }
     }
 
-    updateQueuePositionsWrapper(sortNeeded, simulationTime) {
+    updateQueuePositionsWrapper(sortNeeded) {
         const getTargetPosition = (index) => this.getQueuePositionForIndex(index)
         this.updateQueuePositions(
             this.queue,
             this.entering,
             getTargetPosition,
-            sortNeeded,
-            simulationTime
+            sortNeeded
         )
     }
 }
@@ -252,38 +251,33 @@ describe('QueuedProcessor Base Class', () => {
             const fan2 = { ...mockFan, state: 'in_queue_waiting', x: 110, y: 110, setTarget: jest.fn(), isNearTarget: jest.fn(() => false) }
             processor.queue = [fan1, fan2]
 
-            processor.updateQueuePositionsWrapper(true, 1000)
+            processor.updateQueuePositionsWrapper(true)
 
             expect(fan1.setTarget).toHaveBeenCalled()
             expect(fan2.setTarget).toHaveBeenCalled()
         })
 
-        test('should throttle updates when sortNeeded is false', () => {
-            const fan1 = { ...mockFan, state: 'in_queue_waiting', x: 100, y: 100, setTarget: jest.fn(), isNearTarget: jest.fn(() => false), queueTargetUpdateTime: 0 }
+        test('should always update targets when called', () => {
+            const fan1 = { ...mockFan, state: 'in_queue_waiting', x: 100, y: 100, setTarget: jest.fn(), isNearTarget: jest.fn(() => false) }
             processor.queue = [fan1]
 
-            // First call should update
-            processor.updateQueuePositionsWrapper(false, 1000)
+            // All calls should update
+            processor.updateQueuePositionsWrapper(false)
             expect(fan1.setTarget).toHaveBeenCalledTimes(1)
 
-            // Second call immediately after should not update (throttled)
-            processor.updateQueuePositionsWrapper(false, 1001)
-            expect(fan1.setTarget).toHaveBeenCalledTimes(1)
-
-            // After throttle period should update
-            processor.updateQueuePositionsWrapper(false, 1201)
+            processor.updateQueuePositionsWrapper(false)
             expect(fan1.setTarget).toHaveBeenCalledTimes(2)
         })
 
         test('should update immediately when sortNeeded is true', () => {
-            const fan1 = { ...mockFan, state: 'in_queue_waiting', x: 100, y: 100, setTarget: jest.fn(), isNearTarget: jest.fn(() => false), queueTargetUpdateTime: 0 }
+            const fan1 = { ...mockFan, state: 'in_queue_waiting', x: 100, y: 100, setTarget: jest.fn(), isNearTarget: jest.fn(() => false) }
             processor.queue = [fan1]
 
-            processor.updateQueuePositionsWrapper(true, 1000)
+            processor.updateQueuePositionsWrapper(true)
             expect(fan1.setTarget).toHaveBeenCalledTimes(1)
 
-            // Should update again even immediately if sortNeeded
-            processor.updateQueuePositionsWrapper(true, 1001)
+            // Should update again
+            processor.updateQueuePositionsWrapper(true)
             expect(fan1.setTarget).toHaveBeenCalledTimes(2)
         })
 
@@ -291,7 +285,7 @@ describe('QueuedProcessor Base Class', () => {
             processor.queue = []
 
             expect(() => {
-                processor.updateQueuePositionsWrapper(true, 1000)
+                processor.updateQueuePositionsWrapper(true)
             }).not.toThrow()
         })
     })
@@ -327,13 +321,13 @@ describe('QueuedProcessor Base Class', () => {
     })
 
     describe('updateFanTarget', () => {
-        test('should call setTarget with obstacles and time', () => {
-            const fan = { ...mockFan, setTarget: jest.fn(), queueTargetUpdateTime: 0 }
+        test('should call setTarget with obstacles', () => {
+            const fan = { ...mockFan, setTarget: jest.fn() }
             const targetPos = { x: 100, y: 200 }
             
-            processor.updateFanTarget(fan, targetPos, mockObstacles, true, 1000)
+            processor.updateFanTarget(fan, targetPos, mockObstacles, true)
 
-            expect(fan.setTarget).toHaveBeenCalledWith(100, 200, mockObstacles, 1000)
+            expect(fan.setTarget).toHaveBeenCalledWith(100, 200, mockObstacles)
         })
     })
 
@@ -361,7 +355,7 @@ describe('QueuedProcessor Base Class', () => {
             processor.queue = [fan1]
             processor.setObstacles(mockObstacles)
             
-            processor.updateQueuePositionsWrapper(false, 1000)
+            processor.updateQueuePositionsWrapper(false)
             
             expect(fan1.state).toBe('in_queue_waiting')
         })
@@ -380,7 +374,7 @@ describe('QueuedProcessor Base Class', () => {
             processor.setObstacles(mockObstacles)
             
             // Call with simulationTime = 0 to trigger Date.now() fallback
-            processor.updateQueuePositionsWrapper(false, 0)
+            processor.updateQueuePositionsWrapper(false)
             
             expect(fan1.setTarget).toHaveBeenCalled()
         })
@@ -397,7 +391,7 @@ describe('QueuedProcessor Base Class', () => {
             processor.queue = [fan1]
             processor.setObstacles(mockObstacles)
             
-            processor.updateQueuePositionsWrapper(false, 1000)
+            processor.updateQueuePositionsWrapper(false)
             
             // State should remain waiting
             expect(fan1.state).toBe('in_queue_waiting')
@@ -415,7 +409,7 @@ describe('QueuedProcessor Base Class', () => {
             processor.queue = [fan1]
             processor.setObstacles(mockObstacles)
             
-            processor.updateQueuePositionsWrapper(false, 1000)
+            processor.updateQueuePositionsWrapper(false)
             
             // State should change to advancing since update succeeded
             expect(fan1.state).toBe('in_queue_advancing')
@@ -440,7 +434,7 @@ describe('QueuedProcessor Base Class', () => {
             processor.queue = [fan1]
             processor.setObstacles(mockObstacles)
             
-            processor.updateQueuePositionsWrapper(false, 1000)
+            processor.updateQueuePositionsWrapper(false)
             
             // State should remain advancing (not change to waiting)
             expect(fan1.state).toBe('in_queue_advancing')

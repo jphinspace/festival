@@ -129,14 +129,15 @@ describe('Fan Class', () => {
             expect(fan.state).toBe('moving')
         })
 
-        test('should not transition idle to moving before wait time', () => {
+        test('should transition idle to moving immediately when no target', () => {
             fan.state = AgentState.IDLE
-            fan.wanderTargetUpdateTime = Date.now() // Just updated, so shouldn't transition yet
-            const initialState = fan.state
+            fan.targetX = null
+            fan.targetY = null
 
-            fan.update(0.1, 1.0, [], mockObstacles, Date.now() + 1000) // Only 1 second later
+            fan.update(0.1, 1.0, [], mockObstacles)
 
-            expect(fan.state).toBe(initialState)
+            // Should start wandering immediately
+            expect(fan.state).toBe('moving')
         })
     })
 
@@ -144,7 +145,7 @@ describe('Fan Class', () => {
         test('should set random target and transition to moving', () => {
             fan.state = AgentState.IDLE
 
-            fan.startWandering(mockObstacles, 1000)
+            fan.startWandering(mockObstacles)
 
             expect(fan.state).toBe('moving')
             expect(fan.targetX).toBeDefined()
@@ -154,18 +155,17 @@ describe('Fan Class', () => {
         test('should call setTarget with obstacles', () => {
             fan.setTarget = jest.fn()
 
-            fan.startWandering(mockObstacles, 1000)
+            fan.startWandering(mockObstacles)
 
             expect(fan.setTarget).toHaveBeenCalledWith(
                 expect.any(Number),
                 expect.any(Number),
-                mockObstacles,
-                1000
+                mockObstacles
             )
         })
 
         test('should generate valid coordinates within bounds', () => {
-            fan.startWandering(mockObstacles, 1000)
+            fan.startWandering(mockObstacles)
 
             expect(fan.targetX).toBeGreaterThanOrEqual(0)
             expect(fan.targetX).toBeLessThanOrEqual(mockObstacles.width)

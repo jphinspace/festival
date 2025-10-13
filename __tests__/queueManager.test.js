@@ -239,21 +239,6 @@ describe('QueueManager Helper Methods', () => {
             expect(fan.state).toBe('in_queue_advancing');
         });
 
-        test('should not change state when updateFanTarget returns false', () => {
-            const fan = new Fan(100, 100, mockConfig);
-            fan.state = 'in_queue_waiting';
-             // Recent update
-            const queue = [fan];
-            const getTargetPosition = (index) => ({ x: 200, y: 100 }); // Far from current
-            const frontPosition = { x: 200, y: 100 };
-            
-            // No forceUpdate, and time threshold not met
-            QueueManager.updatePositions(queue, [], getTargetPosition, frontPosition, null, false);
-            
-            // State should not change to advancing
-            expect(fan.state).toBe('in_queue_waiting');
-        });
-
         test('should not update target when fan is already at position', () => {
             const fan = new Fan(100, 100, mockConfig);
             fan.targetX = 100;
@@ -528,29 +513,16 @@ describe('QueueManager Helper Methods', () => {
             expect(fan.targetX).toBe(200);
         });
 
-        test('should not update target when time threshold not met', () => {
+        test('should always update target', () => {
             const fan = new Fan(100, 100, mockConfig);
             
             const targetPos = { x: 200, y: 200 };
             
-            const updated = QueueManager.updateFanTarget(fan, targetPos, null, false, 110);
-            
-            expect(updated).toBe(false);
-        });
-
-        test('should update target when time threshold met', () => {
-            const fan = new Fan(100, 100, mockConfig);
-            
-            const targetPos = { x: 200, y: 200 };
-            
-            const obstacles = {
-                checkCollision: jest.fn(() => false)
-            };
-            
-            const updated = QueueManager.updateFanTarget(fan, targetPos, obstacles, false, 130);
+            const updated = QueueManager.updateFanTarget(fan, targetPos, null, false);
             
             expect(updated).toBe(true);
-            // Timing removed
+            expect(fan.targetX).toBe(200);
+            expect(fan.targetY).toBe(200);
         });
     });
 

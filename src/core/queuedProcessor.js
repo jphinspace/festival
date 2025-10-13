@@ -139,11 +139,10 @@ export class QueuedProcessor {
             const distToTarget = this.getDistanceToPosition(fan, targetPos)
             const isAtTarget = distToTarget < 5 // Within 5 pixels
             
-            // Throttle setTarget calls to once every 125ms per fan (unless forceUpdate is true)
-            // But only set target if fan is not at target already
+            // Only set target if fan is not at target already
             if (!isAtTarget) {
                 const updated = this.updateFanTarget(
-                    fan, targetPos, this.obstacles, forceUpdate, currentTime
+                    fan, targetPos, this.obstacles, forceUpdate
                 )
                 if (updated) {
                     fan.state = AgentState.IN_QUEUE_ADVANCING
