@@ -28,28 +28,6 @@ export class QueueManager {
     }
 
     /**
-     * Sort queues and approaching arrays by actual distance to target
-     * @param {Array} queue - Main queue array
-     * @param {Array} approaching - Fans approaching the queue  
-     * @param {Object} frontPosition - {x, y} position of queue front
-     */
-    static sortByDistance(queue, approaching, frontPosition) {
-        // Sort main queue by distance to front
-        queue.sort((a, b) => {
-            const distA = this.getDistanceToPosition(a, frontPosition);
-            const distB = this.getDistanceToPosition(b, frontPosition);
-            return distA - distB;
-        });
-        
-        // Sort approaching fans by distance to front
-        approaching.sort((a, b) => {
-            const distA = this.getDistanceToPosition(a, frontPosition);
-            const distB = this.getDistanceToPosition(b, frontPosition);
-            return distA - distB;
-        });
-    }
-
-    /**
      * Update a fan's target position with throttling
      * @param {Fan} fan - Fan to update
      * @param {Object} targetPos - Target position {x, y}

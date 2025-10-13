@@ -6,9 +6,7 @@ import {
     shouldAttendStage,
     shouldBeUpFront,
     calculateStagePosition,
-    canLeaveFestival,
-    calculateWanderInterval,
-    generateRandomPosition
+    canLeaveFestival
 } from '../src/utils/agentUtils.js'
 
 describe('Agent Utilities', () => {
@@ -157,7 +155,7 @@ describe('Agent Utilities', () => {
             const originalRandom = Math.random
             Math.random = () => 0.5
             
-            const result = calculateStagePosition(100, 50, 150, 100, true)
+            const result = calculateStagePosition(100, 50, 100, true)
             expect(result.x).toBe(100) // 100 + (0.5 - 0.5) * 40
             expect(result.y).toBe(100) // 50 + 0.5 * 100
             
@@ -168,7 +166,7 @@ describe('Agent Utilities', () => {
             const originalRandom = Math.random
             Math.random = () => 0.5
             
-            const result = calculateStagePosition(100, 50, 150, 100, false)
+            const result = calculateStagePosition(100, 50, 100, false)
             expect(result.x).toBe(100) // 100 + (0.5 - 0.5) * 150
             expect(result.y).toBe(100) // 50 + 0.5 * 100
             
@@ -195,55 +193,6 @@ describe('Agent Utilities', () => {
 
         test('returns false when already leaving', () => {
             expect(canLeaveFestival(true, true, false, 'leaving')).toBe(false)
-        })
-    })
-
-    describe('calculateWanderInterval', () => {
-        test('returns interval within range', () => {
-            const originalRandom = Math.random
-            
-            Math.random = () => 0
-            expect(calculateWanderInterval(5000, 10000)).toBe(5000)
-            
-            Math.random = () => 1
-            expect(calculateWanderInterval(5000, 10000)).toBe(10000)
-            
-            Math.random = () => 0.5
-            expect(calculateWanderInterval(5000, 10000)).toBe(7500)
-            
-            Math.random = originalRandom
-        })
-
-        test('uses default values if not provided', () => {
-            const originalRandom = Math.random
-            Math.random = () => 0
-            
-            expect(calculateWanderInterval()).toBe(5000)
-            
-            Math.random = originalRandom
-        })
-    })
-
-    describe('generateRandomPosition', () => {
-        test('generates position within bounds', () => {
-            const originalRandom = Math.random
-            
-            Math.random = () => 0.5
-            const result = generateRandomPosition(100, 200)
-            expect(result.x).toBe(50)
-            expect(result.y).toBe(100)
-            
-            Math.random = () => 0
-            const result2 = generateRandomPosition(100, 200)
-            expect(result2.x).toBe(0)
-            expect(result2.y).toBe(0)
-            
-            Math.random = () => 1
-            const result3 = generateRandomPosition(100, 200)
-            expect(result3.x).toBe(100)
-            expect(result3.y).toBe(200)
-            
-            Math.random = originalRandom
         })
     })
 })
