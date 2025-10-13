@@ -118,43 +118,6 @@ describe('Pathfinding Module', () => {
             expect(waypoints.length).toBeGreaterThanOrEqual(1)
         })
 
-        test('should apply randomization to intermediate waypoints', () => {
-            // Mock Math.random to return predictable values
-            const originalRandom = Math.random
-            Math.random = jest.fn(() => 0.5)
-
-            const obstacleMock = {
-                checkCollision: jest.fn(() => false),
-                obstacles: [{
-                    x: 130,
-                    y: 130,
-                    width: 40,
-                    height: 40
-                }],
-                stages: [],
-                foodStalls: [],
-                bus: null
-            }
-
-            const waypoints = calculateStaticWaypoints(
-                mockAgent.x,
-                mockAgent.y,
-                300,
-                300,
-                obstacleMock,
-                mockAgent.radius,
-                0,
-                mockConfig
-            )
-
-            Math.random = originalRandom
-
-            // Last waypoint should be exact destination
-            if (waypoints.length > 0) {
-                expect(waypoints[waypoints.length - 1]).toEqual({ x: 300, y: 300 })
-            }
-        })
-
         test('should limit waypoints to MAX_STATIC_WAYPOINTS', () => {
             const obstacleMock = {
                 checkCollision: jest.fn(() => false),
@@ -384,32 +347,16 @@ describe('Pathfinding Module', () => {
             expect(waypoints.length).toBeGreaterThanOrEqual(1)
         })
         
-        test('should use already-randomized waypoints for path validation', () => {
-            // This tests that when randomizing waypoint N, we check path clearance
-            // to the already-randomized waypoint N-1, not the original waypoint N-1
+        test('should handle path calculation without obstacles', () => {
+            // This tests path calculation with no obstacles
             
             const obstacleMock = {
                 checkCollision: jest.fn(() => false),
-                obstacles: [{
-                    x: 150,
-                    y: 100,
-                    width: 40,
-                    height: 40,
-                    type: 'foodStall'
-                }],
+                obstacles: [],
                 stages: [],
                 foodStalls: [],
                 bus: null
             }
-
-            // Mock Math.random to create specific randomization pattern
-            const originalRandom = Math.random
-            let callCount = 0
-            Math.random = jest.fn(() => {
-                callCount++
-                // Create predictable but varying random values
-                return (callCount % 3) / 3
-            })
 
             const waypoints = calculateStaticWaypoints(
                 50,
@@ -421,52 +368,11 @@ describe('Pathfinding Module', () => {
                 0,
                 mockConfig
             )
-
-            Math.random = originalRandom
 
             // Verify we got waypoints (path calculation worked)
             expect(waypoints.length).toBeGreaterThanOrEqual(1)
             
             // Last waypoint should always be exact destination
-            expect(waypoints[waypoints.length - 1]).toEqual({ x: 250, y: 250 })
-        })
-        
-        test('should fall back to original waypoint if randomization fails', () => {
-            // Create a scenario where randomization should fail
-            // (all random points inside obstacle or have blocked paths)
-            const obstacleMock = {
-                checkCollision: jest.fn((x, y) => {
-                    // Block a wide area to make randomization fail
-                    if (x > 80 && x < 220 && y > 80 && y < 220) {
-                        return true
-                    }
-                    return false
-                }),
-                obstacles: [{
-                    x: 100,
-                    y: 100,
-                    width: 100,
-                    height: 100,
-                    type: 'foodStall'
-                }],
-                stages: [],
-                foodStalls: [],
-                bus: null
-            }
-
-            // Should still return waypoints even if randomization fails
-            const waypoints = calculateStaticWaypoints(
-                50,
-                50,
-                250,
-                250,
-                obstacleMock,
-                mockAgent.radius,
-                0,
-                mockConfig
-            )
-
-            expect(waypoints.length).toBeGreaterThanOrEqual(1)
             expect(waypoints[waypoints.length - 1]).toEqual({ x: 250, y: 250 })
         })
     })
@@ -490,28 +396,6 @@ describe('Pathfinding Module', () => {
             // Should return direct path (single waypoint)
             expect(waypoints.length).toBe(1)
             expect(waypoints[0]).toEqual({ x: 150, y: 150 })
-        })
-
-        test('should fallback to original waypoint when random point fails', () => {
-            // Create scenario where randomization fails - tests line 63 fallback
-            mockObstacles.obstacles = [
-                { x: 0, y: 0, width: 1000, height: 1000, type: 'stage' } // Cover entire area
-            ]
-            
-            // With blocked area, randomization should fail and fall back
-            const waypoints = calculateStaticWaypoints(
-                100,
-                100,
-                200,
-                200,
-                mockObstacles,
-                mockAgent.radius,
-                0,
-                mockConfig
-            )
-            
-            // Should still return waypoints (with fallback)
-            expect(waypoints.length).toBeGreaterThanOrEqual(1)
         })
 
         test('should handle zero distance to target in corner scoring', () => {

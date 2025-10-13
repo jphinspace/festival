@@ -100,15 +100,15 @@ export function shouldAttendStage(fanPreference, stageName, currentShow) {
 
 /**
  * Determine if fan should be positioned up front at stage
- * @param {number} upFrontProbability - Probability of being up front (0-1)
- * @returns {boolean} True if should be up front
+ * Always returns false (deterministic behavior - no fans go up front)
+ * @returns {boolean} Always false
  */
-export function shouldBeUpFront(upFrontProbability = 0.2) {
-    return Math.random() < upFrontProbability
+export function shouldBeUpFront() {
+    return false
 }
 
 /**
- * Calculate target position for stage attendance
+ * Calculate target position for stage attendance (deterministic - center position)
  * @param {number} stageX - Stage X position
  * @param {number} baseY - Base Y position
  * @param {number} spreadY - Y spread range
@@ -116,8 +116,8 @@ export function shouldBeUpFront(upFrontProbability = 0.2) {
  * @returns {{x: number, y: number}} Target position
  */
 export function calculateStagePosition(stageX, baseY, spreadY, isUpFront) {
-    const x = stageX + (Math.random() - 0.5) * (isUpFront ? 40 : 150)
-    const y = baseY + Math.random() * spreadY
+    const x = stageX // Center position, no randomization
+    const y = baseY + (spreadY / 2) // Middle of spread range
     return { x, y }
 }
 

@@ -76,8 +76,8 @@ export class SecurityQueue extends QueuedProcessor {
         const startY = this.height * this.config.QUEUE_START_Y;
         const spacing = this.config.QUEUE_SPACING;
         
-        // Determine if enhanced security
-        const enhancedSecurity = Math.random() < this.config.ENHANCED_SECURITY_PERCENTAGE;
+        // No enhanced security (deterministic - all fans get regular security)
+        const enhancedSecurity = false;
         
         // Use QueueManager common method to add fan
         // Security queues now use same inQueue behavior as food stalls

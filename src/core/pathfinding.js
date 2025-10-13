@@ -254,39 +254,7 @@ function findPathAroundObstacles(startX, startY, targetX, targetY, obstacles, ra
  * @returns {Object|null} Random point {x, y} or null if none found
  */
 function findRandomPointNearWaypoint(waypointX, waypointY, randomRadius, prevWaypoint, nextWaypoint, obstacles, radius, personalSpaceBuffer) {
-    if (randomRadius === 0) {
-        return { x: waypointX, y: waypointY } // No randomization for destination
-    }
-    
-    const maxAttempts = 50 // Limit attempts to avoid infinite loop
-    
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        // Generate random point within circle
-        const angle = Math.random() * Math.PI * 2
-        const distance = Math.random() * randomRadius
-        const randomX = waypointX + Math.cos(angle) * distance
-        const randomY = waypointY + Math.sin(angle) * distance
-        
-        // Check if point is inside obstacle
-        if (isPointInsideObstacle(randomX, randomY, obstacles, radius, personalSpaceBuffer)) {
-            continue
-        }
-        
-        // Check if path from previous waypoint to this point is clear
-        if (!isPathClear(prevWaypoint.x, prevWaypoint.y, randomX, randomY, obstacles, radius, personalSpaceBuffer)) {
-            continue
-        }
-        
-        // Check if path from this point to next waypoint is clear
-        if (!isPathClear(randomX, randomY, nextWaypoint.x, nextWaypoint.y, obstacles, radius, personalSpaceBuffer)) {
-            continue
-        }
-        
-        // Valid point found
-        return { x: randomX, y: randomY }
-    }
-    
-    // No valid random point found, return original waypoint
+    // No randomization - just return the original waypoint deterministically
     return { x: waypointX, y: waypointY }
 }
 

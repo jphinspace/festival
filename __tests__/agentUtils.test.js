@@ -128,49 +128,22 @@ describe('Agent Utilities', () => {
     })
 
     describe('shouldBeUpFront', () => {
-        test('returns boolean based on probability', () => {
-            const originalRandom = Math.random
-            
-            Math.random = () => 0.1
-            expect(shouldBeUpFront(0.2)).toBe(true)
-            
-            Math.random = () => 0.3
-            expect(shouldBeUpFront(0.2)).toBe(false)
-            
-            Math.random = originalRandom
-        })
-
-        test('uses default probability if not provided', () => {
-            const originalRandom = Math.random
-            
-            Math.random = () => 0.15
-            expect(shouldBeUpFront()).toBe(true)
-            
-            Math.random = originalRandom
+        test('always returns false (deterministic)', () => {
+            expect(shouldBeUpFront()).toBe(false)
         })
     })
 
     describe('calculateStagePosition', () => {
-        test('calculates up-front position with smaller spread', () => {
-            const originalRandom = Math.random
-            Math.random = () => 0.5
-            
+        test('calculates center position (deterministic)', () => {
             const result = calculateStagePosition(100, 50, 100, true)
-            expect(result.x).toBe(100) // 100 + (0.5 - 0.5) * 40
-            expect(result.y).toBe(100) // 50 + 0.5 * 100
-            
-            Math.random = originalRandom
+            expect(result.x).toBe(100) // Center X
+            expect(result.y).toBe(100) // 50 + 100/2
         })
 
-        test('calculates back position with larger spread', () => {
-            const originalRandom = Math.random
-            Math.random = () => 0.5
-            
+        test('calculates position regardless of isUpFront parameter', () => {
             const result = calculateStagePosition(100, 50, 100, false)
-            expect(result.x).toBe(100) // 100 + (0.5 - 0.5) * 150
-            expect(result.y).toBe(100) // 50 + 0.5 * 100
-            
-            Math.random = originalRandom
+            expect(result.x).toBe(100) // Center X
+            expect(result.y).toBe(100) // 50 + 100/2
         })
     })
 

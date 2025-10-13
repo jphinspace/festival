@@ -120,16 +120,16 @@ export class EventManager {
                 this.leftConcertStartTime = null;
                 this.leftConcertPrepStartTime = null;
                 
-                // Fans disperse after show
+                // Fans disperse after show - go to center
                 agents.forEach(agent => {
                     if (agent.type === 'fan' && agent.currentShow === 'left') {
                         // Mark as having seen a show
                         agent.hasSeenShow = true;
                         agent.currentShow = null;
                         agent.isUpFront = false;
-                        // Wander to random position
-                        const targetX = Math.random() * this.width;
-                        const targetY = Math.random() * this.height * 0.7;
+                        // Go to center position (deterministic)
+                        const targetX = this.width / 2;
+                        const targetY = this.height * 0.35;
                         agent.setTarget(targetX, targetY, this.obstacles);
                     }
                 });
@@ -143,16 +143,16 @@ export class EventManager {
                 this.rightConcertStartTime = null;
                 this.rightConcertPrepStartTime = null;
                 
-                // Fans disperse after show
+                // Fans disperse after show - go to center
                 agents.forEach(agent => {
                     if (agent.type === 'fan' && agent.currentShow === 'right') {
                         // Mark as having seen a show
                         agent.hasSeenShow = true;
                         agent.currentShow = null;
                         agent.isUpFront = false;
-                        // Wander to random position
-                        const targetX = Math.random() * this.width;
-                        const targetY = Math.random() * this.height * 0.7;
+                        // Go to center position (deterministic)
+                        const targetX = this.width / 2;
+                        const targetY = this.height * 0.35;
                         agent.setTarget(targetX, targetY, this.obstacles);
                     }
                 });
@@ -208,10 +208,8 @@ export class EventManager {
             if (agent.type === 'fan' && !agent.inQueue && agent.state !== 'leaving') {
                 // Check if fan should get food
                 if (AgentUtils.shouldGetFood(agent.hunger, agent.hungerThreshold, agent.inQueue, agent.currentShow, agent.state)) {
-                    // Choose a food stall randomly (d4 roll) - each stall has different food
-                    // Fans should distribute across all 4 stalls rather than all using one
-                    // Roll d4 (0-3) to pick one of the 4 food stalls each time they get hungry
-                    const stallIndex = Math.floor(Math.random() * this.foodStalls.length);
+                    // Choose first food stall deterministically (no random selection)
+                    const stallIndex = 0;
                     agent.preferredFoodStall = this.foodStalls[stallIndex];
                     
                     const targetStall = agent.preferredFoodStall;
@@ -249,9 +247,9 @@ export class EventManager {
         const newAgents = [];
         
         for (let i = 0; i < this.config.BUS_ATTENDEE_COUNT; i++) {
-            const offsetX = (Math.random() - 0.5) * 50;
-            // Only spawn fans in front of or on the bus, never behind it (positive offset only)
-            const offsetY = -Math.random() * 15; // 0 to -15, always above the bus
+            const offsetX = 0; // Center position, no offset
+            // Spawn in front of bus
+            const offsetY = -5; // Fixed position above bus
             const fan = new Fan(busX + offsetX, busY + offsetY, this.config);
             
             // Add fan to security queue - this will direct them toward the queue ends
@@ -268,10 +266,10 @@ export class EventManager {
         const busY = this.height * this.config.BUS_Y;
         const newAgents = [];
         
-        // Spawn single fan
-        const offsetX = (Math.random() - 0.5) * 50;
-        // Only spawn fans in front of or on the bus, never behind it (positive offset only)
-        const offsetY = -Math.random() * 15; // 0 to -15, always above the bus
+        // Spawn single fan at center position
+        const offsetX = 0; // Center, no offset
+        // Spawn in front of bus
+        const offsetY = -5; // Fixed position above bus
         const fan = new Fan(busX + offsetX, busY + offsetY, this.config);
         
         // Add fan to security queue - this will direct them toward the queue ends
@@ -283,31 +281,25 @@ export class EventManager {
     }
 
     handleBusDeparture(agents) {
-        // Select fans who can leave
-        const leavingAgents = [];
-        
-        for (const agent of agents) {
+        // Select fans who can leave and immediately remove them (no async delay)
+        for (let i = agents.length - 1; i >= 0; i--) {
+            const agent = agents[i];
             if (agent.type === 'fan' && 
                 AgentUtils.canLeaveFestival(agent.hasSeenShow, agent.hasEatenFood, agent.inQueue, agent.state)) {
                 
                 agent.markAsLeaving();
                 const busX = this.width * this.config.BUS_X;
                 const busY = this.height * this.config.BUS_Y;
-                agent.setTarget(busX + (Math.random() - 0.5) * 40, busY, this.obstacles);
-                leavingAgents.push(agent);
-            }
-        }
-        
-        // Schedule removal of agents after 3 seconds
-        setTimeout(() => {
-            const busY = this.height * this.config.BUS_Y;
-            for (let i = agents.length - 1; i >= 0; i--) {
-                const agent = agents[i];
-                if (agent.state === AgentState.LEAVING && Math.abs(agent.y - busY) <= 10) {
-                    agents.splice(i, 1);
+                
+                // Check if agent is at bus (within 10 pixels)
+                if (Math.abs(agent.y - busY) <= 10) {
+                    agents.splice(i, 1); // Remove immediately
+                } else {
+                    // Set target to bus
+                    agent.setTarget(busX, busY, this.obstacles);
                 }
             }
-        }, 3000);
+        }
     }
 
     /**
