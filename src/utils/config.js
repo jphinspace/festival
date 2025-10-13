@@ -43,6 +43,11 @@ export const CONFIG = {
     WAYPOINT_UPDATE_RANDOMNESS: 50, // Random tick variance added to waypoint update intervals
     WAYPOINT_BUFFER_DISTANCE: 5, // Extra buffer (in pixels) around obstacles for waypoint placement
     
+    // Queue management settings
+    QUEUE_TARGET_UPDATE_THROTTLE: 125, // Milliseconds between target updates for fans in queues
+    QUEUE_PROXIMITY_THRESHOLD: 60, // Pixels - distance to consider fans "nearby" when joining queue
+    QUEUE_JOIN_THRESHOLD: 10, // Default distance threshold for joining queue from approaching state
+    
     // Performance settings
     MAX_FPS: 60,
     DEFAULT_SIMULATION_SPEED: 40.0, // Rescaled: old 20x is now 1x, so 40x is new default

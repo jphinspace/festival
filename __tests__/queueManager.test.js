@@ -15,29 +15,6 @@ const mockConfig = {
 };
 
 describe('QueueManager Helper Methods', () => {
-    describe('calculateDistance', () => {
-        test('should calculate distance between two points', () => {
-            const distance = QueueManager.calculateDistance(0, 0, 3, 4);
-            expect(distance).toBe(5); // 3-4-5 triangle
-        });
-
-        test('should return 0 for same point', () => {
-            const distance = QueueManager.calculateDistance(10, 20, 10, 20);
-            expect(distance).toBe(0);
-        });
-
-        test('should handle negative coordinates', () => {
-            const distance = QueueManager.calculateDistance(-3, -4, 0, 0);
-            expect(distance).toBe(5);
-        });
-
-        test('should be commutative', () => {
-            const dist1 = QueueManager.calculateDistance(1, 2, 5, 7);
-            const dist2 = QueueManager.calculateDistance(5, 7, 1, 2);
-            expect(dist1).toBe(dist2);
-        });
-    });
-
     describe('getDistanceToPosition', () => {
         test('should calculate distance from fan to position', () => {
             const fan = new Fan(0, 0, mockConfig);
@@ -51,37 +28,6 @@ describe('QueueManager Helper Methods', () => {
             const position = { x: 10, y: 20 };
             const distance = QueueManager.getDistanceToPosition(fan, position);
             expect(distance).toBe(0);
-        });
-    });
-
-    describe('sortByDistance', () => {
-        test('should sort queue by distance to front', () => {
-            const fan1 = new Fan(10, 10, mockConfig);
-            const fan2 = new Fan(5, 5, mockConfig);
-            const fan3 = new Fan(15, 15, mockConfig);
-            const queue = [fan1, fan2, fan3];
-            const approaching = [];
-            const frontPosition = { x: 0, y: 0 };
-
-            QueueManager.sortByDistance(queue, approaching, frontPosition);
-
-            // fan2 is closest (5,5), then fan1 (10,10), then fan3 (15,15)
-            expect(queue[0]).toBe(fan2);
-            expect(queue[1]).toBe(fan1);
-            expect(queue[2]).toBe(fan3);
-        });
-
-        test('should sort approaching fans by distance', () => {
-            const fan1 = new Fan(20, 0, mockConfig);
-            const fan2 = new Fan(10, 0, mockConfig);
-            const queue = [];
-            const approaching = [fan1, fan2];
-            const frontPosition = { x: 0, y: 0 };
-
-            QueueManager.sortByDistance(queue, approaching, frontPosition);
-
-            expect(approaching[0]).toBe(fan2);
-            expect(approaching[1]).toBe(fan1);
         });
     });
 
@@ -628,58 +574,6 @@ describe('QueueManager Helper Methods', () => {
             
             expect(updated).toBe(true);
             expect(fan.queueTargetUpdateTime).toBe(130);
-        });
-    });
-
-    describe('sortByDistance', () => {
-        test('should sort both queue and approaching arrays by distance', () => {
-            const fan1 = new Fan(150, 100, mockConfig);
-            const fan2 = new Fan(100, 100, mockConfig);
-            const fan3 = new Fan(200, 100, mockConfig);
-            const fan4 = new Fan(120, 100, mockConfig);
-            
-            const queue = [fan1, fan2];
-            const approaching = [fan3, fan4];
-            const frontPosition = { x: 0, y: 0 };
-            
-            QueueManager.sortByDistance(queue, approaching, frontPosition);
-            
-            // queue should be sorted: fan2 (closer), fan1 (farther)
-            expect(queue[0]).toBe(fan2);
-            expect(queue[1]).toBe(fan1);
-            
-            // approaching should be sorted: fan4 (closer), fan3 (farther)
-            expect(approaching[0]).toBe(fan4);
-            expect(approaching[1]).toBe(fan3);
-        });
-
-        test('should handle equal distances in sort', () => {
-            const fan1 = new Fan(100, 100, mockConfig);
-            const fan2 = new Fan(100, 100, mockConfig); // Same position
-            
-            const queue = [fan1, fan2];
-            const frontPosition = { x: 0, y: 0 };
-            
-            QueueManager.sortByDistance(queue, [], frontPosition);
-            
-            // Both fans at same distance, order should be stable
-            expect(queue.length).toBe(2);
-        });
-
-        test('should sort correctly with three different distances', () => {
-            const fan1 = new Fan(100, 100, mockConfig); // ~141 from (0,0)
-            const fan2 = new Fan(50, 50, mockConfig);   // ~70 from (0,0) 
-            const fan3 = new Fan(150, 150, mockConfig); // ~212 from (0,0)
-            
-            const queue = [fan3, fan1, fan2]; // Unsorted
-            const frontPosition = { x: 0, y: 0 };
-            
-            QueueManager.sortByDistance(queue, [], frontPosition);
-            
-            // Should be sorted: fan2, fan1, fan3
-            expect(queue[0]).toBe(fan2);
-            expect(queue[1]).toBe(fan1);
-            expect(queue[2]).toBe(fan3);
         });
     });
 

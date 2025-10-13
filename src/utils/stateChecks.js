@@ -17,39 +17,6 @@ export function isMovingState(state) {
 }
 
 /**
- * Check if agent is in a stationary state
- * @param {string} state - Agent state
- * @returns {boolean} True if agent is stationary
- */
-export function isStationaryState(state) {
-    return state === AgentState.IN_QUEUE_WAITING || 
-           state === AgentState.PROCESSING || 
-           state === AgentState.IDLE ||
-           state === AgentState.BEING_CHECKED
-}
-
-/**
- * Check if agent is in a queue-related state
- * @param {string} state - Agent state
- * @returns {boolean} True if agent is in queue
- */
-export function isInQueueState(state) {
-    return state === AgentState.IN_QUEUE_WAITING || 
-           state === AgentState.IN_QUEUE_ADVANCING || 
-           state === AgentState.APPROACHING_QUEUE
-}
-
-/**
- * Check if agent is in a processing state
- * @param {string} state - Agent state
- * @returns {boolean} True if agent is being processed
- */
-export function isProcessingState(state) {
-    return state === AgentState.PROCESSING || 
-           state === AgentState.BEING_CHECKED
-}
-
-/**
  * Check if agent needs pathfinding based on state
  * @param {string} state - Agent state
  * @returns {boolean} True if pathfinding is needed
@@ -106,17 +73,6 @@ export function hasPassedSecurity(state) {
  */
 export function isLeaving(state) {
     return state === AgentState.LEAVING
-}
-
-/**
- * Check if agent can attend a show (not in restricted state)
- * @param {string} state - Agent state
- * @param {boolean} inQueue - Whether agent is in a queue
- * @returns {boolean} True if agent can attend show
- */
-export function canAttendShow(state, inQueue) {
-    if (inQueue) return false
-    return hasPassedSecurity(state) && !isLeaving(state)
 }
 
 /**

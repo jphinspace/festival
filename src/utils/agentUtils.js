@@ -111,12 +111,11 @@ export function shouldBeUpFront(upFrontProbability = 0.2) {
  * Calculate target position for stage attendance
  * @param {number} stageX - Stage X position
  * @param {number} baseY - Base Y position
- * @param {number} spreadX - X spread range
  * @param {number} spreadY - Y spread range
  * @param {boolean} isUpFront - Whether fan is up front
  * @returns {{x: number, y: number}} Target position
  */
-export function calculateStagePosition(stageX, baseY, spreadX, spreadY, isUpFront) {
+export function calculateStagePosition(stageX, baseY, spreadY, isUpFront) {
     const x = stageX + (Math.random() - 0.5) * (isUpFront ? 40 : 150)
     const y = baseY + Math.random() * spreadY
     return { x, y }
@@ -134,25 +133,4 @@ export function canLeaveFestival(hasSeenShow, hasEatenFood, inQueue, state) {
     return hasSeenShow && hasEatenFood && !inQueue && state !== 'leaving'
 }
 
-/**
- * Calculate random wander interval
- * @param {number} minInterval - Minimum interval in milliseconds
- * @param {number} maxInterval - Maximum interval in milliseconds
- * @returns {number} Random interval
- */
-export function calculateWanderInterval(minInterval = 5000, maxInterval = 10000) {
-    return minInterval + Math.random() * (maxInterval - minInterval)
-}
 
-/**
- * Generate random position within bounds
- * @param {number} maxX - Maximum X coordinate
- * @param {number} maxY - Maximum Y coordinate
- * @returns {{x: number, y: number}} Random position
- */
-export function generateRandomPosition(maxX, maxY) {
-    return {
-        x: Math.random() * maxX,
-        y: Math.random() * maxY
-    }
-}

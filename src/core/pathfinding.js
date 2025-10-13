@@ -3,6 +3,7 @@
  * Handles obstacle avoidance with randomized waypoint placement to reduce crowding
  */
 import { AgentState } from '../utils/enums.js';
+import * as Geometry from '../utils/geometry.js';
 
 /**
  * Calculate static waypoints from current position to target
@@ -90,13 +91,13 @@ export function calculateStaticWaypoints(startX, startY, targetX, targetY, obsta
  * @returns {number} Score for the corner (lower is better)
  */
 function calculateCornerScore(corner, currentX, currentY, targetX, targetY) {
-    const distToCorner = Math.sqrt(Math.pow(corner.x - currentX, 2) + Math.pow(corner.y - currentY, 2))
-    const distFromCorner = Math.sqrt(Math.pow(targetX - corner.x, 2) + Math.pow(targetY - corner.y, 2))
+    const distToCorner = Geometry.calculateDistance(currentX, currentY, corner.x, corner.y)
+    const distFromCorner = Geometry.calculateDistance(corner.x, corner.y, targetX, targetY)
     
     // Direction bonus: prefer corners that move us toward target
     const toTargetDx = targetX - currentX
     const toTargetDy = targetY - currentY
-    const toTargetDist = Math.sqrt(toTargetDx * toTargetDx + toTargetDy * toTargetDy)
+    const toTargetDist = Geometry.calculateDistanceFromDeltas(toTargetDx, toTargetDy)
     
     let directionBonus = 0
     if (toTargetDist > 0) {
@@ -350,10 +351,10 @@ function findBlockingObstacles(startX, startY, targetX, targetY, obstacles, radi
         
         if (targetNearObstacle) {
             // Target is near obstacle - check if obstacle is between start and target
-            const distToTarget = Math.sqrt(Math.pow(targetX - startX, 2) + Math.pow(targetY - startY, 2))
+            const distToTarget = Geometry.calculateDistance(startX, startY, targetX, targetY)
             const obsCenterX = (obsLeft + obsRight) / 2
             const obsCenterY = (obsTop + obsBottom) / 2
-            const distToObs = Math.sqrt(Math.pow(obsCenterX - startX, 2) + Math.pow(obsCenterY - startY, 2))
+            const distToObs = Geometry.calculateDistance(startX, startY, obsCenterX, obsCenterY)
             
             if (distToTarget < distToObs) {
                 continue // Target closer than obstacle - not blocking

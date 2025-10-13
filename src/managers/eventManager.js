@@ -191,7 +191,6 @@ export class EventManager {
                 const position = AgentUtils.calculateStagePosition(
                     targetX,
                     this.height * (upFront ? 0.20 : 0.25),
-                    150,
                     this.height * (upFront ? 0.15 : 0.3),
                     upFront
                 );
